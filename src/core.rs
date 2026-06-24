@@ -1,6 +1,6 @@
 #![allow(clippy::useless_conversion)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
 use pyo3::exceptions::{PyKeyError, PyTypeError};
@@ -341,6 +341,80 @@ pub struct MlSloEvaluation {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// One timestamped GenAI request/response sample for qualitative SLO evaluation.
+pub struct GenAiSample {
+    pub timestamp: i64,
+    pub tokens_generated: u64,
+    pub generation_duration_ms: f64,
+    pub time_to_first_token_ms: f64,
+    pub reference_text: String,
+    pub generated_text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// GenAI SLO policy combining speed and output quality checks.
+pub struct GenAiSlo {
+    pub min_tokens_per_second: f64,
+    pub max_time_to_first_token_ms: f64,
+    pub min_semantic_similarity: f64,
+    pub semantic_model_name: String,
+}
+
+impl Default for GenAiSlo {
+    fn default() -> Self {
+        Self {
+            min_tokens_per_second: 20.0,
+            max_time_to_first_token_ms: 1_200.0,
+            min_semantic_similarity: 0.7,
+            semantic_model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// GenAI SLO evaluation output for one generation sample.
+pub struct GenAiSloEvaluation {
+    pub timestamp: i64,
+    pub tokens_per_second: f64,
+    pub time_to_first_token_ms: f64,
+    pub semantic_similarity: f64,
+    pub tokens_per_second_ok: bool,
+    pub time_to_first_token_ok: bool,
+    pub semantic_similarity_ok: bool,
+    pub pass: bool,
+}
+
+pub struct GenAiSloIterator<I>
+where
+    I: Iterator<Item = GenAiSample>,
+{
+    slo: GenAiSlo,
+    source: I,
+}
+
+impl<I> GenAiSloIterator<I>
+where
+    I: Iterator<Item = GenAiSample>,
+{
+    pub fn new(slo: GenAiSlo, source: I) -> Self {
+        Self { slo, source }
+    }
+}
+
+impl<I> Iterator for GenAiSloIterator<I>
+where
+    I: Iterator<Item = GenAiSample>,
+{
+    type Item = GenAiSloEvaluation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source
+            .next()
+            .map(|sample| self.slo.evaluate_sample(&sample))
+    }
+}
+
 pub struct MlSloIterator<I>
 where
     I: Iterator<Item = MlSample>,
@@ -552,6 +626,9 @@ impl JsonYamlExt for StatefulSloEvaluation {}
 impl JsonYamlExt for MlSample {}
 impl JsonYamlExt for MlSlo {}
 impl JsonYamlExt for MlSloEvaluation {}
+impl JsonYamlExt for GenAiSample {}
+impl JsonYamlExt for GenAiSlo {}
+impl JsonYamlExt for GenAiSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
 
 pub(crate) fn missing_key(key: &str) -> PyErr {
@@ -1080,6 +1157,121 @@ impl MlSlo {
             latency_weight,
             drift_weight,
             hybrid_score,
+            pass,
+        }
+    }
+}
+
+fn lexical_similarity_fallback(reference_text: &str, generated_text: &str) -> f64 {
+    let tokenize = |input: &str| -> HashSet<String> {
+        input
+            .to_lowercase()
+            .split_whitespace()
+            .map(|token| {
+                token
+                    .chars()
+                    .filter(|ch| ch.is_alphanumeric())
+                    .collect::<String>()
+            })
+            .filter(|token| !token.is_empty())
+            .collect::<HashSet<_>>()
+    };
+
+    let reference_tokens = tokenize(reference_text);
+    let generated_tokens = tokenize(generated_text);
+
+    if reference_tokens.is_empty() && generated_tokens.is_empty() {
+        return 1.0;
+    }
+
+    let intersection = reference_tokens.intersection(&generated_tokens).count() as f64;
+    let union = reference_tokens.union(&generated_tokens).count() as f64;
+    if union <= 0.0 {
+        0.0
+    } else {
+        (intersection / union).clamp(0.0, 1.0)
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (reference_text, generated_text, model_name=None))]
+/// Placeholder semantic similarity score using sentence-transformers via PyO3.
+///
+/// When sentence-transformers is unavailable, this falls back to lexical overlap.
+pub fn semantic_similarity_placeholder(
+    reference_text: &str,
+    generated_text: &str,
+    model_name: Option<&str>,
+) -> f64 {
+    let fallback = lexical_similarity_fallback(reference_text, generated_text);
+
+    if unsafe { pyo3::ffi::Py_IsInitialized() == 0 } {
+        return fallback;
+    }
+
+    let score = Python::with_gil(|py| -> PyResult<f64> {
+        let locals = PyDict::new_bound(py);
+        locals.set_item("reference_text", reference_text)?;
+        locals.set_item("generated_text", generated_text)?;
+        locals.set_item(
+            "model_name",
+            model_name.unwrap_or("sentence-transformers/all-MiniLM-L6-v2"),
+        )?;
+
+        py.run_bound(
+            r#"
+from sentence_transformers import SentenceTransformer
+
+_model = SentenceTransformer(model_name)
+_embeddings = _model.encode([reference_text, generated_text], normalize_embeddings=True)
+_ref = [float(v) for v in _embeddings[0]]
+_cand = [float(v) for v in _embeddings[1]]
+_ref_norm = sum(v * v for v in _ref) ** 0.5
+_cand_norm = sum(v * v for v in _cand) ** 0.5
+if _ref_norm <= 0.0 or _cand_norm <= 0.0:
+    score = 0.0
+else:
+    score = float(sum(a * b for a, b in zip(_ref, _cand)) / (_ref_norm * _cand_norm))
+"#,
+            None,
+            Some(&locals),
+        )?;
+
+        extract_required::<f64>(&locals, "score")
+    })
+    .unwrap_or(fallback);
+
+    score.clamp(0.0, 1.0)
+}
+
+impl GenAiSlo {
+    pub fn evaluate_sample(&self, sample: &GenAiSample) -> GenAiSloEvaluation {
+        let tokens_per_second = if sample.generation_duration_ms > 0.0 {
+            sample.tokens_generated as f64 / (sample.generation_duration_ms / 1_000.0)
+        } else {
+            0.0
+        };
+        let semantic_similarity = semantic_similarity_placeholder(
+            &sample.reference_text,
+            &sample.generated_text,
+            Some(&self.semantic_model_name),
+        );
+
+        let tokens_per_second_ok = tokens_per_second >= self.min_tokens_per_second.max(0.0);
+        let time_to_first_token_ok =
+            sample.time_to_first_token_ms <= self.max_time_to_first_token_ms.max(0.0);
+        let semantic_similarity_ok =
+            semantic_similarity >= self.min_semantic_similarity.clamp(0.0, 1.0);
+        let pass = tokens_per_second_ok && time_to_first_token_ok && semantic_similarity_ok;
+
+        GenAiSloEvaluation {
+            timestamp: sample.timestamp,
+            tokens_per_second,
+            time_to_first_token_ms: sample.time_to_first_token_ms,
+            semantic_similarity,
+            tokens_per_second_ok,
+            time_to_first_token_ok,
+            semantic_similarity_ok,
             pass,
         }
     }

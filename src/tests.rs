@@ -697,6 +697,49 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let ml_stream = ml.evaluate_stream(vec![ml_sample.inner.clone()]);
         assert_eq!(ml_stream.len(), 1);
 
+        let genai_sample = PyGenAiSample::new(
+            7,
+            200,
+            5_000.0,
+            700.0,
+            "hello world".to_string(),
+            "hello world".to_string(),
+        );
+        let _ = genai_sample.timestamp();
+        let _ = genai_sample.tokens_generated();
+        let _ = genai_sample.generation_duration_ms();
+        let _ = genai_sample.time_to_first_token_ms();
+        let _ = genai_sample.reference_text();
+        let _ = genai_sample.generated_text();
+        let genai_sample_dict = genai_sample.to_dict(py).unwrap();
+        let _ = genai_sample.to_json().unwrap();
+        let _ = genai_sample.to_yaml().unwrap();
+        let _ = PyGenAiSample::from_dict(&genai_sample_dict).unwrap();
+
+        let genai = PyGenAiSlo::new(20.0, 1_200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2");
+        let _ = genai.min_tokens_per_second();
+        let _ = genai.max_time_to_first_token_ms();
+        let _ = genai.min_semantic_similarity();
+        let _ = genai.semantic_model_name();
+        let genai_dict = genai.to_dict(py).unwrap();
+        let _ = genai.to_json().unwrap();
+        let _ = genai.to_yaml().unwrap();
+        let _ = PyGenAiSlo::from_dict(&genai_dict).unwrap();
+        let genai_eval = genai.evaluate_sample(genai_sample.inner.clone());
+        let _ = genai_eval.timestamp();
+        let _ = genai_eval.tokens_per_second();
+        let _ = genai_eval.time_to_first_token_ms();
+        let _ = genai_eval.semantic_similarity();
+        let _ = genai_eval.tokens_per_second_ok();
+        let _ = genai_eval.time_to_first_token_ok();
+        let _ = genai_eval.semantic_similarity_ok();
+        let _ = genai_eval.pass();
+        let _ = genai_eval.to_dict(py).unwrap();
+        let _ = genai_eval.to_json().unwrap();
+        let _ = genai_eval.to_yaml().unwrap();
+        let genai_stream = genai.evaluate_stream(vec![genai_sample.inner.clone()]);
+        assert_eq!(genai_stream.len(), 1);
+
         let _ = coerce_slo_config(cfg.inner.clone());
         let _ = coerce_error_budget(budget.inner.clone());
         let _ = coerce_metric_point(point.inner.clone());
@@ -708,6 +751,8 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let _ = coerce_stateful_slo(stateful.inner.clone());
         let _ = coerce_ml_sample(ml_sample.inner.clone());
         let _ = coerce_ml_slo(ml.inner.clone());
+        let _ = coerce_genai_sample(genai_sample.inner.clone());
+        let _ = coerce_genai_slo(genai.inner.clone());
 
         let _ = evaluate_http_slo_histogram(sample.inner.clone(), http.inner.clone());
         let _ = evaluate_http_slo_histogram_stream(vec![sample.inner.clone()], http.inner.clone());
@@ -718,6 +763,9 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         );
         let _ = evaluate_ml_slo(ml_sample.inner.clone(), ml.inner.clone());
         let _ = evaluate_ml_slo_stream(vec![ml_sample.inner.clone()], ml.inner.clone());
+        let _ = evaluate_genai_slo(genai_sample.inner.clone(), genai.inner.clone());
+        let _ = evaluate_genai_slo_stream(vec![genai_sample.inner.clone()], genai.inner.clone());
+        let _ = semantic_similarity_placeholder("hello world", "hello world", None);
     });
 }
 
@@ -919,6 +967,37 @@ fn ml_slo_fallback_weights_apply_when_config_is_invalid() {
 }
 
 #[test]
+fn genai_slo_tracks_tps_ttft_and_semantic_similarity() {
+    let slo = GenAiSlo::default();
+    let sample = GenAiSample {
+        timestamp: 55,
+        tokens_generated: 240,
+        generation_duration_ms: 6_000.0,
+        time_to_first_token_ms: 800.0,
+        reference_text: "the cat sat on the mat".to_string(),
+        generated_text: "the cat sat on the mat".to_string(),
+    };
+
+    let evaluation = slo.evaluate_sample(&sample);
+    assert!((evaluation.tokens_per_second - 40.0).abs() < 1e-9);
+    assert!(evaluation.tokens_per_second_ok);
+    assert!(evaluation.time_to_first_token_ok);
+    assert!(evaluation.semantic_similarity_ok);
+    assert!(evaluation.semantic_similarity >= 0.95);
+    assert!(evaluation.pass);
+}
+
+#[test]
+fn semantic_similarity_placeholder_is_ordered_for_simple_inputs() {
+    let same = semantic_similarity_placeholder("hello world", "hello world", None);
+    let different = semantic_similarity_placeholder("hello world", "quantum banana", None);
+
+    assert!((0.0..=1.0).contains(&same));
+    assert!((0.0..=1.0).contains(&different));
+    assert!(same >= different);
+}
+
+#[test]
 fn python_module_registration_exports_expected_symbols() {
     pyo3::prepare_freethreaded_python();
 
@@ -941,9 +1020,13 @@ fn python_module_registration_exports_expected_symbols() {
             "MlSample",
             "MlSlo",
             "MlSloEvaluation",
+            "GenAiSample",
+            "GenAiSlo",
+            "GenAiSloEvaluation",
             "calculate_availability",
             "calculate_error_budget",
             "calculate_burn_rate",
+            "semantic_similarity_placeholder",
             "is_timestamp_in_window",
             "evaluate_http_slo_histogram",
             "evaluate_http_slo_histogram_stream",
@@ -951,6 +1034,8 @@ fn python_module_registration_exports_expected_symbols() {
             "evaluate_stateful_slo_stream",
             "evaluate_ml_slo",
             "evaluate_ml_slo_stream",
+            "evaluate_genai_slo",
+            "evaluate_genai_slo_stream",
             "coerce_slo_config",
             "coerce_error_budget",
             "coerce_metric_point",
@@ -962,6 +1047,8 @@ fn python_module_registration_exports_expected_symbols() {
             "coerce_stateful_slo",
             "coerce_ml_sample",
             "coerce_ml_slo",
+            "coerce_genai_sample",
+            "coerce_genai_slo",
         ] {
             assert!(module.getattr(name).is_ok(), "missing symbol: {name}");
         }
@@ -1026,6 +1113,29 @@ fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
         let ml_slo_obj = Py::new(py, PyMlSlo::new(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9)).unwrap();
         let ml_slo: MlSlo = ml_slo_obj.bind(py).extract().unwrap();
         assert_eq!(ml_slo.max_feature_drift, 0.2);
+
+        let genai_sample_obj = Py::new(
+            py,
+            PyGenAiSample::new(
+                7,
+                256,
+                8_000.0,
+                900.0,
+                "the cat sat on the mat".to_string(),
+                "the cat sat on the mat".to_string(),
+            ),
+        )
+        .unwrap();
+        let genai_sample: GenAiSample = genai_sample_obj.bind(py).extract().unwrap();
+        assert_eq!(genai_sample.tokens_generated, 256);
+
+        let genai_slo_obj = Py::new(
+            py,
+            PyGenAiSlo::new(20.0, 1_200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2"),
+        )
+        .unwrap();
+        let genai_slo: GenAiSlo = genai_slo_obj.bind(py).extract().unwrap();
+        assert_eq!(genai_slo.min_tokens_per_second, 20.0);
 
         let dict = PyDict::new_bound(py);
         dict.set_item("latency_p99_threshold_ms", 175.0).unwrap();

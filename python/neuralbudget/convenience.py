@@ -64,6 +64,18 @@ class MlEvaluationResult:
 
 
 @dataclass(frozen=True)
+class GenAiEvaluationResult:
+    timestamp: int
+    tokens_per_second: float
+    time_to_first_token_ms: float
+    semantic_similarity: float
+    tokens_per_second_ok: bool
+    time_to_first_token_ok: bool
+    semantic_similarity_ok: bool
+    passed: bool
+
+
+@dataclass(frozen=True)
 class HttpSloProfile:
     latency_threshold_ms: float
     latency_percentile: float
@@ -91,6 +103,14 @@ class MlSloProfile:
     min_pass_score: float
 
 
+@dataclass(frozen=True)
+class GenAiSloProfile:
+    min_tokens_per_second: float
+    max_time_to_first_token_ms: float
+    min_semantic_similarity: float
+    semantic_model_name: str
+
+
 HTTP_PROFILE_PRESETS: dict[str, HttpSloProfile] = {
     "default": HttpSloProfile(200.0, 0.99, 0.999),
     "strict_latency": HttpSloProfile(150.0, 0.99, 0.999),
@@ -107,6 +127,27 @@ ML_PROFILE_PRESETS: dict[str, MlSloProfile] = {
     "default": MlSloProfile(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9),
     "latency_critical": MlSloProfile(180.0, 0.8, 0.25, 0.75, 0.75, 0.25, 0.9),
     "drift_sensitive": MlSloProfile(220.0, 0.9, 0.15, 0.85, 0.4, 0.6, 0.9),
+}
+
+GENAI_PROFILE_PRESETS: dict[str, GenAiSloProfile] = {
+    "default": GenAiSloProfile(
+        20.0,
+        1_200.0,
+        0.7,
+        "sentence-transformers/all-MiniLM-L6-v2",
+    ),
+    "latency_first": GenAiSloProfile(
+        30.0,
+        900.0,
+        0.65,
+        "sentence-transformers/all-MiniLM-L6-v2",
+    ),
+    "quality_first": GenAiSloProfile(
+        16.0,
+        1_500.0,
+        0.8,
+        "sentence-transformers/all-MiniLM-L6-v2",
+    ),
 }
 
 
@@ -425,6 +466,81 @@ def evaluate_ml_once(
     return result
 
 
+def evaluate_genai_once(
+    sample: Mapping[str, Any],
+    min_tokens_per_second: float | None = None,
+    max_time_to_first_token_ms: float | None = None,
+    min_semantic_similarity: float | None = None,
+    semantic_model_name: str | None = None,
+    profile: str | GenAiSloProfile | None = None,
+    return_dataclass: bool = False,
+) -> dict[str, Any] | GenAiEvaluationResult:
+    """Evaluate one GenAI sample using TPS, TTFT, and semantic similarity gates.
+
+    Use profile to apply preset thresholds and return_dataclass=True
+    to receive GenAiEvaluationResult.
+    """
+    selected_profile = _profile_from_preset(
+        profile,
+        profiles=GENAI_PROFILE_PRESETS,
+        profile_name="genai",
+    )
+
+    slo = _native.GenAiSlo(
+        min_tokens_per_second=_resolved_float(
+            min_tokens_per_second,
+            selected_profile.min_tokens_per_second,
+        ),
+        max_time_to_first_token_ms=_resolved_float(
+            max_time_to_first_token_ms,
+            selected_profile.max_time_to_first_token_ms,
+        ),
+        min_semantic_similarity=_resolved_float(
+            min_semantic_similarity,
+            selected_profile.min_semantic_similarity,
+        ),
+        semantic_model_name=(
+            semantic_model_name
+            if semantic_model_name is not None
+            else selected_profile.semantic_model_name
+        ),
+    )
+
+    genai_sample = _native.GenAiSample(
+        timestamp=int(sample["timestamp"]),
+        tokens_generated=int(sample["tokens_generated"]),
+        generation_duration_ms=float(sample["generation_duration_ms"]),
+        time_to_first_token_ms=float(sample["time_to_first_token_ms"]),
+        reference_text=str(sample["reference_text"]),
+        generated_text=str(sample["generated_text"]),
+    )
+
+    evaluation = slo.evaluate_sample(genai_sample)
+
+    result = {
+        "timestamp": int(evaluation.timestamp),
+        "tokens_per_second": float(evaluation.tokens_per_second),
+        "time_to_first_token_ms": float(evaluation.time_to_first_token_ms),
+        "semantic_similarity": float(evaluation.semantic_similarity),
+        "tokens_per_second_ok": bool(evaluation.tokens_per_second_ok),
+        "time_to_first_token_ok": bool(evaluation.time_to_first_token_ok),
+        "semantic_similarity_ok": bool(evaluation.semantic_similarity_ok),
+        "pass": bool(getattr(evaluation, "pass")),
+    }
+    if return_dataclass:
+        return GenAiEvaluationResult(
+            timestamp=result["timestamp"],
+            tokens_per_second=result["tokens_per_second"],
+            time_to_first_token_ms=result["time_to_first_token_ms"],
+            semantic_similarity=result["semantic_similarity"],
+            tokens_per_second_ok=result["tokens_per_second_ok"],
+            time_to_first_token_ok=result["time_to_first_token_ok"],
+            semantic_similarity_ok=result["semantic_similarity_ok"],
+            passed=result["pass"],
+        )
+    return result
+
+
 def get_http_profile_preset(name: str) -> HttpSloProfile:
     """Return a named HTTP profile preset."""
     return _profile_from_preset(name, profiles=HTTP_PROFILE_PRESETS, profile_name="http")
@@ -438,3 +554,8 @@ def get_stateful_profile_preset(name: str) -> StatefulSloProfile:
 def get_ml_profile_preset(name: str) -> MlSloProfile:
     """Return a named ML profile preset."""
     return _profile_from_preset(name, profiles=ML_PROFILE_PRESETS, profile_name="ml")
+
+
+def get_genai_profile_preset(name: str) -> GenAiSloProfile:
+    """Return a named GenAI profile preset."""
+    return _profile_from_preset(name, profiles=GENAI_PROFILE_PRESETS, profile_name="genai")

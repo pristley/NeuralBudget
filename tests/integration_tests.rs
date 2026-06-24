@@ -1,6 +1,7 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
-    calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, HistogramBucket,
+    calculate_web_api_slo, filter_statistical_outliers, semantic_similarity_placeholder,
+    ErrorBudget, GenAiSample, GenAiSlo, GenAiSloEvaluation, GenAiSloIterator, HistogramBucket,
     HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
     MetricPoint, MlSample, MlSlo, MlSloEvaluation, MlSloIterator, OutlierFilterConfig, SloConfig,
     StatefulPolicyProfileSet, StatefulSample, StatefulSlo, StatefulSloEvaluation,
@@ -506,4 +507,67 @@ fn ml_slo_iterator_and_serialization_round_trip() {
     )
     .unwrap();
     assert_eq!(sample_round_trip.timestamp, 99);
+}
+
+#[test]
+fn genai_slo_combines_tps_ttft_and_semantic_quality() {
+    let slo = GenAiSlo::default();
+    let sample = GenAiSample {
+        timestamp: 100,
+        tokens_generated: 240,
+        generation_duration_ms: 6_000.0,
+        time_to_first_token_ms: 800.0,
+        reference_text: "the cat sat on the mat".to_string(),
+        generated_text: "the cat sat on the mat".to_string(),
+    };
+
+    let result = slo.evaluate_sample(&sample);
+    assert!((result.tokens_per_second - 40.0).abs() < 1e-9);
+    assert!(result.tokens_per_second_ok);
+    assert!(result.time_to_first_token_ok);
+    assert!(result.semantic_similarity >= 0.95);
+    assert!(result.semantic_similarity_ok);
+    assert!(result.pass);
+}
+
+#[test]
+fn genai_slo_iterator_and_roundtrip_cover_qualitative_model() {
+    let slo = GenAiSlo::default();
+    let samples = vec![
+        GenAiSample {
+            timestamp: 101,
+            tokens_generated: 300,
+            generation_duration_ms: 10_000.0,
+            time_to_first_token_ms: 700.0,
+            reference_text: "high quality answer".to_string(),
+            generated_text: "high quality answer".to_string(),
+        },
+        GenAiSample {
+            timestamp: 102,
+            tokens_generated: 100,
+            generation_duration_ms: 10_000.0,
+            time_to_first_token_ms: 1_800.0,
+            reference_text: "high quality answer".to_string(),
+            generated_text: "unrelated output tokens".to_string(),
+        },
+    ];
+
+    let results: Vec<GenAiSloEvaluation> =
+        GenAiSloIterator::new(slo.clone(), samples.into_iter()).collect();
+    assert_eq!(results.len(), 2);
+    assert!(results[0].pass);
+    assert!(!results[1].pass);
+
+    let round_trip = GenAiSlo::from_json_str(&slo.to_json_string().unwrap()).unwrap();
+    assert_eq!(round_trip, slo);
+}
+
+#[test]
+fn semantic_similarity_placeholder_is_bounded() {
+    let same = semantic_similarity_placeholder("hello world", "hello world", None);
+    let different = semantic_similarity_placeholder("hello world", "quantum banana", None);
+
+    assert!((0.0..=1.0).contains(&same));
+    assert!((0.0..=1.0).contains(&different));
+    assert!(same >= different);
 }

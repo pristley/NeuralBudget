@@ -201,6 +201,68 @@ class FakeMlSlo:
         )
 
 
+class FakeGenAiSample:
+    def __init__(
+        self,
+        timestamp: int,
+        tokens_generated: int,
+        generation_duration_ms: float,
+        time_to_first_token_ms: float,
+        reference_text: str,
+        generated_text: str,
+    ):
+        self.timestamp = timestamp
+        self.tokens_generated = tokens_generated
+        self.generation_duration_ms = generation_duration_ms
+        self.time_to_first_token_ms = time_to_first_token_ms
+        self.reference_text = reference_text
+        self.generated_text = generated_text
+
+
+class FakeGenAiEvaluation(_PassAttrMixin):
+    def __init__(self, sample: FakeGenAiSample, *, semantic_similarity: float, passed: bool):
+        self.timestamp = sample.timestamp
+        self.tokens_per_second = (
+            sample.tokens_generated / (sample.generation_duration_ms / 1000.0)
+            if sample.generation_duration_ms > 0.0
+            else 0.0
+        )
+        self.time_to_first_token_ms = sample.time_to_first_token_ms
+        self.semantic_similarity = semantic_similarity
+        self.tokens_per_second_ok = self.tokens_per_second >= 20.0
+        self.time_to_first_token_ok = self.time_to_first_token_ms <= 1200.0
+        self.semantic_similarity_ok = semantic_similarity >= 0.7
+        self._pass = passed
+
+
+class FakeGenAiSlo:
+    def __init__(
+        self,
+        min_tokens_per_second: float,
+        max_time_to_first_token_ms: float,
+        min_semantic_similarity: float,
+        semantic_model_name: str,
+    ):
+        self.min_tokens_per_second = min_tokens_per_second
+        self.max_time_to_first_token_ms = max_time_to_first_token_ms
+        self.min_semantic_similarity = min_semantic_similarity
+        self.semantic_model_name = semantic_model_name
+
+    def evaluate_sample(self, sample: FakeGenAiSample):
+        semantic_similarity = 0.9 if sample.reference_text == sample.generated_text else 0.4
+        tokens_per_second = (
+            sample.tokens_generated / (sample.generation_duration_ms / 1000.0)
+            if sample.generation_duration_ms > 0.0
+            else 0.0
+        )
+        passed = (
+            tokens_per_second >= self.min_tokens_per_second
+            and sample.time_to_first_token_ms <= self.max_time_to_first_token_ms
+            and semantic_similarity >= self.min_semantic_similarity
+        )
+        return FakeGenAiEvaluation(sample, semantic_similarity=semantic_similarity, passed=passed)
+
+
 def _load_convenience_module():
     repo_root = Path(__file__).resolve().parents[1]
     convenience_path = repo_root / "python" / "neuralbudget" / "convenience.py"
@@ -217,6 +279,8 @@ def _load_convenience_module():
     fake_native.StatefulSlo = FakeStatefulSlo
     fake_native.MlSample = FakeMlSample
     fake_native.MlSlo = FakeMlSlo
+    fake_native.GenAiSample = FakeGenAiSample
+    fake_native.GenAiSlo = FakeGenAiSlo
     fake_native.calculate_availability = lambda success, total: success / max(total, 1)
     fake_native.calculate_error_budget = lambda target, window: (1.0 - target) * window
     fake_native.calculate_burn_rate = lambda stream, window: 0.5 if window else 0.0
@@ -306,6 +370,27 @@ class ConvenienceLayerTests(unittest.TestCase):
     def test_unknown_profile_raises(self):
         with self.assertRaises(ValueError):
             self.convenience.get_ml_profile_preset("not_a_real_profile")
+
+    def test_genai_profile_and_dataclass_return(self):
+        preset = self.convenience.get_genai_profile_preset("quality_first")
+        self.assertGreater(preset.min_semantic_similarity, 0.7)
+
+        result = self.convenience.evaluate_genai_once(
+            {
+                "timestamp": 4,
+                "tokens_generated": 240,
+                "generation_duration_ms": 6_000.0,
+                "time_to_first_token_ms": 900.0,
+                "reference_text": "the cat sat on the mat",
+                "generated_text": "the cat sat on the mat",
+            },
+            profile="quality_first",
+            return_dataclass=True,
+        )
+
+        self.assertIsInstance(result, self.convenience.GenAiEvaluationResult)
+        self.assertGreater(result.tokens_per_second, 0.0)
+        self.assertTrue(result.passed)
 
 
 if __name__ == "__main__":

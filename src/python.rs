@@ -250,6 +250,47 @@ impl<'py> FromPyObject<'py> for MlSlo {
     }
 }
 
+impl<'py> FromPyObject<'py> for GenAiSample {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyGenAiSample>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("GenAiSample"))?;
+        Ok(Self {
+            timestamp: extract_required(dict, "timestamp")?,
+            tokens_generated: extract_required(dict, "tokens_generated")?,
+            generation_duration_ms: extract_required(dict, "generation_duration_ms")?,
+            time_to_first_token_ms: extract_required(dict, "time_to_first_token_ms")?,
+            reference_text: extract_required(dict, "reference_text")?,
+            generated_text: extract_required(dict, "generated_text")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for GenAiSlo {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyGenAiSlo>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("GenAiSlo"))?;
+        Ok(Self {
+            min_tokens_per_second: extract_required(dict, "min_tokens_per_second")?,
+            max_time_to_first_token_ms: extract_required(dict, "max_time_to_first_token_ms")?,
+            min_semantic_similarity: extract_required(dict, "min_semantic_similarity")?,
+            semantic_model_name: match dict.get_item("semantic_model_name")? {
+                Some(value) => value.extract::<String>()?,
+                None => GenAiSlo::default().semantic_model_name,
+            },
+        })
+    }
+}
+
 #[pyclass(name = "SloConfig")]
 #[derive(Clone)]
 pub struct PySloConfig {
@@ -1395,6 +1436,269 @@ impl PyMlSlo {
     }
 }
 
+#[pyclass(name = "GenAiSample")]
+#[derive(Clone)]
+pub struct PyGenAiSample {
+    inner: GenAiSample,
+}
+
+#[pymethods]
+impl PyGenAiSample {
+    #[new]
+    fn new(
+        timestamp: i64,
+        tokens_generated: u64,
+        generation_duration_ms: f64,
+        time_to_first_token_ms: f64,
+        reference_text: String,
+        generated_text: String,
+    ) -> Self {
+        Self {
+            inner: GenAiSample {
+                timestamp,
+                tokens_generated,
+                generation_duration_ms,
+                time_to_first_token_ms,
+                reference_text,
+                generated_text,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<GenAiSample>()?,
+        })
+    }
+
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn tokens_generated(&self) -> u64 {
+        self.inner.tokens_generated
+    }
+
+    #[getter]
+    fn generation_duration_ms(&self) -> f64 {
+        self.inner.generation_duration_ms
+    }
+
+    #[getter]
+    fn time_to_first_token_ms(&self) -> f64 {
+        self.inner.time_to_first_token_ms
+    }
+
+    #[getter]
+    fn reference_text(&self) -> String {
+        self.inner.reference_text.clone()
+    }
+
+    #[getter]
+    fn generated_text(&self) -> String {
+        self.inner.generated_text.clone()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("tokens_generated", self.inner.tokens_generated)?;
+        dict.set_item("generation_duration_ms", self.inner.generation_duration_ms)?;
+        dict.set_item("time_to_first_token_ms", self.inner.time_to_first_token_ms)?;
+        dict.set_item("reference_text", self.inner.reference_text.clone())?;
+        dict.set_item("generated_text", self.inner.generated_text.clone())?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "GenAiSloEvaluation")]
+#[derive(Clone)]
+pub struct PyGenAiSloEvaluation {
+    inner: GenAiSloEvaluation,
+}
+
+#[pymethods]
+impl PyGenAiSloEvaluation {
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn tokens_per_second(&self) -> f64 {
+        self.inner.tokens_per_second
+    }
+
+    #[getter]
+    fn time_to_first_token_ms(&self) -> f64 {
+        self.inner.time_to_first_token_ms
+    }
+
+    #[getter]
+    fn semantic_similarity(&self) -> f64 {
+        self.inner.semantic_similarity
+    }
+
+    #[getter]
+    fn tokens_per_second_ok(&self) -> bool {
+        self.inner.tokens_per_second_ok
+    }
+
+    #[getter]
+    fn time_to_first_token_ok(&self) -> bool {
+        self.inner.time_to_first_token_ok
+    }
+
+    #[getter]
+    fn semantic_similarity_ok(&self) -> bool {
+        self.inner.semantic_similarity_ok
+    }
+
+    #[getter]
+    fn pass(&self) -> bool {
+        self.inner.pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("tokens_per_second", self.inner.tokens_per_second)?;
+        dict.set_item("time_to_first_token_ms", self.inner.time_to_first_token_ms)?;
+        dict.set_item("semantic_similarity", self.inner.semantic_similarity)?;
+        dict.set_item("tokens_per_second_ok", self.inner.tokens_per_second_ok)?;
+        dict.set_item("time_to_first_token_ok", self.inner.time_to_first_token_ok)?;
+        dict.set_item("semantic_similarity_ok", self.inner.semantic_similarity_ok)?;
+        dict.set_item("pass", self.inner.pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "GenAiSlo")]
+#[derive(Clone)]
+pub struct PyGenAiSlo {
+    inner: GenAiSlo,
+}
+
+#[pymethods]
+impl PyGenAiSlo {
+    #[new]
+    #[pyo3(signature = (
+        min_tokens_per_second=20.0,
+        max_time_to_first_token_ms=1200.0,
+        min_semantic_similarity=0.7,
+        semantic_model_name="sentence-transformers/all-MiniLM-L6-v2"
+    ))]
+    fn new(
+        min_tokens_per_second: f64,
+        max_time_to_first_token_ms: f64,
+        min_semantic_similarity: f64,
+        semantic_model_name: &str,
+    ) -> Self {
+        Self {
+            inner: GenAiSlo {
+                min_tokens_per_second,
+                max_time_to_first_token_ms,
+                min_semantic_similarity,
+                semantic_model_name: semantic_model_name.to_string(),
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<GenAiSlo>()?,
+        })
+    }
+
+    #[getter]
+    fn min_tokens_per_second(&self) -> f64 {
+        self.inner.min_tokens_per_second
+    }
+
+    #[getter]
+    fn max_time_to_first_token_ms(&self) -> f64 {
+        self.inner.max_time_to_first_token_ms
+    }
+
+    #[getter]
+    fn min_semantic_similarity(&self) -> f64 {
+        self.inner.min_semantic_similarity
+    }
+
+    #[getter]
+    fn semantic_model_name(&self) -> String {
+        self.inner.semantic_model_name.clone()
+    }
+
+    fn evaluate_sample(&self, sample: GenAiSample) -> PyGenAiSloEvaluation {
+        self.inner.evaluate_sample(&sample).into()
+    }
+
+    fn evaluate_stream(&self, samples: Vec<GenAiSample>) -> Vec<PyGenAiSloEvaluation> {
+        GenAiSloIterator::new(self.inner.clone(), samples.into_iter())
+            .map(Into::into)
+            .collect()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("min_tokens_per_second", self.inner.min_tokens_per_second)?;
+        dict.set_item(
+            "max_time_to_first_token_ms",
+            self.inner.max_time_to_first_token_ms,
+        )?;
+        dict.set_item(
+            "min_semantic_similarity",
+            self.inner.min_semantic_similarity,
+        )?;
+        dict.set_item(
+            "semantic_model_name",
+            self.inner.semantic_model_name.clone(),
+        )?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
 impl From<SloConfig> for PySloConfig {
     fn from(inner: SloConfig) -> Self {
         Self { inner }
@@ -1479,6 +1783,24 @@ impl From<MlSlo> for PyMlSlo {
     }
 }
 
+impl From<GenAiSample> for PyGenAiSample {
+    fn from(inner: GenAiSample) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<GenAiSloEvaluation> for PyGenAiSloEvaluation {
+    fn from(inner: GenAiSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<GenAiSlo> for PyGenAiSlo {
+    fn from(inner: GenAiSlo) -> Self {
+        Self { inner }
+    }
+}
+
 #[pyfunction]
 pub fn coerce_slo_config(config: SloConfig) -> PySloConfig {
     config.into()
@@ -1535,6 +1857,16 @@ pub fn coerce_ml_slo(slo: MlSlo) -> PyMlSlo {
 }
 
 #[pyfunction]
+pub fn coerce_genai_sample(sample: GenAiSample) -> PyGenAiSample {
+    sample.into()
+}
+
+#[pyfunction]
+pub fn coerce_genai_slo(slo: GenAiSlo) -> PyGenAiSlo {
+    slo.into()
+}
+
+#[pyfunction]
 pub fn evaluate_http_slo_histogram(sample: HistogramSample, slo: HttpSlo) -> PyHttpSloEvaluation {
     slo.evaluate_histogram(&sample).into()
 }
@@ -1576,6 +1908,21 @@ pub fn evaluate_ml_slo_stream(samples: Vec<MlSample>, slo: MlSlo) -> Vec<PyMlSlo
         .collect()
 }
 
+#[pyfunction]
+pub fn evaluate_genai_slo(sample: GenAiSample, slo: GenAiSlo) -> PyGenAiSloEvaluation {
+    slo.evaluate_sample(&sample).into()
+}
+
+#[pyfunction]
+pub fn evaluate_genai_slo_stream(
+    samples: Vec<GenAiSample>,
+    slo: GenAiSlo,
+) -> Vec<PyGenAiSloEvaluation> {
+    GenAiSloIterator::new(slo, samples.into_iter())
+        .map(Into::into)
+        .collect()
+}
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -1593,9 +1940,13 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMlSample>()?;
     module.add_class::<PyMlSlo>()?;
     module.add_class::<PyMlSloEvaluation>()?;
+    module.add_class::<PyGenAiSample>()?;
+    module.add_class::<PyGenAiSlo>()?;
+    module.add_class::<PyGenAiSloEvaluation>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
+    module.add_function(wrap_pyfunction!(semantic_similarity_placeholder, module)?)?;
     module.add_function(wrap_pyfunction!(is_timestamp_in_window, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_http_slo_histogram, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -1606,6 +1957,8 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(evaluate_stateful_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_ml_slo, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_ml_slo_stream, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_genai_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_genai_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;
@@ -1617,6 +1970,8 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(coerce_stateful_slo, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_ml_sample, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_ml_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_genai_sample, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_genai_slo, module)?)?;
     Ok(())
 }
 

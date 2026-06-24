@@ -24,6 +24,17 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Added Python example scripts for availability/budget primitives, stateless HTTP histogram SLOs, and stateful database/queue SLO flows.
 - Added coverage-gate and Rust version badges to the README for clearer project health signaling.
 - Added a small pure-Python convenience layer (`neuralbudget.convenience`) for dictionary-oriented snapshots and one-shot SLO evaluations.
+- Added GenAI convenience support with `evaluate_genai_once`, `GenAiSloProfile`, and `GENAI_PROFILE_PRESETS`.
+- Added convenience exports for GenAI helper and preset lookup via `get_genai_profile_preset`.
+
+### Documentation
+
+- Expanded README into a detailed first-class user guide with:
+	- complete installation paths for Rust and Python
+	- end-to-end examples for HTTP, Stateful, ML, and GenAI SLO workflows
+	- convenience layer usage for presets and dataclass return mode
+	- explicit CI/CD and coverage policy sections
+	- direct changelog and documentation navigation badges/links
 
 ### Changed
 
