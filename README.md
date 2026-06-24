@@ -55,6 +55,8 @@ print(availability)
 - `WebApiRequest`: timestamped request metrics (`latency_ms`, `status_code`, labels)
 - `WebApiSloPolicy`: policy for availability/latency targets, window size, and outlier filtering
 - `WebApiSloReport`: complete report including availability, latency SLI, burn rates, and budget
+- `HistogramBucket`, `HistogramSample`, and `HistogramFormat`: histogram telemetry structures for stateless SLO checks
+- `HttpSlo` and `HttpSloIterator`: p99 latency + availability pass/fail evaluator for HTTP/gRPC streams
 - `calculate_availability(success, total)`: classic SLI ratio, returned as a `float`
 - `calculate_error_budget(slo_target, window_secs)`: remaining budget in seconds for an SLO target and time window
 - `calculate_burn_rate(metric_stream, window_secs)`: normalized burn rate for a stream of budget-consuming samples
@@ -151,6 +153,54 @@ let report = calculate_web_api_slo(&requests, &policy, 2);
 assert!(report.total_requests >= 1);
 ```
 
+## Stateless HTTP/gRPC SLO (Histogram Iterator)
+
+`HttpSlo` evaluates each histogram sample with two gates:
+
+- latency gate: p99 latency must be below `200ms` (or your configured threshold)
+- availability gate: success rate must be above `99.9%` (or your configured threshold)
+
+Each sample passes only when both gates pass.
+
+The iterator accepts both histogram modes:
+
+- `prometheus_cumulative`: cumulative bucket counts
+- `open_telemetry_delta`: per-bucket delta counts
+
+Example:
+
+```rust
+use neuralbudget::{
+	HistogramBucket, HistogramFormat, HistogramSample, HttpSlo, HttpSloIterator,
+};
+
+let slo = HttpSlo::default();
+let stream = vec![HistogramSample {
+	timestamp: 1,
+	success: 9_995,
+	total: 10_000,
+	buckets: vec![
+		HistogramBucket {
+			upper_bound_ms: 100.0,
+			count: 9_700,
+		},
+		HistogramBucket {
+			upper_bound_ms: 150.0,
+			count: 200,
+		},
+		HistogramBucket {
+			upper_bound_ms: 220.0,
+			count: 100,
+		},
+	],
+	format: HistogramFormat::OpenTelemetryDelta,
+}];
+
+let evaluations: Vec<_> = HttpSloIterator::new(slo, stream.into_iter()).collect();
+assert_eq!(evaluations.len(), 1);
+assert!(evaluations[0].pass);
+```
+
 ## Releases
 
 The project is currently at `v0.1.1`. That version represents the foundation layer: core models, serialization helpers, Python wrappers, the first availability calculation primitive, and the initial CI/CD pipeline polish.
@@ -179,12 +229,13 @@ This repository is still in an early foundation phase. The current codebase is i
 - Rust data models for SLO configuration and metric points
 - JSON and YAML support for the public structs
 - Python bindings for ergonomic interop
-- Classic availability calculation logic
+- Classic availability, error budget, burn-rate, and web API SLO calculations
+- Stateless histogram-based `HttpSlo` iterator for HTTP/gRPC pass-fail evaluation
 
 ### Near-Term Roadmap
 
-1. Expand SLO calculations beyond the classic availability ratio.
-2. Add latency and error-rate aggregation helpers.
+1. Add Python wrappers for `HttpSlo` histogram evaluation.
+2. Extend percentile policy controls beyond fixed p99 checks.
 3. Introduce richer release notes as new versions ship.
 4. Add packaging support for Python distribution.
 
@@ -225,6 +276,7 @@ Equivalent local commands:
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --lib --all-features
+cargo test --doc --all-features
 cargo test --tests --all-features
 ```
 

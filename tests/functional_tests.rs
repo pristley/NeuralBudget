@@ -1,7 +1,7 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_web_api_slo,
-    is_timestamp_in_window, MetricPoint, OutlierFilterConfig, TimeWindow, WebApiRequest,
-    WebApiSloPolicy,
+    is_timestamp_in_window, HistogramBucket, HistogramFormat, HistogramSample, HttpSlo,
+    HttpSloIterator, MetricPoint, OutlierFilterConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -111,4 +111,86 @@ fn functional_web_api_slo_handles_ai_latency_anomaly() {
     assert_eq!(report.latency_evaluated_requests, 3);
     assert_eq!(report.latency_compliant_requests, 3);
     assert!((report.latency_sli - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn functional_http_slo_iterates_histogram_stream() {
+    let slo = HttpSlo::default();
+    let stream = vec![
+        HistogramSample {
+            timestamp: 1,
+            success: 10_000,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_700,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 150.0,
+                    count: 9_900,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_970,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        },
+        HistogramSample {
+            timestamp: 2,
+            success: 9_980,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_500,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_600,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 500.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        },
+        HistogramSample {
+            timestamp: 3,
+            success: 9_995,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_700,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 150.0,
+                    count: 200,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 180.0,
+                    count: 70,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 220.0,
+                    count: 30,
+                },
+            ],
+            format: HistogramFormat::OpenTelemetryDelta,
+        },
+    ];
+
+    let results: Vec<_> = HttpSloIterator::new(slo, stream.into_iter()).collect();
+
+    assert_eq!(results.len(), 3);
+    assert!(results[0].pass);
+    assert!(!results[1].pass);
+    assert!(results[2].pass);
 }

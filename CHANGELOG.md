@@ -14,6 +14,9 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - `calculate_mad(values)` for robust Median Absolute Deviation calculations.
 - `filter_statistical_outliers(metric_stream, mad_threshold, min_samples)` for configurable anomaly filtering.
 - Web API SLO framework with `WebApiRequest`, `WebApiSloPolicy`, `WebApiSloReport`, and `calculate_web_api_slo`.
+- Stateless HTTP/gRPC SLO histogram evaluation with `HttpSlo`, `HttpSloIterator`, `HistogramSample`, and `HistogramBucket`.
+- Histogram percentile evaluation support for both Prometheus cumulative and OpenTelemetry delta bucket formats.
+- CI/CD updates to run documentation tests via `cargo test --doc --all-features`.
 
 ## [0.1.1] - 2026-06-24
 

@@ -1,7 +1,8 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
-    calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, JsonYamlExt, MetricPoint,
-    OutlierFilterConfig, SloConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, HistogramBucket,
+    HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
+    MetricPoint, OutlierFilterConfig, SloConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -145,6 +146,27 @@ fn serialization_round_trips_across_models() {
         labels: Default::default(),
     };
     let window = TimeWindow::calendar_aligned(86_400, 18_000);
+    let histogram = HistogramSample {
+        timestamp: 1,
+        success: 9_995,
+        total: 10_000,
+        buckets: vec![
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 9_700,
+            },
+            HistogramBucket {
+                upper_bound_ms: 150.0,
+                count: 200,
+            },
+            HistogramBucket {
+                upper_bound_ms: 220.0,
+                count: 100,
+            },
+        ],
+        format: HistogramFormat::OpenTelemetryDelta,
+    };
+    let http_slo = HttpSlo::default();
 
     assert_eq!(
         SloConfig::from_json_str(&config.to_json_string().unwrap()).unwrap(),
@@ -162,4 +184,108 @@ fn serialization_round_trips_across_models() {
         TimeWindow::from_yaml_str(&window.to_yaml_string().unwrap()).unwrap(),
         window
     );
+    assert_eq!(
+        HistogramSample::from_json_str(&histogram.to_json_string().unwrap()).unwrap(),
+        histogram
+    );
+    assert_eq!(
+        HttpSlo::from_yaml_str(&http_slo.to_yaml_string().unwrap()).unwrap(),
+        http_slo
+    );
+}
+
+#[test]
+fn http_slo_iterator_produces_pass_fail_per_histogram_sample() {
+    let slo = HttpSlo::default();
+    let samples = vec![
+        HistogramSample {
+            timestamp: 1,
+            success: 10_000,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_700,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 150.0,
+                    count: 9_900,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_970,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        },
+        HistogramSample {
+            timestamp: 2,
+            success: 9_995,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_000,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_500,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 500.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        },
+    ];
+
+    let results: Vec<HttpSloEvaluation> = HttpSloIterator::new(slo, samples.into_iter()).collect();
+
+    assert_eq!(results.len(), 2);
+    assert!(results[0].pass);
+    assert!(!results[1].pass);
+    assert!(!results[1].latency_ok);
+    assert!(results[1].availability_ok);
+}
+
+#[test]
+fn http_slo_iterator_accepts_opentelemetry_delta_histograms() {
+    let slo = HttpSlo::default();
+    let samples = vec![HistogramSample {
+        timestamp: 3,
+        success: 9_995,
+        total: 10_000,
+        buckets: vec![
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 9_700,
+            },
+            HistogramBucket {
+                upper_bound_ms: 150.0,
+                count: 200,
+            },
+            HistogramBucket {
+                upper_bound_ms: 180.0,
+                count: 70,
+            },
+            HistogramBucket {
+                upper_bound_ms: 220.0,
+                count: 30,
+            },
+        ],
+        format: HistogramFormat::OpenTelemetryDelta,
+    }];
+
+    let result = HttpSloIterator::new(slo, samples.into_iter())
+        .next()
+        .unwrap();
+
+    assert!(result.pass);
+    assert!(result.p99_latency_ms < 200.0);
+    assert!(result.availability > 0.999);
 }

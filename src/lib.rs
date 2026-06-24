@@ -89,6 +89,90 @@ pub struct WebApiSloReport {
     pub burn_rate_1h: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Histogram bucket where `count` is either cumulative or delta depending on format.
+pub struct HistogramBucket {
+    pub upper_bound_ms: f64,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+/// Histogram wire format for latency inputs.
+pub enum HistogramFormat {
+    /// Prometheus histogram buckets where counts are cumulative.
+    PrometheusCumulative,
+    /// OpenTelemetry explicit buckets where counts are per-bucket deltas.
+    OpenTelemetryDelta,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// One timestamped SLO sample assembled from telemetry.
+pub struct HistogramSample {
+    pub timestamp: i64,
+    pub success: u64,
+    pub total: u64,
+    pub buckets: Vec<HistogramBucket>,
+    pub format: HistogramFormat,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// HTTP/gRPC SLO policy: availability + p99 latency objective.
+pub struct HttpSlo {
+    pub latency_p99_threshold_ms: f64,
+    pub availability_threshold: f64,
+}
+
+impl Default for HttpSlo {
+    fn default() -> Self {
+        Self {
+            latency_p99_threshold_ms: 200.0,
+            availability_threshold: 0.999,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// SLO evaluation output for a single histogram sample.
+pub struct HttpSloEvaluation {
+    pub timestamp: i64,
+    pub availability: f64,
+    pub p99_latency_ms: f64,
+    pub latency_ok: bool,
+    pub availability_ok: bool,
+    pub pass: bool,
+}
+
+pub struct HttpSloIterator<I>
+where
+    I: Iterator<Item = HistogramSample>,
+{
+    slo: HttpSlo,
+    source: I,
+}
+
+impl<I> HttpSloIterator<I>
+where
+    I: Iterator<Item = HistogramSample>,
+{
+    pub fn new(slo: HttpSlo, source: I) -> Self {
+        Self { slo, source }
+    }
+}
+
+impl<I> Iterator for HttpSloIterator<I>
+where
+    I: Iterator<Item = HistogramSample>,
+{
+    type Item = HttpSloEvaluation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source
+            .next()
+            .map(|sample| self.slo.evaluate_histogram(&sample))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// Supported SLO window styles.
@@ -197,6 +281,10 @@ impl JsonYamlExt for WebApiRequest {}
 impl JsonYamlExt for OutlierFilterConfig {}
 impl JsonYamlExt for WebApiSloPolicy {}
 impl JsonYamlExt for WebApiSloReport {}
+impl JsonYamlExt for HistogramBucket {}
+impl JsonYamlExt for HistogramSample {}
+impl JsonYamlExt for HttpSlo {}
+impl JsonYamlExt for HttpSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
 
 fn missing_key(key: &str) -> PyErr {
@@ -282,6 +370,63 @@ fn mad_outlier_mask(values: &[f64], mad_threshold: f64, min_samples: usize) -> V
             modified_z.abs() > mad_threshold
         })
         .collect()
+}
+
+fn percentile_from_histogram(
+    buckets: &[HistogramBucket],
+    format: HistogramFormat,
+    percentile: f64,
+) -> Option<f64> {
+    if buckets.is_empty() || percentile <= 0.0 {
+        return None;
+    }
+
+    let mut sorted = buckets.to_vec();
+    sorted.sort_by(|a, b| a.upper_bound_ms.total_cmp(&b.upper_bound_ms));
+
+    let mut cumulative: Vec<(f64, f64)> = Vec::with_capacity(sorted.len());
+    match format {
+        HistogramFormat::PrometheusCumulative => {
+            for bucket in &sorted {
+                cumulative.push((bucket.upper_bound_ms, bucket.count as f64));
+            }
+        }
+        HistogramFormat::OpenTelemetryDelta => {
+            let mut running = 0.0;
+            for bucket in &sorted {
+                running += bucket.count as f64;
+                cumulative.push((bucket.upper_bound_ms, running));
+            }
+        }
+    }
+
+    let total = cumulative.last().map(|(_, count)| *count).unwrap_or(0.0);
+    if total <= 0.0 {
+        return None;
+    }
+
+    let target = percentile.clamp(0.0, 1.0) * total;
+    let mut prev_upper = 0.0;
+    let mut prev_cumulative = 0.0;
+
+    for (upper, cumulative_count) in cumulative {
+        if cumulative_count >= target {
+            let bucket_count = cumulative_count - prev_cumulative;
+            if bucket_count <= 0.0 {
+                return Some(upper);
+            }
+
+            let fraction = ((target - prev_cumulative) / bucket_count).clamp(0.0, 1.0);
+            if upper.is_infinite() {
+                return Some(prev_upper);
+            }
+            return Some(prev_upper + (upper - prev_upper) * fraction);
+        }
+        prev_upper = upper;
+        prev_cumulative = cumulative_count;
+    }
+
+    Some(prev_upper)
 }
 
 /// Filter metric outliers using Median Absolute Deviation.
@@ -443,6 +588,26 @@ pub fn calculate_web_api_slo(
         ),
         burn_rate_5m: calculate_burn_rate(burn_stream.clone(), 300),
         burn_rate_1h: calculate_burn_rate(burn_stream, 3_600),
+    }
+}
+
+impl HttpSlo {
+    pub fn evaluate_histogram(&self, sample: &HistogramSample) -> HttpSloEvaluation {
+        let availability = calculate_availability(sample.success, sample.total);
+        let p99 = percentile_from_histogram(&sample.buckets, sample.format, 0.99)
+            .unwrap_or(f64::INFINITY);
+
+        let latency_ok = p99 < self.latency_p99_threshold_ms;
+        let availability_ok = availability > self.availability_threshold;
+
+        HttpSloEvaluation {
+            timestamp: sample.timestamp,
+            availability,
+            p99_latency_ms: p99,
+            latency_ok,
+            availability_ok,
+            pass: latency_ok && availability_ok,
+        }
     }
 }
 
@@ -1039,5 +1204,138 @@ mod tests {
         let point = MetricPoint::from_yaml_str(yaml).unwrap();
 
         assert!(point.labels.is_empty());
+    }
+
+    #[test]
+    fn http_slo_iterator_passes_for_prometheus_histogram() {
+        let slo = HttpSlo::default();
+        let sample = HistogramSample {
+            timestamp: 1,
+            success: 10_000,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_700,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 150.0,
+                    count: 9_900,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_970,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        };
+
+        let mut iter = HttpSloIterator::new(slo, vec![sample].into_iter());
+        let result = iter.next().unwrap();
+
+        assert!(result.p99_latency_ms < 200.0);
+        assert!(result.latency_ok);
+        assert!(result.availability_ok);
+        assert!(result.pass);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn http_slo_iterator_fails_when_p99_or_availability_miss() {
+        let slo = HttpSlo::default();
+        let samples = vec![
+            HistogramSample {
+                timestamp: 1,
+                success: 10_000,
+                total: 10_000,
+                buckets: vec![
+                    HistogramBucket {
+                        upper_bound_ms: 100.0,
+                        count: 9_500,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 200.0,
+                        count: 9_600,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 500.0,
+                        count: 10_000,
+                    },
+                ],
+                format: HistogramFormat::PrometheusCumulative,
+            },
+            HistogramSample {
+                timestamp: 2,
+                success: 998,
+                total: 1_000,
+                buckets: vec![
+                    HistogramBucket {
+                        upper_bound_ms: 100.0,
+                        count: 970,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 150.0,
+                        count: 995,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 200.0,
+                        count: 1_000,
+                    },
+                ],
+                format: HistogramFormat::PrometheusCumulative,
+            },
+        ];
+
+        let results: Vec<HttpSloEvaluation> =
+            HttpSloIterator::new(slo, samples.into_iter()).collect();
+        assert_eq!(results.len(), 2);
+
+        assert!(!results[0].latency_ok);
+        assert!(results[0].availability_ok);
+        assert!(!results[0].pass);
+
+        assert!(results[1].latency_ok);
+        assert!(!results[1].availability_ok);
+        assert!(!results[1].pass);
+    }
+
+    #[test]
+    fn http_slo_iterator_supports_opentelemetry_delta_buckets() {
+        let slo = HttpSlo::default();
+        let sample = HistogramSample {
+            timestamp: 1,
+            success: 9_995,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_700,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 150.0,
+                    count: 200,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 180.0,
+                    count: 70,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 220.0,
+                    count: 30,
+                },
+            ],
+            format: HistogramFormat::OpenTelemetryDelta,
+        };
+
+        let result = HttpSloIterator::new(slo, vec![sample].into_iter())
+            .next()
+            .unwrap();
+
+        assert!(result.p99_latency_ms < 200.0);
+        assert!(result.pass);
     }
 }

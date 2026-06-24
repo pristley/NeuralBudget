@@ -42,5 +42,8 @@ jobs:
       - name: Run unit tests
         run: cargo test --lib --all-features
 
+      - name: Run documentation tests
+        run: cargo test --doc --all-features
+
       - name: Run external test suites
         run: cargo test --tests --all-features
