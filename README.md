@@ -34,6 +34,7 @@ Core capabilities:
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [User Guide](#user-guide)
+- [Comprehensive User Guide](#comprehensive-user-guide)
 - [Composite SLOs (Dependencies)](#composite-slos-dependencies)
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
@@ -140,6 +141,17 @@ print(result)
 ```
 
 ## User Guide
+
+This README contains quick-reference usage.
+
+For a full walkthrough with installation paths, mode-by-mode examples,
+Jupyter and CI/CD recipes, and troubleshooting, see:
+
+- [docs/guides/user-guide.md](docs/guides/user-guide.md)
+
+## Comprehensive User Guide
+
+- [NeuralBudget User Guide](docs/guides/user-guide.md)
 
 ### Core primitives
 
@@ -470,6 +482,7 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Documentation index: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
+- Comprehensive user guide: [docs/guides/user-guide.md](docs/guides/user-guide.md)
 - Convenience reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
 - Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
 - ML plan: [docs/plans/mlops-model-drift-serving-plan.md](docs/plans/mlops-model-drift-serving-plan.md)

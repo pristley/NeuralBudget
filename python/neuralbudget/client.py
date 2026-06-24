@@ -23,6 +23,8 @@ EvaluationMode = Literal["http", "stateful", "ml", "genai", "composite"]
 
 
 class ClientConfigFile(TypedDict, total=False):
+    """Serialized config schema accepted by NeuralBudgetClient.load_config."""
+
     mode: EvaluationMode
     profile: str
     return_dataclass: bool
@@ -30,6 +32,8 @@ class ClientConfigFile(TypedDict, total=False):
 
 
 class CompositeServiceInput(TypedDict):
+    """Service node payload for composite DAG evaluation."""
+
     service: str
     local_score: float
     min_pass_score: float
@@ -37,12 +41,16 @@ class CompositeServiceInput(TypedDict):
 
 
 class CompositeDependencyInput(TypedDict):
+    """Edge payload describing dependency impact in a composite DAG."""
+
     dependency: str
     dependent: str
     failure_penalty: float
 
 
 class CompositeMetricData(TypedDict):
+    """Input payload for composite mode evaluate calls."""
+
     services: list[CompositeServiceInput]
     dependencies: list[CompositeDependencyInput]
     global_min_pass_score: float
@@ -116,7 +124,16 @@ class NeuralBudgetClient:
         return self
 
     def evaluate(self, metric_data: MetricData) -> EvaluationResult:
-        """Evaluate metric payload using the loaded client configuration."""
+        """Evaluate metric payload using the loaded client configuration.
+
+        Input schema depends on configured mode:
+
+        - http: histogram sample dict
+        - stateful: stateful sample dict
+        - ml: ml-serving sample dict
+        - genai: genai sample dict
+        - composite: services/dependencies payload
+        """
         config = self._config
         if config is None:
             raise RuntimeError("No config loaded. Call load_config(path) first.")
@@ -159,6 +176,7 @@ class NeuralBudgetClient:
         return self._evaluate_composite(cast(dict[str, Any], metric_data), params)
 
     def _evaluate_composite(self, metric_data: dict[str, Any], params: dict[str, Any]) -> Any:
+        """Map dict payload into native composite graph objects and evaluate."""
         services_raw = metric_data.get("services", [])
         dependencies_raw = metric_data.get("dependencies", [])
         global_min_pass_score = float(
@@ -198,6 +216,7 @@ class NeuralBudgetClient:
 
     @staticmethod
     def _read_config_file(path: Path) -> ClientConfigFile:
+        """Load JSON or YAML config and normalize to a ClientConfigFile dict."""
         suffix = path.suffix.lower()
         if suffix == ".json":
             with path.open("r", encoding="utf-8") as handle:
