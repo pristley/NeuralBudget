@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 use std::collections::HashMap;
 
 use pyo3::exceptions::{PyKeyError, PyTypeError};
@@ -71,13 +73,24 @@ fn extract_labels(dict: &Bound<'_, PyDict>) -> PyResult<HashMap<String, String>>
     }
 }
 
+#[pyfunction]
+pub fn calculate_availability(success: u64, total: u64) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        success as f64 / total as f64
+    }
+}
+
 impl<'py> FromPyObject<'py> for SloConfig {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if let Ok(wrapper) = obj.extract::<PyRef<'py, PySloConfig>>() {
             return Ok(wrapper.inner.clone());
         }
 
-        let dict = obj.downcast::<PyDict>().map_err(|_| invalid_dict_type("SloConfig"))?;
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("SloConfig"))?;
         Ok(Self {
             target: extract_required(dict, "target")?,
             window: extract_required(dict, "window")?,
@@ -91,7 +104,9 @@ impl<'py> FromPyObject<'py> for ErrorBudget {
             return Ok(wrapper.inner.clone());
         }
 
-        let dict = obj.downcast::<PyDict>().map_err(|_| invalid_dict_type("ErrorBudget"))?;
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("ErrorBudget"))?;
         Ok(Self {
             remaining: extract_required(dict, "remaining")?,
             velocity: extract_required(dict, "velocity")?,
@@ -105,7 +120,9 @@ impl<'py> FromPyObject<'py> for MetricPoint {
             return Ok(wrapper.inner.clone());
         }
 
-        let dict = obj.downcast::<PyDict>().map_err(|_| invalid_dict_type("MetricPoint"))?;
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("MetricPoint"))?;
         Ok(Self {
             timestamp: extract_required(dict, "timestamp")?,
             value: extract_required(dict, "value")?,
@@ -323,6 +340,7 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySloConfig>()?;
     module.add_class::<PyErrorBudget>()?;
     module.add_class::<PyMetricPoint>()?;
+    module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;
@@ -332,6 +350,34 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn calculate_availability_matches_pure_python_ratio() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let success = 47_u64;
+            let total = 50_u64;
+
+            let expected: f64 = {
+                let builtins = py.import_bound("builtins").unwrap();
+                let eval_fn = builtins.getattr("eval").unwrap();
+                let globals = PyDict::new_bound(py);
+                globals.set_item("__builtins__", &builtins).unwrap();
+                let locals = PyDict::new_bound(py);
+                locals.set_item("success", success).unwrap();
+                locals.set_item("total", total).unwrap();
+
+                eval_fn
+                    .call1(("success / total", &globals, &locals))
+                    .unwrap()
+                    .extract()
+                    .unwrap()
+            };
+
+            assert_eq!(calculate_availability(success, total), expected);
+        });
+    }
 
     #[test]
     fn slo_config_round_trips_through_json_and_yaml() {
