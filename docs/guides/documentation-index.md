@@ -6,6 +6,7 @@ This index groups documentation by audience and workflow.
 
 - README: Project overview, installation, examples, and high-level API surface.
 - docs/guides/user-guide.md: End-to-end installation, usage, examples, applications, and troubleshooting.
+- CHANGELOG.md: Versioned release history and categorized change entries.
 
 ## Feature Plans
 
@@ -19,8 +20,8 @@ This index groups documentation by audience and workflow.
 ## Testing and Quality Gates
 
 - CI workflow: .github/workflows/ci.yml
-- CD workflow: .github/workflows/cd.yml
-- PyPI release process: .github/workflows/cd.yml
+- CD workflow: .github/workflows/cd.yml (validation + release + distribution)
+- PyPI release process: .github/workflows/cd.yml (trusted publishing)
 - Python convenience tests: tests/python_convenience_tests.py
 - Python client facade tests: tests/python_client_tests.py
 
@@ -28,6 +29,7 @@ This index groups documentation by audience and workflow.
 
 1. README
 2. docs/guides/user-guide.md
-3. docs/reference/convenience-layer.md
-4. docs/reference/composite-slo-dag.md
-5. docs/plans/mlops-model-drift-serving-plan.md
+3. CHANGELOG.md
+4. docs/reference/convenience-layer.md
+5. docs/reference/composite-slo-dag.md
+6. docs/plans/mlops-model-drift-serving-plan.md

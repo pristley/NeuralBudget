@@ -50,7 +50,7 @@ Add this dependency in Cargo.toml:
 
 ```toml
 [dependencies]
-neuralbudget = "0.1.1"
+neuralbudget = "0.1.2"
 ```
 
 ## API Surface Map
@@ -289,6 +289,38 @@ Example GitHub Actions step:
 - name: Run SLO gate
   run: python3 scripts/slo_gate.py
 ```
+
+## Release and Distribution Automation
+
+Release packaging and publishing are integrated in `.github/workflows/cd.yml`.
+
+For tagged releases (`v*`), CD performs:
+
+- validation gates (format, lint, tests, coverage)
+- crate packaging (`.crate`)
+- source distribution build (`sdist`)
+- cross-platform wheel builds:
+    - Linux `x86_64` (`manylinux`)
+    - Windows `x86_64`
+    - macOS `x86_64`
+    - macOS `aarch64`
+- GitHub Release creation with all generated artifacts
+- PyPI publish through trusted publishing (`pypa/gh-action-pypi-publish`)
+
+### Trusted Publisher setup checklist
+
+1. In PyPI, create a Trusted Publisher for repository `pristley/NeuralBudget`.
+2. Set workflow path to `.github/workflows/cd.yml`.
+3. Use environment name `pypi`.
+4. Ensure the same `pypi` environment exists in GitHub repository settings.
+
+### Release execution checklist
+
+1. Update versions in `Cargo.toml` and `pyproject.toml`.
+2. Push the release commit to `main`.
+3. Create and push a tag (`vX.Y.Z`).
+4. Publish a GitHub Release for that tag.
+5. Watch CD workflow jobs until publish completes.
 
 ## Applications and Use Cases
 

@@ -68,6 +68,9 @@ Recent additions include:
 - convenience helper for GenAI one-shot evaluations
 - expanded Python convenience tests and CI coverage for convenience workflows
 - Composite SLO DAG runner with cycle detection and weighted global score calculation
+- `NeuralBudgetClient` top-level facade for notebook and CI/CD workflows
+- comprehensive user guide in `docs/guides/user-guide.md`
+- cross-platform PyPI publishing integrated into CD for tagged releases
 
 ## Installation
 
@@ -77,7 +80,7 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-neuralbudget = "0.1.1"
+neuralbudget = "0.1.2"
 ```
 
 ### Python extension (local build)
@@ -460,6 +463,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 cargo test --doc --all-features
 python3 tests/python_convenience_tests.py
+python3 tests/python_client_tests.py
 ```
 
 ### Performance benchmarking
@@ -481,11 +485,19 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 ## PyPI Publishing
 
-NeuralBudget publishes pre-built wheels for major platforms using:
+NeuralBudget publishes pre-built artifacts from the CD workflow:
 
 - [`.github/workflows/cd.yml`](.github/workflows/cd.yml)
 
-Release artifacts include:
+On tagged releases (`v*`), CD now performs:
+
+- full validation gates (fmt, clippy, tests, coverage, packaging)
+- source distribution build (`sdist`)
+- cross-platform wheel build matrix
+- GitHub Release asset publishing
+- trusted publishing to PyPI (`pypa/gh-action-pypi-publish`)
+
+Published artifacts include:
 
 - Linux (`manylinux`, `x86_64`)
 - macOS (`x86_64` and `aarch64`)
@@ -494,16 +506,18 @@ Release artifacts include:
 
 ### One-time repository setup
 
-1. In PyPI, create a Trusted Publisher for this GitHub repository.
-2. In GitHub, keep the workflow environment named `pypi`.
-3. Ensure your project name on PyPI is `neuralbudget`.
+1. In PyPI, create a Trusted Publisher for this repository.
+2. Use workflow path `.github/workflows/cd.yml`.
+3. Configure environment name `pypi` in both PyPI Trusted Publisher and GitHub repository environments.
+4. Ensure project name is `neuralbudget` on PyPI.
 
 ### Release flow
 
 1. Bump version in `pyproject.toml` and crate metadata as needed.
-2. Create and push a tag like `v0.1.2`.
-3. Publish a GitHub Release for that tag.
-5. The `CD` workflow builds cross-platform wheels and uploads to PyPI.
+2. Push the version bump commit to `main`.
+3. Create and push a tag like `v0.1.3`.
+4. Publish a GitHub Release for that tag.
+5. CD builds crate + sdist + multi-platform wheels and publishes to PyPI.
 
 ## Changelog and Documentation
 
