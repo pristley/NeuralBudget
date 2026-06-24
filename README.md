@@ -4,13 +4,20 @@
 [![CD](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml)
 [![Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/tags)
+[![Last Commit](https://img.shields.io/github/last-commit/pristley/NeuralBudget/main)](https://github.com/pristley/NeuralBudget/commits/main)
 [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-blue)](CHANGELOG.md)
+[![Docs](https://img.shields.io/badge/docs-reference%20index-blue)](docs/guides/documentation-index.md)
 [![Coverage Gate](https://img.shields.io/badge/coverage%20gate-89%25-brightgreen)](https://github.com/pristley/NeuralBudget/blob/main/.github/workflows/ci.yml)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-DEA584)](https://www.rust-lang.org/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB)](pyproject.toml)
+[![PyO3](https://img.shields.io/badge/pyo3-0.22-orange)](https://pyo3.rs)
+[![Benchmarks](https://img.shields.io/badge/benchmarks-criterion-informational)](benches/composite_slo_dag.rs)
 [![License](https://img.shields.io/badge/license-source--available-lightgrey)](LICENSE)
 
-NeuralBudget is a Rust-first SLO toolkit with Python interoperability for deterministic reliability analytics.
-It provides a compact core for:
+NeuralBudget is a Rust-first SLO toolkit for deterministic reliability analytics across service, ML, and GenAI workloads.
+It combines a strongly typed Rust core, PyO3-native Python bindings, and convenience helpers for notebook and pipeline workflows.
+
+Core capabilities:
 
 - availability and error-budget math
 - burn-rate tracking over metric streams
