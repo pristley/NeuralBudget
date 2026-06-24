@@ -218,5 +218,12 @@ This repository is still in its early foundation phase. The current code is inte
 
 ## License
 
-No license file is currently present in the repository. Add one before distributing artifacts externally.
+This repository is published under the custom NeuralBudget Source-Available License 1.0. The source is publicly available, but organizational use requires prior written permission from the copyright holder.
+
+In practical terms:
+
+- individuals may review, fork, and modify the code for personal, educational, and evaluation purposes
+- organizations may not use, deploy, modify, redistribute internally, or incorporate this project into business or institutional workflows without permission
+
+See the full terms in the LICENSE file.
 

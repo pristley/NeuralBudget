@@ -1,0 +1,55 @@
+NeuralBudget Source-Available License 1.0
+
+Copyright (c) 2026 pristley
+
+1. Grant of Access
+
+Permission is granted to any person to view, download, fork, and modify this source code for personal, educational, evaluation, and non-organizational use, subject to the conditions in this license.
+
+2. Organizational Use Restriction
+
+No company, business, government entity, nonprofit, educational institution, research lab, team, collective, or other organization may use this software, in whole or in part, without prior written permission from the copyright holder.
+
+For the purposes of this license, "use" includes, but is not limited to:
+
+- running the software internally
+- deploying the software in any environment
+- incorporating the software into products, services, or workflows
+- modifying the software for organizational purposes
+- distributing the software within an organization or to clients, partners, contractors, students, or customers
+
+3. Redistribution Conditions
+
+Any redistribution of this source code, whether modified or unmodified, must:
+
+- retain this license in full
+- retain all copyright and attribution notices
+- clearly state that organizational use requires prior written permission from the copyright holder
+
+4. No Trademark or Endorsement Rights
+
+This license does not grant permission to use the name "NeuralBudget", the project name, or the name of the copyright holder for endorsement, promotion, or trademark purposes without prior written permission.
+
+5. Patent Rights
+
+No express or implied patent license is granted by this license.
+
+6. Termination
+
+Any use of the software in violation of this license automatically terminates the rights granted under it.
+
+7. Warranty Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+8. Liability Limitation
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+9. Permission Requests
+
+If you want to use this software within or on behalf of an organization, you must obtain prior written permission from the copyright holder.
+
+10. Open Source Clarification
+
+The source code is publicly available, but the organizational-use restriction means this license is source-available and is not an OSI-approved open source license.
