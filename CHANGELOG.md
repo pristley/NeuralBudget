@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 Release entries are maintained automatically by the CD workflow on tagged releases.
 
+## [0.1.3] - 2026-06-24
+
+### Changed
+
+- chore(release): bump version to 0.1.3
+- docs: add production deployment, Kubernetes, and Prometheus guides
+- docs: detail release automation and refresh changelog
+- ci(cd): integrate cross-platform PyPI publish into release workflow
+- docs: update changelog for v0.1.2 [skip ci]
+Release entries are maintained automatically by the CD workflow on tagged releases.
+
 ## [0.1.2] - 2026-06-24
 
 ### Changed
