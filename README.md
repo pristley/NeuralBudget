@@ -167,6 +167,68 @@ ml_eval = evaluate_ml_once(
 print(snapshot["target_met"], http_eval["pass"], ml_eval["pass"])
 ```
 
+#### 3. Typed Returns and Profile Presets
+
+The convenience layer supports optional dataclass returns and named profile presets.
+
+Dataclass return flag:
+
+- `return_dataclass=False` (default) returns plain dictionaries.
+- `return_dataclass=True` returns typed dataclass results.
+
+Available preset maps:
+
+- `HTTP_PROFILE_PRESETS`
+- `STATEFUL_PROFILE_PRESETS`
+- `ML_PROFILE_PRESETS`
+
+Lookup helpers:
+
+- `get_http_profile_preset(name)`
+- `get_stateful_profile_preset(name)`
+- `get_ml_profile_preset(name)`
+
+Example:
+
+```python
+from neuralbudget.convenience import (
+	evaluate_http_histogram_once,
+	evaluate_ml_once,
+	get_http_profile_preset,
+)
+
+strict_http = get_http_profile_preset("strict_latency")
+
+http_result = evaluate_http_histogram_once(
+	{
+		"timestamp": 1,
+		"success": 9995,
+		"total": 10000,
+		"buckets": [
+			{"upper_bound_ms": 100.0, "count": 9700},
+			{"upper_bound_ms": 220.0, "count": 10000},
+		],
+		"format": "prometheus_cumulative",
+	},
+	profile=strict_http,
+	return_dataclass=True,
+)
+
+ml_result = evaluate_ml_once(
+	{
+		"timestamp": 2,
+		"inference_latency_ms": 190.0,
+		"gpu_utilization": 0.73,
+		"feature_drift": 0.08,
+		"prediction_confidence": 0.92,
+	},
+	profile="drift_sensitive",
+	return_dataclass=True,
+)
+
+print(http_result.passed, ml_result.hybrid_score)
+```
+
 ### Python Examples
 
 Reference scripts are available in [examples/python/availability_budget.py](examples/python/availability_budget.py), [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py), [examples/python/stateful_slo.py](examples/python/stateful_slo.py), [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py), [examples/python/convenience_layer.py](examples/python/convenience_layer.py), and [examples/python/ml_slo_drift_serving.py](examples/python/ml_slo_drift_serving.py).
@@ -377,6 +439,14 @@ Release artifacts and tags will appear in the GitHub Releases page as the projec
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for full release notes and version history. Tagged releases use generated notes from `scripts/update_changelog.py` and publish release assets through the CD workflow.
+
+## Documentation
+
+Detailed project documentation is available in:
+
+- [docs/guides/documentation-index.md](docs/guides/documentation-index.md): documentation entry point and reading order.
+- [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md): convenience layer dataclass returns, presets, and function semantics.
+- [docs/plans/mlops-model-drift-serving-plan.md](docs/plans/mlops-model-drift-serving-plan.md): detailed implementation plan for MlSlo model drift and serving.
 
 ## Build Status
 
