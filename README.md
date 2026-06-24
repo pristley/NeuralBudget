@@ -38,6 +38,7 @@ Core capabilities:
 - [Composite SLOs (Dependencies)](#composite-slos-dependencies)
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
+- [Production Deployment](#production-deployment)
 - [Development and CI/CD](#development-and-cicd)
 - [PyPI Publishing](#pypi-publishing)
 - [Changelog and Documentation](#changelog-and-documentation)
@@ -71,6 +72,7 @@ Recent additions include:
 - `NeuralBudgetClient` top-level facade for notebook and CI/CD workflows
 - comprehensive user guide in `docs/guides/user-guide.md`
 - cross-platform PyPI publishing integrated into CD for tagged releases
+- production deployment guide with Kubernetes and Prometheus examples
 
 ## Installation
 
@@ -446,12 +448,27 @@ Runnable Python examples are in:
 - [examples/python/ml_slo_drift_serving.py](examples/python/ml_slo_drift_serving.py)
 - [examples/python/convenience_layer.py](examples/python/convenience_layer.py)
 
+Kubernetes and Prometheus examples are in:
+
+- [examples/kubernetes/configmap.yaml](examples/kubernetes/configmap.yaml)
+- [examples/kubernetes/deployment.yaml](examples/kubernetes/deployment.yaml)
+- [examples/kubernetes/service.yaml](examples/kubernetes/service.yaml)
+- [examples/kubernetes/servicemonitor.yaml](examples/kubernetes/servicemonitor.yaml)
+- [examples/kubernetes/prometheus-additional-scrape-config.yaml](examples/kubernetes/prometheus-additional-scrape-config.yaml)
+
 Run examples:
 
 ```bash
 python3 examples/python/convenience_layer.py
 python3 examples/python/ml_slo_drift_serving.py
 ```
+
+## Production Deployment
+
+For production rollout patterns, Kubernetes manifests, and Prometheus scraping integration,
+see:
+
+- [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
 
 ## Development and CI/CD
 

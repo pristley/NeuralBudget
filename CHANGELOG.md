@@ -40,6 +40,12 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 
 ## [Unreleased]
 
+### Added
+
+- Added production deployment guide at `docs/guides/production-deployment.md` covering deployment topology, runtime operations, alerting, and troubleshooting.
+- Added Kubernetes example manifests under `examples/kubernetes/` for ConfigMap, Deployment, and Service wiring.
+- Added Prometheus integration examples under `examples/kubernetes/` for ServiceMonitor (Operator) and additional scrape configs (vanilla Prometheus).
+
 ### Changed
 
 - Integrated cross-platform wheel builds directly into CD release path (`.github/workflows/cd.yml`) for Linux, Windows, and macOS.
@@ -51,6 +57,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Updated README with release automation details, trusted publisher prerequisites, and corrected release flow steps.
 - Updated user guide with a detailed release and distribution automation section and trusted publisher checklist.
 - Updated documentation index to include changelog-first release history navigation and refreshed CI/CD pointers.
+- Expanded README, user guide, and documentation index with production deployment navigation and Kubernetes/Prometheus example references.
 
 ## [0.1.1] - 2026-06-24
 

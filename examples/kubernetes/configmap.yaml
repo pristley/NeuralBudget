@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: neuralbudget-config
+data:
+  slo.yaml: |
+    mode: composite
+    params:
+      global_min_pass_score: 0.9

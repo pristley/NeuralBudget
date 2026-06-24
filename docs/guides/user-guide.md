@@ -379,6 +379,7 @@ Use one of the preset names from:
 ## Additional References
 
 - README: project overview and quick examples
+- docs/guides/production-deployment.md: production rollout, Kubernetes, and Prometheus integration
 - docs/reference/convenience-layer.md: convenience helper details
 - docs/reference/composite-slo-dag.md: composite DAG schema and semantics
 - examples/python/: runnable scripts
