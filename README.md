@@ -293,10 +293,11 @@ This repository is still in an early foundation phase. The current codebase is i
 - Stateless histogram-based `HttpSlo` iterator for HTTP/gRPC pass-fail evaluation
 - Stateful database/queue `StatefulSlo` iterator with connection-wait penalization
 - Weighted policy profiles for database and queue tiers
+- Python wheel packaging via `maturin` for the Rust-exposed `neuralbudget` module
 
 ### Near-Term Roadmap
 
-1. Add packaging support for Python distribution.
+1. Add a small pure-Python convenience layer once the Rust wheel packaging has settled.
 
 ## Development
 
@@ -337,7 +338,11 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --lib --all-features
 cargo test --doc --all-features
 cargo test --tests --all-features
+python3 -m pip install maturin
+maturin build --release --manifest-path Cargo.toml
 ```
+
+The `maturin build` command produces a distributable wheel for the `neuralbudget` Python module.
 
 ### Formatting and Linting
 

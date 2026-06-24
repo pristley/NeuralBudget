@@ -27,6 +27,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
 
@@ -35,6 +40,9 @@ jobs:
 
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
+
+      - name: Install maturin
+        run: python3 -m pip install --upgrade pip maturin
 
       - name: Fetch dependencies
         run: cargo fetch
@@ -56,3 +64,6 @@ jobs:
 
       - name: Run coverage gate
         run: cargo llvm-cov --workspace --all-features --summary-only --fail-under-lines 90
+
+      - name: Build Python wheel
+        run: maturin build --release --manifest-path Cargo.toml
