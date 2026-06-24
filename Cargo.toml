@@ -1,6 +1,6 @@
 [package]
 name = "neuralbudget"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Rust-first SLO data models and Python interop for availability, latency, and error-budget analysis"
 readme = "README.md"
