@@ -53,6 +53,8 @@ print(availability)
 - `ErrorBudget`: remaining budget and burn velocity
 - `MetricPoint`: timestamped observations with optional labels
 - `calculate_availability(success, total)`: classic SLI ratio, returned as a `float`
+- `calculate_error_budget(slo_target, window_secs)`: remaining budget in seconds for an SLO target and time window
+- `calculate_burn_rate(metric_stream, window_secs)`: normalized burn rate for a stream of budget-consuming samples
 
 ### Serialization
 
@@ -83,6 +85,19 @@ assert!(rolling.contains(1_699_999_999, 1_700_000_000));
 let calendar = TimeWindow::calendar_aligned(86_400, 18_000);
 assert!(calendar.contains(68_400, 90_000));
 ```
+
+## Error Budget and Burn Rate
+
+The budget formula is the SLO target gap multiplied by the time window in seconds:
+
+```rust
+use neuralbudget::calculate_error_budget;
+
+let budget = calculate_error_budget(0.999, 3_600);
+assert_eq!(budget, 3.6);
+```
+
+Burn rate works over a stream of timestamped samples. In this repository, samples with a value above `0.0` are treated as budget-consuming events. That makes it easy to compare the last 5 minutes against the last hour by calling `calculate_burn_rate(metric_stream, 300)` and `calculate_burn_rate(metric_stream, 3_600)`.
 
 ## Releases
 
@@ -135,16 +150,32 @@ This repository is still in an early foundation phase. The current codebase is i
 cargo test
 ```
 
-The repository also keeps integration coverage in [tests/integration_tests.rs](tests/integration_tests.rs). CI and CD run both the unit test suite and the integration suite separately so changes are validated at both levels.
+The repository keeps test coverage in three tiers:
+
+- unit tests in the library source
+- integration tests in [tests/integration_tests.rs](tests/integration_tests.rs)
+- functional tests in [tests/functional_tests.rs](tests/functional_tests.rs)
+
+CI and CD run all three tiers separately.
 
 ### CI/CD Flow
 
 Every change should follow the same path that the repository automation enforces:
 
 1. Push or open a pull request to `main`.
-2. Let CI run `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-targets --all-features`.
+2. Let CI run formatting and linting, then execute unit, integration, and functional test suites.
 3. Merge to `main` once checks pass.
-4. Tag a release version such as `v0.1.1` to produce release artifacts through CD.
+4. Let CD re-run validation, package artifacts, and publish tagged releases.
+
+Equivalent local commands:
+
+```bash
+cargo fmt --all --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --lib --all-features
+cargo test --test integration_tests --all-features
+cargo test --test functional_tests --all-features
+```
 
 ### Formatting and Linting
 
@@ -163,6 +194,9 @@ cargo clippy --all-targets --all-features
 │       └── ci.yml
 ├── src/
 │   └── lib.rs
+├── tests/
+│   ├── functional_tests.rs
+│   └── integration_tests.rs
 ├── CHANGELOG.md
 ├── Cargo.toml
 └── README.md
