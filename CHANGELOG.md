@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 Release entries are maintained automatically by the CD workflow on tagged releases.
 
+## [0.1.2] - 2026-06-24
+
+### Changed
+
+- chore(release): bump version to 0.1.2
+- ci(pypi): publish cross-platform wheels via GitHub release workflow
+- docs: add comprehensive user guide and improve client API docs
+- feat(python): add NeuralBudgetClient facade for notebook and CI workflows
+- docs: refresh README badges and project summary
+- fix: apply rustfmt to satisfy CI/CD format checks
+- ci: make coverage gate deterministic for lib and tests
+- feat: add composite DAG python API, benchmarking, and docs refresh
+- feat: add composite DAG SLO runner with global scoring
+- feat: add GenAI convenience helper and first-class user guide docs
+- feat: add convenience dataclass returns, presets, tests, and pipeline gates
+- docs: add detailed documentation index and convenience reference
+- feat: add MlSlo hybrid drift-serving SLO and pipeline coverage
+- docs(readme): expand professional Python user guide
+- feat(python): add convenience layer for one-shot SLO workflows
+- docs: professionalize release notes and refresh badges
+- Add Python examples for SLO workflows
+- Modularize lib.rs into core and python modules
+- Document wheel build in README
+- Add Python wheel packaging support
+- Add weighted stateful policy profiles
+- Enforce coverage gate and update docs
+- Add StatefulSlo evaluation and refresh project documentation
+- Expand HttpSlo test coverage and align CI/CD docs
+- Add web API SLO framework with MAD outlier filtering
+- Update README for budget and functional pipeline
+- Add budget algorithms and full test tiers
+- Automate release notes and badges
+- Document time windows and test coverage
+Release entries are maintained automatically by the CD workflow on tagged releases.
+
 ## [Unreleased]
 
 ### Added
