@@ -265,8 +265,8 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes and version history. The CD w
 
 Continuous integration runs on GitHub Actions using [CI](.github/workflows/ci.yml) and [CD](.github/workflows/cd.yml).
 
-- CI runs formatting, linting, and tests on every push and pull request targeting `main`.
-- CD reruns validation on `main`, packages the crate, and publishes release artifacts for tagged builds.
+- CI runs formatting, linting, tests, coverage checks, and a Python wheel build on every push and pull request targeting `main`.
+- CD reruns validation on `main`, packages the Rust crate, builds the Python wheel, and publishes release artifacts for tagged builds.
 - Both pipelines also run `cargo llvm-cov` and enforce a 90% line-coverage floor.
 
 The badges above reflect the current state of both workflows.
@@ -326,9 +326,9 @@ CI and CD run all three tiers separately.
 Every change should follow the same path that the repository automation enforces:
 
 1. Push or open a pull request to `main`.
-2. Let CI run formatting and linting, then execute unit, integration, and functional test suites.
+2. Let CI run formatting, linting, coverage checks, unit tests, integration tests, functional tests, and the wheel build.
 3. Merge to `main` once checks pass.
-4. Let CD re-run validation, package artifacts, and publish tagged releases.
+4. Let CD re-run validation, package the Rust crate, build the wheel, and publish tagged releases.
 
 Equivalent local commands:
 
