@@ -205,6 +205,9 @@ jobs:
       - package
       - build-release-wheels
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/neuralbudget
 
     steps:
       - name: Download wheel artifacts
