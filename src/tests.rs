@@ -806,3 +806,229 @@ fn weighted_stateful_policy_profiles_shift_tier_scores() {
         StatefulPolicyProfileSet::from_json_str(&profiles.to_json_string().unwrap()).unwrap();
     assert_eq!(profile_round_trip, profiles);
 }
+
+#[test]
+fn python_module_registration_exports_expected_symbols() {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "neuralbudget_module_init_test").unwrap();
+        neuralbudget(py, &module).unwrap();
+
+        for name in [
+            "SloConfig",
+            "ErrorBudget",
+            "MetricPoint",
+            "TimeWindow",
+            "HistogramBucket",
+            "HistogramSample",
+            "HttpSlo",
+            "HttpSloEvaluation",
+            "StatefulSample",
+            "StatefulSlo",
+            "StatefulSloEvaluation",
+            "calculate_availability",
+            "calculate_error_budget",
+            "calculate_burn_rate",
+            "is_timestamp_in_window",
+            "evaluate_http_slo_histogram",
+            "evaluate_http_slo_histogram_stream",
+            "evaluate_stateful_slo",
+            "evaluate_stateful_slo_stream",
+            "coerce_slo_config",
+            "coerce_error_budget",
+            "coerce_metric_point",
+            "coerce_time_window",
+            "coerce_histogram_bucket",
+            "coerce_histogram_sample",
+            "coerce_http_slo",
+            "coerce_stateful_sample",
+            "coerce_stateful_slo",
+        ] {
+            assert!(module.getattr(name).is_ok(), "missing symbol: {name}");
+        }
+    });
+}
+
+#[test]
+fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| {
+        let cfg_obj = Py::new(py, PySloConfig::new(99.95, "7d".to_string())).unwrap();
+        let cfg: SloConfig = cfg_obj.bind(py).extract().unwrap();
+        assert_eq!(cfg.target, 99.95);
+
+        let budget_obj = Py::new(py, PyErrorBudget::new(0.75, 1.1)).unwrap();
+        let budget: ErrorBudget = budget_obj.bind(py).extract().unwrap();
+        assert_eq!(budget.remaining, 0.75);
+
+        let point_obj = Py::new(py, PyMetricPoint::new(10, 0.42, None)).unwrap();
+        let point: MetricPoint = point_obj.bind(py).extract().unwrap();
+        assert_eq!(point.timestamp, 10);
+
+        let rolling_obj = Py::new(py, PyTimeWindow::rolling(300)).unwrap();
+        let rolling: TimeWindow = rolling_obj.bind(py).extract().unwrap();
+        assert_eq!(rolling.alignment, WindowAlignment::Rolling);
+
+        let aligned_obj = Py::new(py, PyTimeWindow::calendar_aligned(86_400, 18_000)).unwrap();
+        let aligned: TimeWindow = aligned_obj.bind(py).extract().unwrap();
+        assert_eq!(aligned.alignment, WindowAlignment::CalendarAligned);
+
+        let bucket_obj = Py::new(py, PyHistogramBucket::new(250.0, 10)).unwrap();
+        let bucket: HistogramBucket = bucket_obj.bind(py).extract().unwrap();
+        assert_eq!(bucket.upper_bound_ms, 250.0);
+
+        let sample_obj = Py::new(
+            py,
+            PyHistogramSample::new(1, 100, 100, vec![bucket.clone()], "prometheus_cumulative")
+                .unwrap(),
+        )
+        .unwrap();
+        let sample: HistogramSample = sample_obj.bind(py).extract().unwrap();
+        assert_eq!(sample.total, 100);
+
+        let http_obj = Py::new(py, PyHttpSlo::new(200.0, 0.99, 0.999)).unwrap();
+        let http: HttpSlo = http_obj.bind(py).extract().unwrap();
+        assert_eq!(http.latency_percentile, 0.99);
+
+        let state_sample_obj = Py::new(py, PyStatefulSample::new(1, 100.0, 20, 0.4, 5.0)).unwrap();
+        let state_sample: StatefulSample = state_sample_obj.bind(py).extract().unwrap();
+        assert_eq!(state_sample.queue_depth, 20);
+
+        let state_slo_obj =
+            Py::new(py, PyStatefulSlo::new(250.0, 1_000, 0.8, 20.0, 0.2, 0.9)).unwrap();
+        let state_slo: StatefulSlo = state_slo_obj.bind(py).extract().unwrap();
+        assert_eq!(state_slo.queue_depth_threshold, 1_000);
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("latency_p99_threshold_ms", 175.0).unwrap();
+        let fallback_http: HttpSlo = dict.extract().unwrap();
+        assert_eq!(fallback_http.latency_threshold_ms, 175.0);
+        assert_eq!(
+            fallback_http.latency_percentile,
+            HttpSlo::default().latency_percentile
+        );
+        assert_eq!(
+            fallback_http.availability_threshold,
+            HttpSlo::default().availability_threshold
+        );
+
+        let empty = PyDict::new_bound(py);
+        assert!(extract_labels(&empty).unwrap().is_empty());
+
+        let err = extract_required::<i64>(&empty, "missing").unwrap_err();
+        assert!(err.to_string().contains("missing required key 'missing'"));
+
+        let py_int = 123_i64.into_py(py);
+        let bad_extract = py_int.bind(py).extract::<SloConfig>();
+        assert!(bad_extract.is_err());
+        assert!(bad_extract
+            .unwrap_err()
+            .to_string()
+            .contains("expected dict or SloConfig instance"));
+    });
+}
+
+#[test]
+fn core_branch_edges_are_exercised_for_maximum_coverage() {
+    let default_profile = StatefulPolicyProfile::default();
+    assert_eq!(default_profile.name, StatefulPolicyProfile::database().name);
+
+    let no_center = mad_outlier_mask(&[], 3.5, 0);
+    assert!(no_center.is_empty());
+
+    let zero_mad = mad_outlier_mask(&[1.0, 1.0, 1.0], 3.5, 3);
+    assert_eq!(zero_mad, vec![false, false, false]);
+
+    let inf_percentile = percentile_from_histogram(
+        &[
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 50,
+            },
+            HistogramBucket {
+                upper_bound_ms: f64::INFINITY,
+                count: 100,
+            },
+        ],
+        HistogramFormat::PrometheusCumulative,
+        0.99,
+    )
+    .unwrap();
+    assert_eq!(inf_percentile, 100.0);
+
+    let nan_percentile = percentile_from_histogram(
+        &[
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 5,
+            },
+            HistogramBucket {
+                upper_bound_ms: 200.0,
+                count: 10,
+            },
+        ],
+        HistogramFormat::PrometheusCumulative,
+        f64::NAN,
+    )
+    .unwrap();
+    assert_eq!(nan_percentile, 200.0);
+
+    let huge_window_burn = calculate_burn_rate(
+        vec![MetricPoint {
+            timestamp: 1,
+            value: 1.0,
+            labels: HashMap::new(),
+        }],
+        u64::MAX,
+    );
+    assert_eq!(huge_window_burn, 0.0);
+
+    let underflow_burn = calculate_burn_rate(
+        vec![MetricPoint {
+            timestamp: i64::MIN,
+            value: 1.0,
+            labels: HashMap::new(),
+        }],
+        i64::MAX as u64,
+    );
+    assert_eq!(underflow_burn, 0.0);
+
+    let overflow_window_report = calculate_web_api_slo(
+        &[WebApiRequest {
+            timestamp: i64::MIN,
+            latency_ms: 10.0,
+            status_code: 200,
+            labels: HashMap::new(),
+        }],
+        &WebApiSloPolicy {
+            availability_target: 0.99,
+            latency_threshold_ms: 50.0,
+            time_window_seconds: i64::MAX as u64,
+            outlier_filter: OutlierFilterConfig::default(),
+        },
+        i64::MIN,
+    );
+    assert_eq!(overflow_window_report.total_requests, 0);
+
+    let weighted_fail = StatefulSlo::default().evaluate_sample_with_profile(
+        &StatefulSample {
+            timestamp: 99,
+            replication_lag_ms: 1_000.0,
+            queue_depth: 10_000,
+            connection_pool_saturation: 1.0,
+            connection_wait_time_ms: 100.0,
+        },
+        &StatefulPolicyProfile {
+            name: "strict".to_string(),
+            tier: StatefulTier::Database,
+            replication_lag_weight: 1.0,
+            queue_depth_weight: 1.0,
+            connection_pool_weight: 1.0,
+            connection_wait_penalty_weight: 1.0,
+            min_pass_score: 0.99,
+        },
+    );
+    assert!(!weighted_fail.pass);
+}

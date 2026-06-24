@@ -53,13 +53,16 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Run unit tests
+      - name: Run unit tests (library)
         run: cargo test --lib --all-features
+
+      - name: Run unit tests (all targets)
+        run: cargo test --all-targets --all-features
 
       - name: Run documentation tests
         run: cargo test --doc --all-features
 
-      - name: Run external test suites
+      - name: Run integration test suites
         run: cargo test --tests --all-features
 
       - name: Run coverage gate

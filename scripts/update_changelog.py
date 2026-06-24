@@ -9,6 +9,35 @@ import sys
 from pathlib import Path
 
 
+def classify_commit(message: str) -> tuple[str, str]:
+    lower = message.lower()
+    if lower.startswith("feat"):
+        return "Added", message
+    if lower.startswith(("fix", "perf")):
+        return "Fixed", message
+    if lower.startswith(("docs", "refactor", "chore", "ci", "build", "test", "style")):
+        return "Changed", message
+    return "Changed", message
+
+
+def build_categorized_sections(commits: list[str]) -> list[str]:
+    sections: dict[str, list[str]] = {"Added": [], "Changed": [], "Fixed": []}
+    for commit in commits:
+        section, normalized = classify_commit(commit)
+        sections[section].append(normalized)
+
+    lines: list[str] = []
+    for heading in ("Added", "Changed", "Fixed"):
+        items = sections[heading]
+        if not items:
+            continue
+        lines.extend([f"### {heading}", ""])
+        lines.extend(items)
+        lines.append("")
+
+    return lines
+
+
 def run_git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True).strip()
 
@@ -39,14 +68,8 @@ def build_release_section(tag_name: str) -> str:
 
     date = run_git("show", "-s", "--format=%cs", tag_commit)
 
-    lines = [
-        f"## [{version}] - {date}",
-        "",
-        "### Changed",
-        "",
-        *commits,
-        "",
-    ]
+    lines = [f"## [{version}] - {date}", ""]
+    lines.extend(build_categorized_sections(commits))
     return "\n".join(lines)
 
 

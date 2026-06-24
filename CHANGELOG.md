@@ -22,8 +22,15 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Python wheel packaging support with `pyproject.toml` and `maturin` for the Rust-backed `neuralbudget` module.
 - Modularized the Rust library by splitting `src/lib.rs` into `src/core.rs`, `src/python.rs`, and `src/tests.rs` with a thin re-export facade.
 - Added Python example scripts for availability/budget primitives, stateless HTTP histogram SLOs, and stateful database/queue SLO flows.
-- CI/CD updates to run documentation tests via `cargo test --doc --all-features`.
-- CI/CD updates to enforce a practical 89% line-coverage floor with `cargo llvm-cov` after modular coverage accounting changes.
+- Added coverage-gate and Rust version badges to the README for clearer project health signaling.
+
+### Changed
+
+- CI/CD now run documentation tests via `cargo test --doc --all-features`.
+- CI/CD now run explicit all-target unit tests via `cargo test --all-targets --all-features` in addition to library and integration suites.
+- CI/CD continue to enforce a practical 89% line-coverage floor with `cargo llvm-cov` after modular coverage accounting changes.
+- README release section now includes a professional `v0.1.1` release-notes summary and refreshed pipeline documentation.
+- Release-note automation now emits categorized and more readable notes for tagged releases.
 
 ## [0.1.1] - 2026-06-24
 

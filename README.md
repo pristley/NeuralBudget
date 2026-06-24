@@ -4,6 +4,8 @@
 [![CD Status](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml)
 [![Latest Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![Release Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
+[![Coverage Gate](https://img.shields.io/badge/coverage%20gate-89%25-brightgreen)](https://github.com/pristley/NeuralBudget/blob/main/.github/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/rust-2021-DEA584)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-source--available-lightgrey)](LICENSE)
 
 NeuralBudget is a Rust-first SLO foundation for availability, latency, and error-budget analysis with Python interoperability. It provides a deterministic core for stateless and stateful service health calculations while keeping data models simple enough for notebooks, pipelines, and operational tooling.
@@ -268,13 +270,20 @@ assert!(!evaluations[1].pass);
 
 ## Releases
 
-The project is currently at `v0.1.1`. That version represents the foundation layer: core models, serialization helpers, Python wrappers, the first availability calculation primitive, and the initial CI/CD pipeline polish.
+The project is currently at `v0.1.1`. That version represents the foundation layer: core models, serialization helpers, Python wrappers, stateless and stateful SLO evaluators, Python packaging support, and production CI/CD quality gates.
+
+### Latest Release Notes (`v0.1.1`)
+
+- Modular Rust architecture with a thin facade in `src/lib.rs` and dedicated `src/core.rs`, `src/python.rs`, and `src/tests.rs` modules.
+- Expanded SLO coverage for web APIs and stateful systems, including weighted policy profiles for database and queue tiers.
+- Python distribution support through `maturin` and `pyproject.toml`.
+- CI/CD hardening for formatting, linting, all test tiers, wheel packaging, and enforced line-coverage policy.
 
 Release artifacts and tags will appear in the GitHub Releases page as the project evolves.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes and version history. The CD workflow keeps this file synchronized for tagged releases.
+See [CHANGELOG.md](CHANGELOG.md) for full release notes and version history. Tagged releases use generated notes from `scripts/update_changelog.py` and publish release assets through the CD workflow.
 
 ## Build Status
 
@@ -282,7 +291,7 @@ Continuous integration runs on GitHub Actions using [CI](.github/workflows/ci.ym
 
 - CI runs formatting, linting, tests, coverage checks, and a Python wheel build on every push and pull request targeting `main`.
 - CD reruns validation on `main`, packages the Rust crate, builds the Python wheel, and publishes release artifacts for tagged builds.
-- Both pipelines also run `cargo llvm-cov` and enforce an 89% line-coverage floor.
+- Both pipelines run library tests, all-target unit tests, integration suites, doc tests, and enforce an 89% line-coverage floor with `cargo llvm-cov`.
 
 The badges above reflect the current state of both workflows.
 
@@ -351,6 +360,7 @@ Equivalent local commands:
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --lib --all-features
+cargo test --all-targets --all-features
 cargo test --doc --all-features
 cargo test --tests --all-features
 python3 -m pip install maturin
