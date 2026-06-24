@@ -5,6 +5,16 @@ small convenience helpers for dictionary-oriented workflows.
 """
 
 from . import neuralbudget as _native
+from .client import (
+    ClientConfigFile,
+    CompositeDependencyInput,
+    CompositeMetricData,
+    CompositeServiceInput,
+    EvaluationMode,
+    MetricData,
+    NeuralBudgetClient,
+    NeuralBudgetClientConfig,
+)
 from .convenience import (
     AvailabilitySnapshotResult,
     GENAI_PROFILE_PRESETS,

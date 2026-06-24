@@ -116,6 +116,29 @@ snapshot = availability_snapshot(success=9_995, total=10_000, slo_target=0.999)
 print(snapshot["availability"], snapshot["target_met"])
 ```
 
+### Python facade: notebook and pipeline entrypoint
+
+```python
+from neuralbudget import NeuralBudgetClient
+
+client = NeuralBudgetClient().load_config("slo.yaml")
+
+result = client.evaluate(
+    {
+        "timestamp": 1,
+        "success": 9995,
+        "total": 10000,
+        "buckets": [
+            {"upper_bound_ms": 100.0, "count": 9700},
+            {"upper_bound_ms": 220.0, "count": 10000},
+        ],
+        "format": "prometheus_cumulative",
+    }
+)
+
+print(result)
+```
+
 ## User Guide
 
 ### Core primitives

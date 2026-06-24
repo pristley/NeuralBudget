@@ -75,7 +75,9 @@ jobs:
         run: cargo test --all-features ml_slo -- --nocapture
 
       - name: Run Python convenience layer tests
-        run: python3 tests/python_convenience_tests.py
+        run: |
+          python3 tests/python_convenience_tests.py
+          python3 tests/python_client_tests.py
 
       - name: Run coverage gate
         run: cargo llvm-cov --workspace --all-features --lib --tests --summary-only --fail-under-lines 89
