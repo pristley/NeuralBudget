@@ -143,6 +143,85 @@ pub struct HttpSloEvaluation {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// One timestamped stateful-system sample for DB/queue health.
+pub struct StatefulSample {
+    pub timestamp: i64,
+    pub replication_lag_ms: f64,
+    pub queue_depth: u64,
+    /// Saturation ratio in `[0.0, 1.0]`.
+    pub connection_pool_saturation: f64,
+    pub connection_wait_time_ms: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// SLO policy for stateful systems such as databases and queues.
+pub struct StatefulSlo {
+    pub replication_lag_threshold_ms: f64,
+    pub queue_depth_threshold: u64,
+    pub connection_pool_saturation_threshold: f64,
+    pub connection_wait_time_threshold_ms: f64,
+    /// Penalty applied when wait time exceeds threshold.
+    pub connection_wait_penalty_weight: f64,
+    /// Minimum score required to pass after penalties are applied.
+    pub min_pass_score: f64,
+}
+
+impl Default for StatefulSlo {
+    fn default() -> Self {
+        Self {
+            replication_lag_threshold_ms: 250.0,
+            queue_depth_threshold: 1_000,
+            connection_pool_saturation_threshold: 0.8,
+            connection_wait_time_threshold_ms: 20.0,
+            connection_wait_penalty_weight: 0.2,
+            min_pass_score: 0.9,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Stateful SLO evaluation output per sample.
+pub struct StatefulSloEvaluation {
+    pub timestamp: i64,
+    pub replication_lag_ok: bool,
+    pub queue_depth_ok: bool,
+    pub connection_pool_ok: bool,
+    pub connection_wait_penalized: bool,
+    pub score: f64,
+    pub pass: bool,
+}
+
+pub struct StatefulSloIterator<I>
+where
+    I: Iterator<Item = StatefulSample>,
+{
+    slo: StatefulSlo,
+    source: I,
+}
+
+impl<I> StatefulSloIterator<I>
+where
+    I: Iterator<Item = StatefulSample>,
+{
+    pub fn new(slo: StatefulSlo, source: I) -> Self {
+        Self { slo, source }
+    }
+}
+
+impl<I> Iterator for StatefulSloIterator<I>
+where
+    I: Iterator<Item = StatefulSample>,
+{
+    type Item = StatefulSloEvaluation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source
+            .next()
+            .map(|sample| self.slo.evaluate_sample(&sample))
+    }
+}
+
 pub struct HttpSloIterator<I>
 where
     I: Iterator<Item = HistogramSample>,
@@ -285,6 +364,9 @@ impl JsonYamlExt for HistogramBucket {}
 impl JsonYamlExt for HistogramSample {}
 impl JsonYamlExt for HttpSlo {}
 impl JsonYamlExt for HttpSloEvaluation {}
+impl JsonYamlExt for StatefulSample {}
+impl JsonYamlExt for StatefulSlo {}
+impl JsonYamlExt for StatefulSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
 
 fn missing_key(key: &str) -> PyErr {
@@ -607,6 +689,51 @@ impl HttpSlo {
             latency_ok,
             availability_ok,
             pass: latency_ok && availability_ok,
+        }
+    }
+}
+
+impl StatefulSlo {
+    pub fn evaluate_sample(&self, sample: &StatefulSample) -> StatefulSloEvaluation {
+        let replication_lag_ok = sample.replication_lag_ms <= self.replication_lag_threshold_ms;
+        let queue_depth_ok = sample.queue_depth <= self.queue_depth_threshold;
+        let connection_pool_ok =
+            sample.connection_pool_saturation <= self.connection_pool_saturation_threshold;
+        let connection_wait_penalized =
+            sample.connection_wait_time_ms > self.connection_wait_time_threshold_ms;
+
+        let mut score = 1.0;
+        if !replication_lag_ok {
+            score -= 0.25;
+        }
+        if !queue_depth_ok {
+            score -= 0.25;
+        }
+        if !connection_pool_ok {
+            score -= 0.25;
+        }
+
+        if connection_wait_penalized {
+            let threshold = self.connection_wait_time_threshold_ms.max(1e-9);
+            let excess_ratio =
+                ((sample.connection_wait_time_ms - threshold) / threshold).clamp(0.0, 1.0);
+            score -= self.connection_wait_penalty_weight.max(0.0) * excess_ratio;
+        }
+
+        let score = score.clamp(0.0, 1.0);
+        let pass = replication_lag_ok
+            && queue_depth_ok
+            && connection_pool_ok
+            && score >= self.min_pass_score.clamp(0.0, 1.0);
+
+        StatefulSloEvaluation {
+            timestamp: sample.timestamp,
+            replication_lag_ok,
+            queue_depth_ok,
+            connection_pool_ok,
+            connection_wait_penalized,
+            score,
+            pass,
         }
     }
 }
@@ -1337,5 +1464,76 @@ mod tests {
 
         assert!(result.p99_latency_ms < 200.0);
         assert!(result.pass);
+    }
+
+    #[test]
+    fn stateful_slo_passes_when_all_signals_within_thresholds() {
+        let slo = StatefulSlo::default();
+        let sample = StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 120.0,
+            queue_depth: 300,
+            connection_pool_saturation: 0.6,
+            connection_wait_time_ms: 10.0,
+        };
+
+        let evaluation = slo.evaluate_sample(&sample);
+        assert!(evaluation.replication_lag_ok);
+        assert!(evaluation.queue_depth_ok);
+        assert!(evaluation.connection_pool_ok);
+        assert!(!evaluation.connection_wait_penalized);
+        assert!((evaluation.score - 1.0).abs() < 1e-9);
+        assert!(evaluation.pass);
+    }
+
+    #[test]
+    fn stateful_slo_penalizes_excessive_connection_wait_time() {
+        let slo = StatefulSlo {
+            connection_wait_penalty_weight: 0.3,
+            min_pass_score: 0.85,
+            ..StatefulSlo::default()
+        };
+        let sample = StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 150.0,
+            queue_depth: 200,
+            connection_pool_saturation: 0.5,
+            connection_wait_time_ms: 60.0,
+        };
+
+        let evaluation = slo.evaluate_sample(&sample);
+        assert!(evaluation.replication_lag_ok);
+        assert!(evaluation.queue_depth_ok);
+        assert!(evaluation.connection_pool_ok);
+        assert!(evaluation.connection_wait_penalized);
+        assert!((evaluation.score - 0.7).abs() < 1e-9);
+        assert!(!evaluation.pass);
+    }
+
+    #[test]
+    fn stateful_slo_iterator_handles_mixed_stream() {
+        let slo = StatefulSlo::default();
+        let samples = vec![
+            StatefulSample {
+                timestamp: 1,
+                replication_lag_ms: 200.0,
+                queue_depth: 900,
+                connection_pool_saturation: 0.7,
+                connection_wait_time_ms: 15.0,
+            },
+            StatefulSample {
+                timestamp: 2,
+                replication_lag_ms: 300.0,
+                queue_depth: 1_200,
+                connection_pool_saturation: 0.9,
+                connection_wait_time_ms: 40.0,
+            },
+        ];
+
+        let results: Vec<StatefulSloEvaluation> =
+            StatefulSloIterator::new(slo, samples.into_iter()).collect();
+        assert_eq!(results.len(), 2);
+        assert!(results[0].pass);
+        assert!(!results[1].pass);
     }
 }

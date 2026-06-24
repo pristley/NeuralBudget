@@ -1,7 +1,8 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_web_api_slo,
     is_timestamp_in_window, HistogramBucket, HistogramFormat, HistogramSample, HttpSlo,
-    HttpSloIterator, MetricPoint, OutlierFilterConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    HttpSloIterator, MetricPoint, OutlierFilterConfig, StatefulSample, StatefulSlo,
+    StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -193,4 +194,42 @@ fn functional_http_slo_iterates_histogram_stream() {
     assert!(results[0].pass);
     assert!(!results[1].pass);
     assert!(results[2].pass);
+}
+
+#[test]
+fn functional_stateful_slo_penalizes_connection_wait_regressions() {
+    let slo = StatefulSlo::default();
+    let samples = vec![
+        StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 180.0,
+            queue_depth: 700,
+            connection_pool_saturation: 0.7,
+            connection_wait_time_ms: 8.0,
+        },
+        StatefulSample {
+            timestamp: 2,
+            replication_lag_ms: 200.0,
+            queue_depth: 800,
+            connection_pool_saturation: 0.75,
+            connection_wait_time_ms: 60.0,
+        },
+        StatefulSample {
+            timestamp: 3,
+            replication_lag_ms: 320.0,
+            queue_depth: 1_300,
+            connection_pool_saturation: 0.9,
+            connection_wait_time_ms: 80.0,
+        },
+    ];
+
+    let evaluations: Vec<_> = StatefulSloIterator::new(slo, samples.into_iter()).collect();
+
+    assert_eq!(evaluations.len(), 3);
+    assert!(evaluations[0].pass);
+    assert!(evaluations[1].connection_wait_penalized);
+    assert!(!evaluations[1].pass);
+    assert!(!evaluations[2].replication_lag_ok);
+    assert!(!evaluations[2].queue_depth_ok);
+    assert!(!evaluations[2].connection_pool_ok);
 }

@@ -6,26 +6,27 @@
 [![Release Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![License](https://img.shields.io/badge/license-source--available-lightgrey)](LICENSE)
 
-NeuralBudget is a Rust-first SLO foundation for availability, latency, and error-budget analysis with Python interoperability. It provides a small, deterministic core for service health calculations while keeping the data model simple enough for notebooks, pipelines, and operational tooling.
+NeuralBudget is a Rust-first SLO foundation for availability, latency, and error-budget analysis with Python interoperability. It provides a deterministic core for stateless and stateful service health calculations while keeping data models simple enough for notebooks, pipelines, and operational tooling.
 
 ## At a Glance
 
 - Rust library with `serde`-based models for config and telemetry data
 - Python-facing wrappers built with `PyO3`
-- Availability calculation helpers for classic SLI math
+- Availability, latency, and budget calculations for web APIs and stateful systems
 - JSON and YAML serialization support
-- Lightweight, dependency-conscious design
+- Iterator-first evaluation models for streaming telemetry
 
 ## User Guide
 
 ### What this project is for
 
-Use NeuralBudget when you want a compact core for SLO-related calculations without pulling in a large observability framework. The current scope is intentionally narrow:
+Use NeuralBudget when you want a compact core for SLO-related calculations without pulling in a large observability framework. The current scope focuses on pragmatic building blocks:
 
 - define SLO configuration objects
 - serialize and deserialize core data structures
-- calculate basic availability from good and total events
-- expose the same logic to Python consumers
+- evaluate HTTP/gRPC SLOs from histogram telemetry
+- evaluate database and queue SLOs from stateful operational signals
+- expose core logic to Python consumers
 
 ### Quick Start
 
@@ -57,6 +58,8 @@ print(availability)
 - `WebApiSloReport`: complete report including availability, latency SLI, burn rates, and budget
 - `HistogramBucket`, `HistogramSample`, and `HistogramFormat`: histogram telemetry structures for stateless SLO checks
 - `HttpSlo` and `HttpSloIterator`: p99 latency + availability pass/fail evaluator for HTTP/gRPC streams
+- `StatefulSample`, `StatefulSlo`, and `StatefulSloIterator`: stateful database/queue SLO evaluation with connection-wait penalties
+- `StatefulSloEvaluation`: per-sample output with gate status, score, and pass/fail
 - `calculate_availability(success, total)`: classic SLI ratio, returned as a `float`
 - `calculate_error_budget(slo_target, window_secs)`: remaining budget in seconds for an SLO target and time window
 - `calculate_burn_rate(metric_stream, window_secs)`: normalized burn rate for a stream of budget-consuming samples
@@ -201,6 +204,53 @@ assert_eq!(evaluations.len(), 1);
 assert!(evaluations[0].pass);
 ```
 
+## Stateful Database/Queue SLO
+
+`StatefulSlo` evaluates sample streams using four signals:
+
+- replication lag
+- queue depth
+- connection pool saturation
+- connection wait time
+
+If connection wait time exceeds the configured threshold, a score penalty is applied before pass/fail is decided.
+
+Default policy behavior:
+
+- replication lag must be less than or equal to `250ms`
+- queue depth must be less than or equal to `1000`
+- connection pool saturation must be less than or equal to `0.8`
+- connection wait time above `20ms` reduces score using `connection_wait_penalty_weight`
+
+Example:
+
+```rust
+use neuralbudget::{StatefulSample, StatefulSlo, StatefulSloIterator};
+
+let slo = StatefulSlo::default();
+let samples = vec![
+	StatefulSample {
+		timestamp: 1,
+		replication_lag_ms: 180.0,
+		queue_depth: 700,
+		connection_pool_saturation: 0.7,
+		connection_wait_time_ms: 8.0,
+	},
+	StatefulSample {
+		timestamp: 2,
+		replication_lag_ms: 200.0,
+		queue_depth: 800,
+		connection_pool_saturation: 0.75,
+		connection_wait_time_ms: 60.0,
+	},
+];
+
+let evaluations: Vec<_> = StatefulSloIterator::new(slo, samples.into_iter()).collect();
+assert!(evaluations[0].pass);
+assert!(evaluations[1].connection_wait_penalized);
+assert!(!evaluations[1].pass);
+```
+
 ## Releases
 
 The project is currently at `v0.1.1`. That version represents the foundation layer: core models, serialization helpers, Python wrappers, the first availability calculation primitive, and the initial CI/CD pipeline polish.
@@ -226,18 +276,20 @@ This repository is still in an early foundation phase. The current codebase is i
 
 ### Current Scope
 
-- Rust data models for SLO configuration and metric points
+- Rust data models for SLO configuration and telemetry samples
 - JSON and YAML support for the public structs
 - Python bindings for ergonomic interop
 - Classic availability, error budget, burn-rate, and web API SLO calculations
 - Stateless histogram-based `HttpSlo` iterator for HTTP/gRPC pass-fail evaluation
+- Stateful database/queue `StatefulSlo` iterator with connection-wait penalization
 
 ### Near-Term Roadmap
 
 1. Add Python wrappers for `HttpSlo` histogram evaluation.
-2. Extend percentile policy controls beyond fixed p99 checks.
-3. Introduce richer release notes as new versions ship.
-4. Add packaging support for Python distribution.
+2. Add Python wrappers for `StatefulSlo` and stateful telemetry models.
+3. Extend percentile policy controls beyond fixed p99 checks.
+4. Add weighted policy profiles for different database and queue tiers.
+5. Add packaging support for Python distribution.
 
 ## Development
 

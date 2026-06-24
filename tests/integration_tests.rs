@@ -2,7 +2,8 @@ use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
     calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, HistogramBucket,
     HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
-    MetricPoint, OutlierFilterConfig, SloConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    MetricPoint, OutlierFilterConfig, SloConfig, StatefulSample, StatefulSlo,
+    StatefulSloEvaluation, StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -167,6 +168,14 @@ fn serialization_round_trips_across_models() {
         format: HistogramFormat::OpenTelemetryDelta,
     };
     let http_slo = HttpSlo::default();
+    let stateful_slo = StatefulSlo::default();
+    let stateful_sample = StatefulSample {
+        timestamp: 7,
+        replication_lag_ms: 150.0,
+        queue_depth: 400,
+        connection_pool_saturation: 0.7,
+        connection_wait_time_ms: 12.0,
+    };
 
     assert_eq!(
         SloConfig::from_json_str(&config.to_json_string().unwrap()).unwrap(),
@@ -191,6 +200,14 @@ fn serialization_round_trips_across_models() {
     assert_eq!(
         HttpSlo::from_yaml_str(&http_slo.to_yaml_string().unwrap()).unwrap(),
         http_slo
+    );
+    assert_eq!(
+        StatefulSlo::from_json_str(&stateful_slo.to_json_string().unwrap()).unwrap(),
+        stateful_slo
+    );
+    assert_eq!(
+        StatefulSample::from_yaml_str(&stateful_sample.to_yaml_string().unwrap()).unwrap(),
+        stateful_sample
     );
 }
 
@@ -288,4 +305,37 @@ fn http_slo_iterator_accepts_opentelemetry_delta_histograms() {
     assert!(result.pass);
     assert!(result.p99_latency_ms < 200.0);
     assert!(result.availability > 0.999);
+}
+
+#[test]
+fn stateful_slo_penalty_impacts_pass_fail() {
+    let slo = StatefulSlo {
+        connection_wait_penalty_weight: 0.25,
+        min_pass_score: 0.85,
+        ..StatefulSlo::default()
+    };
+    let samples = vec![
+        StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 100.0,
+            queue_depth: 200,
+            connection_pool_saturation: 0.6,
+            connection_wait_time_ms: 10.0,
+        },
+        StatefulSample {
+            timestamp: 2,
+            replication_lag_ms: 100.0,
+            queue_depth: 200,
+            connection_pool_saturation: 0.6,
+            connection_wait_time_ms: 80.0,
+        },
+    ];
+
+    let results: Vec<StatefulSloEvaluation> =
+        StatefulSloIterator::new(slo, samples.into_iter()).collect();
+    assert_eq!(results.len(), 2);
+    assert!(results[0].pass);
+    assert!(results[1].connection_wait_penalized);
+    assert!((results[1].score - 0.75).abs() < 1e-9);
+    assert!(!results[1].pass);
 }

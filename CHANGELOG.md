@@ -16,6 +16,8 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Web API SLO framework with `WebApiRequest`, `WebApiSloPolicy`, `WebApiSloReport`, and `calculate_web_api_slo`.
 - Stateless HTTP/gRPC SLO histogram evaluation with `HttpSlo`, `HttpSloIterator`, `HistogramSample`, and `HistogramBucket`.
 - Histogram percentile evaluation support for both Prometheus cumulative and OpenTelemetry delta bucket formats.
+- Stateful software SLO evaluation with `StatefulSlo`, `StatefulSample`, `StatefulSloEvaluation`, and `StatefulSloIterator`.
+- Stateful scoring model for replication lag, queue depth, connection pool saturation, and connection-wait-time penalties.
 - CI/CD updates to run documentation tests via `cargo test --doc --all-features`.
 
 ## [0.1.1] - 2026-06-24
