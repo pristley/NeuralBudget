@@ -483,7 +483,7 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 NeuralBudget publishes pre-built wheels for major platforms using:
 
-- [`.github/workflows/pypi-release.yml`](.github/workflows/pypi-release.yml)
+- [`.github/workflows/cd.yml`](.github/workflows/cd.yml)
 
 Release artifacts include:
 
@@ -503,7 +503,7 @@ Release artifacts include:
 1. Bump version in `pyproject.toml` and crate metadata as needed.
 2. Create and push a tag like `v0.1.2`.
 3. Publish a GitHub Release for that tag.
-4. The `PyPI Release` workflow builds cross-platform wheels and uploads to PyPI.
+5. The `CD` workflow builds cross-platform wheels and uploads to PyPI.
 
 ## Changelog and Documentation
 
