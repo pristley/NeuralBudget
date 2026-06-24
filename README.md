@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml)
 [![CD Status](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml)
 [![Latest Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
-[![Crate Version](https://img.shields.io/badge/crate-v0.1.1-blue)](https://github.com/pristley/NeuralBudget/blob/main/Cargo.toml)
+[![Release Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![License](https://img.shields.io/badge/license-source--available-lightgrey)](LICENSE)
 
 NeuralBudget is a Rust-first SLO foundation for availability, latency, and error-budget analysis with Python interoperability. It provides a small, deterministic core for service health calculations while keeping the data model simple enough for notebooks, pipelines, and operational tooling.
@@ -92,7 +92,7 @@ Release artifacts and tags will appear in the GitHub Releases page as the projec
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes and version history.
+See [CHANGELOG.md](CHANGELOG.md) for release notes and version history. The CD workflow keeps this file synchronized for tagged releases.
 
 ## Build Status
 
