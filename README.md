@@ -21,15 +21,17 @@ NeuralBudget is a Rust-first SLO foundation for availability, latency, and error
 
 ## User Guide
 
-### What this project is for
+### What NeuralBudget Is For
 
-Use NeuralBudget when you want a compact core for SLO-related calculations without pulling in a large observability framework. The current scope focuses on pragmatic building blocks:
+Use NeuralBudget when you want deterministic SLO math with a compact API surface. It is designed for service health checks, CI quality gates, notebook analysis, and telemetry pipelines where reproducibility matters.
 
-- define SLO configuration objects
-- serialize and deserialize core data structures
-- evaluate HTTP/gRPC SLOs from histogram telemetry
-- evaluate database and queue SLOs from stateful operational signals
-- expose core logic to Python consumers
+Core capabilities include:
+
+- availability, error budget, and burn-rate calculations
+- stateless HTTP or gRPC histogram SLO evaluation
+- stateful database and queue SLO evaluation
+- JSON or YAML serialization for models
+- Rust performance with Python ergonomics
 
 ### Quick Start
 
@@ -51,58 +53,84 @@ availability = neuralbudget.calculate_availability(995, 1000)
 print(availability)
 ```
 
-### Python Examples
+### Python Installation
 
-Run these examples after installing the wheel (for local development, `maturin develop` or `pip install target/wheels/*.whl`):
+Use one of these flows depending on your environment.
 
-- [examples/python/availability_budget.py](examples/python/availability_budget.py): availability, error budget, and burn-rate primitives
-- [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py): stateless HTTP/gRPC histogram SLO stream evaluation
-- [examples/python/stateful_slo.py](examples/python/stateful_slo.py): stateful database/queue SLO stream evaluation
-- [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py): tier-oriented stateful policy behavior in Python
-- [examples/python/convenience_layer.py](examples/python/convenience_layer.py): pure-Python helper layer on top of the Rust extension
-
-Run any example with:
+#### Option A: Local Wheel Build
 
 ```bash
-python3 examples/python/http_slo_histogram.py
+python3 -m pip install --upgrade pip maturin
+maturin build --release --manifest-path Cargo.toml
+python3 -m pip install --force-reinstall target/wheels/neuralbudget-*.whl
 ```
 
-### Core API
+#### Option B: Local Development Mode
 
-- `SloConfig`: target and evaluation window metadata
-- `ErrorBudget`: remaining budget and burn velocity
-- `MetricPoint`: timestamped observations with optional labels
-- `WebApiRequest`: timestamped request metrics (`latency_ms`, `status_code`, labels)
-- `WebApiSloPolicy`: policy for availability/latency targets, window size, and outlier filtering
-- `WebApiSloReport`: complete report including availability, latency SLI, burn rates, and budget
-- `HistogramBucket`, `HistogramSample`, and `HistogramFormat`: histogram telemetry structures for stateless SLO checks
-- `HttpSlo` and `HttpSloIterator`: p99 latency + availability pass/fail evaluator for HTTP/gRPC streams
-- `StatefulSample`, `StatefulSlo`, and `StatefulSloIterator`: stateful database/queue SLO evaluation with connection-wait penalties
-- `StatefulSloEvaluation`: per-sample output with gate status, score, and pass/fail
-- `calculate_availability(success, total)`: classic SLI ratio, returned as a `float`
-- `calculate_error_budget(slo_target, window_secs)`: remaining budget in seconds for an SLO target and time window
-- `calculate_burn_rate(metric_stream, window_secs)`: normalized burn rate for a stream of budget-consuming samples
-- `calculate_mad(values)`: Median Absolute Deviation for robust spike detection
-- `filter_statistical_outliers(metric_stream, mad_threshold, min_samples)`: configurable outlier filtering
-- `calculate_web_api_slo(requests, policy, now)`: end-to-end SLO calculation for web API streams
+```bash
+python3 -m pip install --upgrade pip maturin
+maturin develop --release --manifest-path Cargo.toml
+```
 
-### Python Convenience Layer
+### Python API Guide
 
-The wheel now includes a small pure-Python layer in `neuralbudget.convenience` for teams that prefer dictionary-oriented and list-oriented call sites.
+NeuralBudget exposes two Python layers.
 
-Convenience helpers include:
+#### 1. Native Extension API: neuralbudget
 
-- `availability_snapshot(...)`: one-call availability plus error-budget summary
-- `metric_stream(...)` and `burn_rate_from_values(...)`: quick burn-rate inputs from plain numeric sequences
-- `evaluate_http_histogram_once(...)`: evaluate one histogram sample and return a plain dictionary
-- `evaluate_stateful_once(...)`: evaluate one stateful sample and return a plain dictionary
+Use this layer when you want direct access to Rust-backed classes and evaluators.
+
+Key classes and functions:
+
+- SloConfig, ErrorBudget, MetricPoint
+- TimeWindow for rolling and calendar-aligned windows
+- HistogramBucket, HistogramSample, HttpSlo
+- StatefulSample, StatefulSlo
+- calculate_availability, calculate_error_budget, calculate_burn_rate
+- filter_statistical_outliers, calculate_web_api_slo
+
+Example:
+
+```python
+import neuralbudget
+
+slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
+samples = [
+	neuralbudget.HistogramSample(
+		timestamp=1,
+		success=9995,
+		total=10000,
+		buckets=[
+			neuralbudget.HistogramBucket(100.0, 9700),
+			neuralbudget.HistogramBucket(150.0, 200),
+			neuralbudget.HistogramBucket(220.0, 100),
+		],
+		format="open_telemetry_delta",
+	)
+]
+
+evaluation = slo.evaluate_stream(samples)[0]
+print(evaluation.pass, evaluation.percentile_latency_ms)
+```
+
+#### 2. Convenience API: neuralbudget.convenience
+
+Use this layer when your data is already in plain dictionaries and lists.
+
+Helpers:
+
+- availability_snapshot: one-call availability and budget summary
+- metric_stream: convert plain numeric points to MetricPoint objects
+- burn_rate_from_values: burn-rate calculation from raw values
+- evaluate_http_histogram_once: evaluate one histogram payload dict
+- evaluate_stateful_once: evaluate one stateful payload dict
 
 Example:
 
 ```python
 from neuralbudget.convenience import availability_snapshot, evaluate_http_histogram_once
 
-snapshot = availability_snapshot(success=9995, total=10000)
+snapshot = availability_snapshot(success=9995, total=10000, slo_target=0.999)
 http_eval = evaluate_http_histogram_once(
 	{
 		"timestamp": 1,
@@ -110,21 +138,34 @@ http_eval = evaluate_http_histogram_once(
 		"total": 10000,
 		"buckets": [
 			{"upper_bound_ms": 100.0, "count": 9700},
+			{"upper_bound_ms": 150.0, "count": 200},
 			{"upper_bound_ms": 220.0, "count": 100},
 		],
 		"format": "open_telemetry_delta",
 	}
 )
+
+print(snapshot["target_met"], http_eval["pass"])
+```
+
+### Python Examples
+
+Reference scripts are available in [examples/python/availability_budget.py](examples/python/availability_budget.py), [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py), [examples/python/stateful_slo.py](examples/python/stateful_slo.py), [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py), and [examples/python/convenience_layer.py](examples/python/convenience_layer.py).
+
+Run any example with:
+
+```bash
+python3 examples/python/convenience_layer.py
 ```
 
 ### Serialization
 
-The core Rust models support JSON and YAML conversion through `serde` helpers. This makes the library suitable for:
+Core models support JSON and YAML conversion through serde helpers. This is useful for:
 
-- config files
+- config files and policy snapshots
 - CLI input and output
 - reproducible test fixtures
-- Python-driven analytics workflows
+- Python analytics workflows
 
 ## Time Window Calculus
 
