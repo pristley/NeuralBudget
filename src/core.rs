@@ -462,7 +462,10 @@ pub struct CompositeSloEvaluation {
 /// Error conditions returned when composite graph evaluation is invalid.
 pub enum CompositeSloError {
     DuplicateService(String),
-    DuplicateDependencyEdge { dependency: String, dependent: String },
+    DuplicateDependencyEdge {
+        dependency: String,
+        dependent: String,
+    },
     UnknownService(String),
     SelfDependency(String),
     CycleDetected,
@@ -1141,10 +1144,10 @@ fn build_composite_graph_index(
             .entry(edge.dependency.clone())
             .or_default()
             .push(edge.dependent.clone());
-        incoming
-            .entry(edge.dependent.clone())
-            .or_default()
-            .push((edge.dependency.clone(), edge.failure_penalty.clamp(0.0, 1.0)));
+        incoming.entry(edge.dependent.clone()).or_default().push((
+            edge.dependency.clone(),
+            edge.failure_penalty.clamp(0.0, 1.0),
+        ));
 
         if let Some(entry) = indegree.get_mut(&edge.dependent) {
             *entry += 1;
@@ -1274,7 +1277,11 @@ fn compute_composite_global_slo(
     } else if services.is_empty() {
         0.0
     } else {
-        (services.iter().map(|entry| entry.effective_score).sum::<f64>() / services.len() as f64)
+        (services
+            .iter()
+            .map(|entry| entry.effective_score)
+            .sum::<f64>()
+            / services.len() as f64)
             .clamp(0.0, 1.0)
     }
 }

@@ -750,11 +750,8 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let _ = composite_service.to_yaml().unwrap();
         let _ = PyCompositeServiceSlo::from_dict(&composite_service_dict).unwrap();
 
-        let composite_edge = PyCompositeDependencyEdge::new(
-            "svc_a".to_string(),
-            "svc_b".to_string(),
-            0.2,
-        );
+        let composite_edge =
+            PyCompositeDependencyEdge::new("svc_a".to_string(), "svc_b".to_string(), 0.2);
         let _ = composite_edge.dependency();
         let _ = composite_edge.dependent();
         let _ = composite_edge.failure_penalty();

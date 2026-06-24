@@ -1935,7 +1935,10 @@ impl PyCompositeServiceSloEvaluation {
         dict.set_item("effective_score", self.inner.effective_score)?;
         dict.set_item("min_pass_score", self.inner.min_pass_score)?;
         dict.set_item("dependency_adjusted", self.inner.dependency_adjusted)?;
-        dict.set_item("failed_dependencies", self.inner.failed_dependencies.clone())?;
+        dict.set_item(
+            "failed_dependencies",
+            self.inner.failed_dependencies.clone(),
+        )?;
         dict.set_item("pass", self.inner.pass)?;
         Ok(dict)
     }
@@ -1968,7 +1971,12 @@ impl PyCompositeSloEvaluation {
 
     #[getter]
     fn services(&self) -> Vec<PyCompositeServiceSloEvaluation> {
-        self.inner.services.iter().cloned().map(Into::into).collect()
+        self.inner
+            .services
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect()
     }
 
     #[getter]
@@ -2041,7 +2049,12 @@ impl PyCompositeSloGraph {
 
     #[getter]
     fn services(&self) -> Vec<PyCompositeServiceSlo> {
-        self.inner.services.iter().cloned().map(Into::into).collect()
+        self.inner
+            .services
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect()
     }
 
     #[getter]
@@ -2300,7 +2313,9 @@ pub fn coerce_composite_service_slo(slo: CompositeServiceSlo) -> PyCompositeServ
 }
 
 #[pyfunction]
-pub fn coerce_composite_dependency_edge(edge: CompositeDependencyEdge) -> PyCompositeDependencyEdge {
+pub fn coerce_composite_dependency_edge(
+    edge: CompositeDependencyEdge,
+) -> PyCompositeDependencyEdge {
     edge.into()
 }
 
@@ -2366,12 +2381,14 @@ pub fn evaluate_genai_slo_stream(
         .collect()
 }
 
-    #[pyfunction]
-    pub fn evaluate_composite_slo_graph(graph: CompositeSloGraph) -> PyResult<PyCompositeSloEvaluation> {
-        evaluate_composite_slo(&graph)
+#[pyfunction]
+pub fn evaluate_composite_slo_graph(
+    graph: CompositeSloGraph,
+) -> PyResult<PyCompositeSloEvaluation> {
+    evaluate_composite_slo(&graph)
         .map(Into::into)
         .map_err(|err| PyTypeError::new_err(err.to_string()))
-    }
+}
 
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
