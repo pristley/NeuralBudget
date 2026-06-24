@@ -309,6 +309,26 @@ assert!(result
     .any(|entry| entry.service == "service_b" && entry.dependency_adjusted));
 ```
 
+Python (native extension API):
+
+```python
+import neuralbudget
+
+graph = neuralbudget.CompositeSloGraph(
+    services=[
+        neuralbudget.CompositeServiceSlo("service_a", 0.72, 0.9, 2.0),
+        neuralbudget.CompositeServiceSlo("service_b", 0.97, 0.9, 3.0),
+    ],
+    dependencies=[
+        neuralbudget.CompositeDependencyEdge("service_a", "service_b", 0.2),
+    ],
+    global_min_pass_score=0.85,
+)
+
+evaluation = neuralbudget.evaluate_composite_slo_graph(graph)
+print(evaluation.global_slo, evaluation.global_pass)
+```
+
 ## Convenience Layer Guide
 
 Import path:
@@ -399,6 +419,17 @@ cargo test --doc --all-features
 python3 tests/python_convenience_tests.py
 ```
 
+### Performance benchmarking
+
+To compile and run performance benchmarks for composite DAG evaluation:
+
+```bash
+cargo bench --no-run
+cargo bench composite_slo_dag
+```
+
+The benchmark target includes representative chain-graph sizes (`100`, `1_000`, `5_000`) and is intended for tracking evaluation cost trends as features evolve.
+
 ### Pipeline policy
 
 - CI validates format, lint, tests, coverage gate, and packaging checks.
@@ -410,6 +441,7 @@ python3 tests/python_convenience_tests.py
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Documentation index: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
 - Convenience reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
+- Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
 - ML plan: [docs/plans/mlops-model-drift-serving-plan.md](docs/plans/mlops-model-drift-serving-plan.md)
 
 ## License

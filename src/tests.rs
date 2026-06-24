@@ -740,6 +740,68 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let genai_stream = genai.evaluate_stream(vec![genai_sample.inner.clone()]);
         assert_eq!(genai_stream.len(), 1);
 
+        let composite_service = PyCompositeServiceSlo::new("svc_a".to_string(), 0.95, 0.9, 2.0);
+        let _ = composite_service.service();
+        let _ = composite_service.local_score();
+        let _ = composite_service.min_pass_score();
+        let _ = composite_service.impact_weight();
+        let composite_service_dict = composite_service.to_dict(py).unwrap();
+        let _ = composite_service.to_json().unwrap();
+        let _ = composite_service.to_yaml().unwrap();
+        let _ = PyCompositeServiceSlo::from_dict(&composite_service_dict).unwrap();
+
+        let composite_edge = PyCompositeDependencyEdge::new(
+            "svc_a".to_string(),
+            "svc_b".to_string(),
+            0.2,
+        );
+        let _ = composite_edge.dependency();
+        let _ = composite_edge.dependent();
+        let _ = composite_edge.failure_penalty();
+        let composite_edge_dict = composite_edge.to_dict(py).unwrap();
+        let _ = composite_edge.to_json().unwrap();
+        let _ = composite_edge.to_yaml().unwrap();
+        let _ = PyCompositeDependencyEdge::from_dict(&composite_edge_dict).unwrap();
+
+        let composite_graph = PyCompositeSloGraph::new(
+            vec![
+                CompositeServiceSlo {
+                    service: "svc_a".to_string(),
+                    local_score: 0.95,
+                    min_pass_score: 0.9,
+                    impact_weight: 2.0,
+                },
+                CompositeServiceSlo {
+                    service: "svc_b".to_string(),
+                    local_score: 0.98,
+                    min_pass_score: 0.9,
+                    impact_weight: 1.0,
+                },
+            ],
+            vec![CompositeDependencyEdge {
+                dependency: "svc_a".to_string(),
+                dependent: "svc_b".to_string(),
+                failure_penalty: 0.1,
+            }],
+            0.9,
+        );
+        let _ = composite_graph.services();
+        let _ = composite_graph.dependencies();
+        let _ = composite_graph.global_min_pass_score();
+        let composite_graph_dict = composite_graph.to_dict(py).unwrap();
+        let _ = composite_graph.to_json().unwrap();
+        let _ = composite_graph.to_yaml().unwrap();
+        let _ = PyCompositeSloGraph::from_dict(&composite_graph_dict).unwrap();
+
+        let composite_eval = composite_graph.evaluate().unwrap();
+        let _ = composite_eval.topological_order();
+        let _ = composite_eval.services();
+        let _ = composite_eval.global_slo();
+        let _ = composite_eval.global_pass();
+        let _ = composite_eval.to_dict(py).unwrap();
+        let _ = composite_eval.to_json().unwrap();
+        let _ = composite_eval.to_yaml().unwrap();
+
         let _ = coerce_slo_config(cfg.inner.clone());
         let _ = coerce_error_budget(budget.inner.clone());
         let _ = coerce_metric_point(point.inner.clone());
@@ -753,6 +815,9 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let _ = coerce_ml_slo(ml.inner.clone());
         let _ = coerce_genai_sample(genai_sample.inner.clone());
         let _ = coerce_genai_slo(genai.inner.clone());
+        let _ = coerce_composite_service_slo(composite_service.inner.clone());
+        let _ = coerce_composite_dependency_edge(composite_edge.inner.clone());
+        let _ = coerce_composite_slo_graph(composite_graph.inner.clone());
 
         let _ = evaluate_http_slo_histogram(sample.inner.clone(), http.inner.clone());
         let _ = evaluate_http_slo_histogram_stream(vec![sample.inner.clone()], http.inner.clone());
@@ -765,6 +830,7 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let _ = evaluate_ml_slo_stream(vec![ml_sample.inner.clone()], ml.inner.clone());
         let _ = evaluate_genai_slo(genai_sample.inner.clone(), genai.inner.clone());
         let _ = evaluate_genai_slo_stream(vec![genai_sample.inner.clone()], genai.inner.clone());
+        let _ = evaluate_composite_slo_graph(composite_graph.inner.clone()).unwrap();
         let _ = semantic_similarity_placeholder("hello world", "hello world", None);
     });
 }
@@ -1023,6 +1089,11 @@ fn python_module_registration_exports_expected_symbols() {
             "GenAiSample",
             "GenAiSlo",
             "GenAiSloEvaluation",
+            "CompositeServiceSlo",
+            "CompositeDependencyEdge",
+            "CompositeServiceSloEvaluation",
+            "CompositeSloEvaluation",
+            "CompositeSloGraph",
             "calculate_availability",
             "calculate_error_budget",
             "calculate_burn_rate",
@@ -1036,6 +1107,7 @@ fn python_module_registration_exports_expected_symbols() {
             "evaluate_ml_slo_stream",
             "evaluate_genai_slo",
             "evaluate_genai_slo_stream",
+            "evaluate_composite_slo_graph",
             "coerce_slo_config",
             "coerce_error_budget",
             "coerce_metric_point",
@@ -1049,6 +1121,9 @@ fn python_module_registration_exports_expected_symbols() {
             "coerce_ml_slo",
             "coerce_genai_sample",
             "coerce_genai_slo",
+            "coerce_composite_service_slo",
+            "coerce_composite_dependency_edge",
+            "coerce_composite_slo_graph",
         ] {
             assert!(module.getattr(name).is_ok(), "missing symbol: {name}");
         }
@@ -1395,4 +1470,114 @@ fn composite_slo_dag_rejects_cycles() {
 
     let error = evaluate_composite_slo(&graph).unwrap_err();
     assert_eq!(error, CompositeSloError::CycleDetected);
+}
+
+#[test]
+fn composite_slo_dag_rejects_duplicate_edges() {
+    let graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "a".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "b".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![
+            CompositeDependencyEdge {
+                dependency: "a".to_string(),
+                dependent: "b".to_string(),
+                failure_penalty: 0.2,
+            },
+            CompositeDependencyEdge {
+                dependency: "a".to_string(),
+                dependent: "b".to_string(),
+                failure_penalty: 0.4,
+            },
+        ],
+        global_min_pass_score: 0.9,
+    };
+
+    let error = evaluate_composite_slo(&graph).unwrap_err();
+    assert_eq!(
+        error,
+        CompositeSloError::DuplicateDependencyEdge {
+            dependency: "a".to_string(),
+            dependent: "b".to_string(),
+        }
+    );
+}
+
+#[test]
+fn composite_slo_dag_has_deterministic_topological_order() {
+    let graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "delta".to_string(),
+                local_score: 0.98,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "alpha".to_string(),
+                local_score: 0.98,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "beta".to_string(),
+                local_score: 0.98,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "gamma".to_string(),
+                local_score: 0.98,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![
+            CompositeDependencyEdge {
+                dependency: "alpha".to_string(),
+                dependent: "delta".to_string(),
+                failure_penalty: 0.1,
+            },
+            CompositeDependencyEdge {
+                dependency: "beta".to_string(),
+                dependent: "delta".to_string(),
+                failure_penalty: 0.1,
+            },
+        ],
+        global_min_pass_score: 0.9,
+    };
+
+    let first = evaluate_composite_slo(&graph).unwrap();
+    let second = evaluate_composite_slo(&graph).unwrap();
+
+    assert_eq!(first.topological_order, second.topological_order);
+    let pos_alpha = first
+        .topological_order
+        .iter()
+        .position(|name| name == "alpha")
+        .unwrap();
+    let pos_beta = first
+        .topological_order
+        .iter()
+        .position(|name| name == "beta")
+        .unwrap();
+    let pos_delta = first
+        .topological_order
+        .iter()
+        .position(|name| name == "delta")
+        .unwrap();
+
+    assert!(pos_alpha < pos_delta);
+    assert!(pos_beta < pos_delta);
 }

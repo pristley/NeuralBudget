@@ -1,6 +1,7 @@
 #![allow(clippy::useless_conversion)]
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::convert::TryFrom;
 
 use pyo3::exceptions::{PyKeyError, PyTypeError};
@@ -427,6 +428,13 @@ impl Default for CompositeSloGraph {
     }
 }
 
+impl CompositeSloGraph {
+    /// Evaluate this dependency graph and compute per-service and global SLO outcomes.
+    pub fn evaluate(&self) -> Result<CompositeSloEvaluation, CompositeSloError> {
+        evaluate_composite_slo(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO evaluation result for one service node.
 pub struct CompositeServiceSloEvaluation {
@@ -454,6 +462,7 @@ pub struct CompositeSloEvaluation {
 /// Error conditions returned when composite graph evaluation is invalid.
 pub enum CompositeSloError {
     DuplicateService(String),
+    DuplicateDependencyEdge { dependency: String, dependent: String },
     UnknownService(String),
     SelfDependency(String),
     CycleDetected,
@@ -463,6 +472,15 @@ impl std::fmt::Display for CompositeSloError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DuplicateService(name) => write!(f, "duplicate service '{name}'"),
+            Self::DuplicateDependencyEdge {
+                dependency,
+                dependent,
+            } => {
+                write!(
+                    f,
+                    "duplicate dependency edge '{dependency}' -> '{dependent}'"
+                )
+            }
             Self::UnknownService(name) => write!(f, "unknown service '{name}' in dependency graph"),
             Self::SelfDependency(name) => write!(f, "service '{name}' cannot depend on itself"),
             Self::CycleDetected => write!(f, "composite dependency graph contains a cycle"),
@@ -1052,10 +1070,39 @@ pub fn calculate_web_api_slo(
 pub fn evaluate_composite_slo(
     graph: &CompositeSloGraph,
 ) -> Result<CompositeSloEvaluation, CompositeSloError> {
-    let mut services_by_name: HashMap<String, &CompositeServiceSlo> = HashMap::new();
+    let graph_index = build_composite_graph_index(graph)?;
+    let topological_order = composite_topological_order(&graph_index)?;
+    let evaluations_by_service = evaluate_composite_services(&topological_order, &graph_index)?;
+
+    let services: Vec<CompositeServiceSloEvaluation> = topological_order
+        .iter()
+        .filter_map(|name| evaluations_by_service.get(name).cloned())
+        .collect();
+
+    let global_slo = compute_composite_global_slo(&services, &graph_index.services_by_name);
+
+    Ok(CompositeSloEvaluation {
+        topological_order,
+        services,
+        global_slo,
+        global_pass: global_slo >= graph.global_min_pass_score.clamp(0.0, 1.0),
+    })
+}
+
+struct CompositeGraphIndex {
+    services_by_name: HashMap<String, CompositeServiceSlo>,
+    indegree: HashMap<String, usize>,
+    adjacency: HashMap<String, Vec<String>>,
+    incoming: HashMap<String, Vec<(String, f64)>>,
+}
+
+fn build_composite_graph_index(
+    graph: &CompositeSloGraph,
+) -> Result<CompositeGraphIndex, CompositeSloError> {
+    let mut services_by_name: HashMap<String, CompositeServiceSlo> = HashMap::new();
     for service in &graph.services {
         if services_by_name
-            .insert(service.service.clone(), service)
+            .insert(service.service.clone(), service.clone())
             .is_some()
         {
             return Err(CompositeSloError::DuplicateService(service.service.clone()));
@@ -1068,6 +1115,7 @@ pub fn evaluate_composite_slo(
         .collect();
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
     let mut incoming: HashMap<String, Vec<(String, f64)>> = HashMap::new();
+    let mut seen_edges: HashSet<(String, String)> = HashSet::new();
 
     for edge in &graph.dependencies {
         if edge.dependency == edge.dependent {
@@ -1079,6 +1127,14 @@ pub fn evaluate_composite_slo(
         }
         if !services_by_name.contains_key(&edge.dependent) {
             return Err(CompositeSloError::UnknownService(edge.dependent.clone()));
+        }
+
+        let edge_key = (edge.dependency.clone(), edge.dependent.clone());
+        if !seen_edges.insert(edge_key.clone()) {
+            return Err(CompositeSloError::DuplicateDependencyEdge {
+                dependency: edge_key.0,
+                dependent: edge_key.1,
+            });
         }
 
         adjacency
@@ -1095,38 +1151,68 @@ pub fn evaluate_composite_slo(
         }
     }
 
-    let mut queue: VecDeque<String> = indegree
-        .iter()
-        .filter_map(|(name, degree)| {
-            if *degree == 0 {
-                Some(name.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
-    let mut topological_order: Vec<String> = Vec::with_capacity(services_by_name.len());
+    // Keep downstream and upstream dependency iteration deterministic.
+    for dependents in adjacency.values_mut() {
+        dependents.sort();
+    }
+    for dependencies in incoming.values_mut() {
+        dependencies.sort_by(|a, b| a.0.cmp(&b.0));
+    }
 
-    while let Some(service) = queue.pop_front() {
+    Ok(CompositeGraphIndex {
+        services_by_name,
+        indegree,
+        adjacency,
+        incoming,
+    })
+}
+
+fn composite_topological_order(
+    graph_index: &CompositeGraphIndex,
+) -> Result<Vec<String>, CompositeSloError> {
+    let mut indegree = graph_index.indegree.clone();
+    let mut ready: BinaryHeap<Reverse<String>> = BinaryHeap::new();
+
+    for (name, degree) in &indegree {
+        if *degree == 0 {
+            ready.push(Reverse(name.clone()));
+        }
+    }
+
+    let mut topological_order: Vec<String> = Vec::with_capacity(graph_index.services_by_name.len());
+    while let Some(Reverse(service)) = ready.pop() {
         topological_order.push(service.clone());
-        for dependent in adjacency.get(&service).cloned().unwrap_or_default() {
+        for dependent in graph_index
+            .adjacency
+            .get(&service)
+            .cloned()
+            .unwrap_or_default()
+        {
             if let Some(entry) = indegree.get_mut(&dependent) {
                 *entry = entry.saturating_sub(1);
                 if *entry == 0 {
-                    queue.push_back(dependent);
+                    ready.push(Reverse(dependent));
                 }
             }
         }
     }
 
-    if topological_order.len() != services_by_name.len() {
+    if topological_order.len() != graph_index.services_by_name.len() {
         return Err(CompositeSloError::CycleDetected);
     }
 
+    Ok(topological_order)
+}
+
+fn evaluate_composite_services(
+    topological_order: &[String],
+    graph_index: &CompositeGraphIndex,
+) -> Result<HashMap<String, CompositeServiceSloEvaluation>, CompositeSloError> {
     let mut evaluations_by_service: HashMap<String, CompositeServiceSloEvaluation> = HashMap::new();
-    for service_name in &topological_order {
-        let service = match services_by_name.get(service_name) {
-            Some(node) => *node,
+
+    for service_name in topological_order {
+        let service = match graph_index.services_by_name.get(service_name) {
+            Some(node) => node,
             None => return Err(CompositeSloError::UnknownService(service_name.clone())),
         };
 
@@ -1135,7 +1221,12 @@ pub fn evaluate_composite_slo(
         let mut effective_score = local_score;
         let mut failed_dependencies = Vec::new();
 
-        for (dependency, penalty) in incoming.get(service_name).cloned().unwrap_or_default() {
+        for (dependency, penalty) in graph_index
+            .incoming
+            .get(service_name)
+            .cloned()
+            .unwrap_or_default()
+        {
             if let Some(dependency_eval) = evaluations_by_service.get(&dependency) {
                 if !dependency_eval.pass {
                     failed_dependencies.push(dependency);
@@ -1161,36 +1252,31 @@ pub fn evaluate_composite_slo(
         );
     }
 
-    let services: Vec<CompositeServiceSloEvaluation> = topological_order
-        .iter()
-        .filter_map(|name| evaluations_by_service.get(name).cloned())
-        .collect();
+    Ok(evaluations_by_service)
+}
 
+fn compute_composite_global_slo(
+    services: &[CompositeServiceSloEvaluation],
+    services_by_name: &HashMap<String, CompositeServiceSlo>,
+) -> f64 {
     let mut weighted_sum = 0.0;
     let mut total_weight = 0.0;
-    for service in &graph.services {
-        if let Some(evaluation) = evaluations_by_service.get(&service.service) {
-            let weight = service.impact_weight.max(0.0);
-            weighted_sum += evaluation.effective_score * weight;
+    for service in services {
+        if let Some(policy) = services_by_name.get(&service.service) {
+            let weight = policy.impact_weight.max(0.0);
+            weighted_sum += service.effective_score * weight;
             total_weight += weight;
         }
     }
 
-    let global_slo = if total_weight > 0.0 {
+    if total_weight > 0.0 {
         (weighted_sum / total_weight).clamp(0.0, 1.0)
     } else if services.is_empty() {
         0.0
     } else {
         (services.iter().map(|entry| entry.effective_score).sum::<f64>() / services.len() as f64)
             .clamp(0.0, 1.0)
-    };
-
-    Ok(CompositeSloEvaluation {
-        topological_order,
-        services,
-        global_slo,
-        global_pass: global_slo >= graph.global_min_pass_score.clamp(0.0, 1.0),
-    })
+    }
 }
 
 impl HttpSlo {

@@ -291,6 +291,61 @@ impl<'py> FromPyObject<'py> for GenAiSlo {
     }
 }
 
+impl<'py> FromPyObject<'py> for CompositeServiceSlo {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyCompositeServiceSlo>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("CompositeServiceSlo"))?;
+        Ok(Self {
+            service: extract_required(dict, "service")?,
+            local_score: extract_required(dict, "local_score")?,
+            min_pass_score: extract_required(dict, "min_pass_score")?,
+            impact_weight: extract_required(dict, "impact_weight")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for CompositeDependencyEdge {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyCompositeDependencyEdge>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("CompositeDependencyEdge"))?;
+        Ok(Self {
+            dependency: extract_required(dict, "dependency")?,
+            dependent: extract_required(dict, "dependent")?,
+            failure_penalty: extract_required(dict, "failure_penalty")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for CompositeSloGraph {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyCompositeSloGraph>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("CompositeSloGraph"))?;
+        Ok(Self {
+            services: extract_required(dict, "services")?,
+            dependencies: extract_required(dict, "dependencies")?,
+            global_min_pass_score: match dict.get_item("global_min_pass_score")? {
+                Some(value) => value.extract::<f64>()?,
+                None => CompositeSloGraph::default().global_min_pass_score,
+            },
+        })
+    }
+}
+
 #[pyclass(name = "SloConfig")]
 #[derive(Clone)]
 pub struct PySloConfig {
@@ -1699,6 +1754,349 @@ impl PyGenAiSlo {
     }
 }
 
+#[pyclass(name = "CompositeServiceSlo")]
+#[derive(Clone)]
+pub struct PyCompositeServiceSlo {
+    inner: CompositeServiceSlo,
+}
+
+#[pymethods]
+impl PyCompositeServiceSlo {
+    #[new]
+    fn new(service: String, local_score: f64, min_pass_score: f64, impact_weight: f64) -> Self {
+        Self {
+            inner: CompositeServiceSlo {
+                service,
+                local_score,
+                min_pass_score,
+                impact_weight,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<CompositeServiceSlo>()?,
+        })
+    }
+
+    #[getter]
+    fn service(&self) -> String {
+        self.inner.service.clone()
+    }
+
+    #[getter]
+    fn local_score(&self) -> f64 {
+        self.inner.local_score
+    }
+
+    #[getter]
+    fn min_pass_score(&self) -> f64 {
+        self.inner.min_pass_score
+    }
+
+    #[getter]
+    fn impact_weight(&self) -> f64 {
+        self.inner.impact_weight
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("service", self.inner.service.clone())?;
+        dict.set_item("local_score", self.inner.local_score)?;
+        dict.set_item("min_pass_score", self.inner.min_pass_score)?;
+        dict.set_item("impact_weight", self.inner.impact_weight)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "CompositeDependencyEdge")]
+#[derive(Clone)]
+pub struct PyCompositeDependencyEdge {
+    inner: CompositeDependencyEdge,
+}
+
+#[pymethods]
+impl PyCompositeDependencyEdge {
+    #[new]
+    fn new(dependency: String, dependent: String, failure_penalty: f64) -> Self {
+        Self {
+            inner: CompositeDependencyEdge {
+                dependency,
+                dependent,
+                failure_penalty,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<CompositeDependencyEdge>()?,
+        })
+    }
+
+    #[getter]
+    fn dependency(&self) -> String {
+        self.inner.dependency.clone()
+    }
+
+    #[getter]
+    fn dependent(&self) -> String {
+        self.inner.dependent.clone()
+    }
+
+    #[getter]
+    fn failure_penalty(&self) -> f64 {
+        self.inner.failure_penalty
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("dependency", self.inner.dependency.clone())?;
+        dict.set_item("dependent", self.inner.dependent.clone())?;
+        dict.set_item("failure_penalty", self.inner.failure_penalty)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "CompositeServiceSloEvaluation")]
+#[derive(Clone)]
+pub struct PyCompositeServiceSloEvaluation {
+    inner: CompositeServiceSloEvaluation,
+}
+
+#[pymethods]
+impl PyCompositeServiceSloEvaluation {
+    #[getter]
+    fn service(&self) -> String {
+        self.inner.service.clone()
+    }
+
+    #[getter]
+    fn local_score(&self) -> f64 {
+        self.inner.local_score
+    }
+
+    #[getter]
+    fn effective_score(&self) -> f64 {
+        self.inner.effective_score
+    }
+
+    #[getter]
+    fn min_pass_score(&self) -> f64 {
+        self.inner.min_pass_score
+    }
+
+    #[getter]
+    fn dependency_adjusted(&self) -> bool {
+        self.inner.dependency_adjusted
+    }
+
+    #[getter]
+    fn failed_dependencies(&self) -> Vec<String> {
+        self.inner.failed_dependencies.clone()
+    }
+
+    #[getter]
+    fn pass(&self) -> bool {
+        self.inner.pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("service", self.inner.service.clone())?;
+        dict.set_item("local_score", self.inner.local_score)?;
+        dict.set_item("effective_score", self.inner.effective_score)?;
+        dict.set_item("min_pass_score", self.inner.min_pass_score)?;
+        dict.set_item("dependency_adjusted", self.inner.dependency_adjusted)?;
+        dict.set_item("failed_dependencies", self.inner.failed_dependencies.clone())?;
+        dict.set_item("pass", self.inner.pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "CompositeSloEvaluation")]
+#[derive(Clone)]
+pub struct PyCompositeSloEvaluation {
+    inner: CompositeSloEvaluation,
+}
+
+#[pymethods]
+impl PyCompositeSloEvaluation {
+    #[getter]
+    fn topological_order(&self) -> Vec<String> {
+        self.inner.topological_order.clone()
+    }
+
+    #[getter]
+    fn services(&self) -> Vec<PyCompositeServiceSloEvaluation> {
+        self.inner.services.iter().cloned().map(Into::into).collect()
+    }
+
+    #[getter]
+    fn global_slo(&self) -> f64 {
+        self.inner.global_slo
+    }
+
+    #[getter]
+    fn global_pass(&self) -> bool {
+        self.inner.global_pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        let services: Vec<Bound<'_, PyDict>> = self
+            .services()
+            .iter()
+            .map(|entry| entry.to_dict(py))
+            .collect::<PyResult<Vec<_>>>()?;
+        dict.set_item("topological_order", self.inner.topological_order.clone())?;
+        dict.set_item("services", services)?;
+        dict.set_item("global_slo", self.inner.global_slo)?;
+        dict.set_item("global_pass", self.inner.global_pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "CompositeSloGraph")]
+#[derive(Clone)]
+pub struct PyCompositeSloGraph {
+    inner: CompositeSloGraph,
+}
+
+#[pymethods]
+impl PyCompositeSloGraph {
+    #[new]
+    #[pyo3(signature = (services, dependencies, global_min_pass_score=0.9))]
+    fn new(
+        services: Vec<CompositeServiceSlo>,
+        dependencies: Vec<CompositeDependencyEdge>,
+        global_min_pass_score: f64,
+    ) -> Self {
+        Self {
+            inner: CompositeSloGraph {
+                services,
+                dependencies,
+                global_min_pass_score,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<CompositeSloGraph>()?,
+        })
+    }
+
+    #[getter]
+    fn services(&self) -> Vec<PyCompositeServiceSlo> {
+        self.inner.services.iter().cloned().map(Into::into).collect()
+    }
+
+    #[getter]
+    fn dependencies(&self) -> Vec<PyCompositeDependencyEdge> {
+        self.inner
+            .dependencies
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect()
+    }
+
+    #[getter]
+    fn global_min_pass_score(&self) -> f64 {
+        self.inner.global_min_pass_score
+    }
+
+    fn evaluate(&self) -> PyResult<PyCompositeSloEvaluation> {
+        self.inner
+            .evaluate()
+            .map(Into::into)
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        let services: Vec<Bound<'_, PyDict>> = self
+            .services()
+            .iter()
+            .map(|service| service.to_dict(py))
+            .collect::<PyResult<Vec<_>>>()?;
+        let dependencies: Vec<Bound<'_, PyDict>> = self
+            .dependencies()
+            .iter()
+            .map(|edge| edge.to_dict(py))
+            .collect::<PyResult<Vec<_>>>()?;
+        dict.set_item("services", services)?;
+        dict.set_item("dependencies", dependencies)?;
+        dict.set_item("global_min_pass_score", self.inner.global_min_pass_score)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
 impl From<SloConfig> for PySloConfig {
     fn from(inner: SloConfig) -> Self {
         Self { inner }
@@ -1801,6 +2199,36 @@ impl From<GenAiSlo> for PyGenAiSlo {
     }
 }
 
+impl From<CompositeServiceSlo> for PyCompositeServiceSlo {
+    fn from(inner: CompositeServiceSlo) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<CompositeDependencyEdge> for PyCompositeDependencyEdge {
+    fn from(inner: CompositeDependencyEdge) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<CompositeServiceSloEvaluation> for PyCompositeServiceSloEvaluation {
+    fn from(inner: CompositeServiceSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<CompositeSloEvaluation> for PyCompositeSloEvaluation {
+    fn from(inner: CompositeSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<CompositeSloGraph> for PyCompositeSloGraph {
+    fn from(inner: CompositeSloGraph) -> Self {
+        Self { inner }
+    }
+}
+
 #[pyfunction]
 pub fn coerce_slo_config(config: SloConfig) -> PySloConfig {
     config.into()
@@ -1867,6 +2295,21 @@ pub fn coerce_genai_slo(slo: GenAiSlo) -> PyGenAiSlo {
 }
 
 #[pyfunction]
+pub fn coerce_composite_service_slo(slo: CompositeServiceSlo) -> PyCompositeServiceSlo {
+    slo.into()
+}
+
+#[pyfunction]
+pub fn coerce_composite_dependency_edge(edge: CompositeDependencyEdge) -> PyCompositeDependencyEdge {
+    edge.into()
+}
+
+#[pyfunction]
+pub fn coerce_composite_slo_graph(graph: CompositeSloGraph) -> PyCompositeSloGraph {
+    graph.into()
+}
+
+#[pyfunction]
 pub fn evaluate_http_slo_histogram(sample: HistogramSample, slo: HttpSlo) -> PyHttpSloEvaluation {
     slo.evaluate_histogram(&sample).into()
 }
@@ -1923,6 +2366,13 @@ pub fn evaluate_genai_slo_stream(
         .collect()
 }
 
+    #[pyfunction]
+    pub fn evaluate_composite_slo_graph(graph: CompositeSloGraph) -> PyResult<PyCompositeSloEvaluation> {
+        evaluate_composite_slo(&graph)
+        .map(Into::into)
+        .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -1943,6 +2393,11 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGenAiSample>()?;
     module.add_class::<PyGenAiSlo>()?;
     module.add_class::<PyGenAiSloEvaluation>()?;
+    module.add_class::<PyCompositeServiceSlo>()?;
+    module.add_class::<PyCompositeDependencyEdge>()?;
+    module.add_class::<PyCompositeServiceSloEvaluation>()?;
+    module.add_class::<PyCompositeSloEvaluation>()?;
+    module.add_class::<PyCompositeSloGraph>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
@@ -1959,6 +2414,7 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(evaluate_ml_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_genai_slo, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_genai_slo_stream, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_composite_slo_graph, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;
@@ -1972,6 +2428,9 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(coerce_ml_slo, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_genai_sample, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_genai_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_composite_service_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_composite_dependency_edge, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_composite_slo_graph, module)?)?;
     Ok(())
 }
 

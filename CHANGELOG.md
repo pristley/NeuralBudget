@@ -28,6 +28,8 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Added convenience exports for GenAI helper and preset lookup via `get_genai_profile_preset`.
 - Added Composite SLO DAG support with `CompositeSloGraph`, `CompositeDependencyEdge`, `evaluate_composite_slo`, and weighted System Global SLO output.
 - Added dependency-impact propagation so downstream services are automatically adjusted and flagged when upstream dependencies fail.
+- Added PyO3 Composite DAG bindings with `CompositeServiceSlo`, `CompositeDependencyEdge`, `CompositeSloGraph`, `CompositeServiceSloEvaluation`, `CompositeSloEvaluation`, and `evaluate_composite_slo_graph(...)`.
+- Added Criterion benchmark target `benches/composite_slo_dag.rs` for large DAG evaluations (`cargo bench`).
 
 ### Documentation
 
@@ -37,6 +39,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 	- convenience layer usage for presets and dataclass return mode
 	- explicit CI/CD and coverage policy sections
 	- direct changelog and documentation navigation badges/links
+- Added dedicated Composite DAG reference docs at `docs/reference/composite-slo-dag.md` and linked it from the docs index and README.
 
 ### Changed
 
@@ -45,6 +48,8 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - CI/CD continue to enforce a practical 89% line-coverage floor with `cargo llvm-cov` after modular coverage accounting changes.
 - README release section now includes a professional `v0.1.1` release-notes summary and refreshed pipeline documentation.
 - Release-note automation now emits categorized and more readable notes for tagged releases.
+- Composite DAG evaluator refactored into modular internal stages (graph indexing, deterministic topological ordering, service evaluation, global aggregation).
+- Composite DAG traversal now has deterministic ordering and duplicate-edge validation for reproducible outputs.
 
 ## [0.1.1] - 2026-06-24
 

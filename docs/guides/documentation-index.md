@@ -13,6 +13,7 @@ This index groups documentation by audience and workflow.
 ## API References
 
 - docs/reference/convenience-layer.md: Detailed reference for the Python convenience layer, typed dataclass returns, and profile presets.
+- docs/reference/composite-slo-dag.md: Reference for Composite SLO DAG schemas, dependency propagation, global score semantics, and errors.
 
 ## Testing and Quality Gates
 
@@ -24,4 +25,5 @@ This index groups documentation by audience and workflow.
 
 1. README
 2. docs/reference/convenience-layer.md
-3. docs/plans/mlops-model-drift-serving-plan.md
+3. docs/reference/composite-slo-dag.md
+4. docs/plans/mlops-model-drift-serving-plan.md
