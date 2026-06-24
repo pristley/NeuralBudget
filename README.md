@@ -63,6 +63,27 @@ The core Rust models support JSON and YAML conversion through `serde` helpers. T
 - reproducible test fixtures
 - Python-driven analytics workflows
 
+## Time Window Calculus
+
+NeuralBudget supports two SLO window styles:
+
+- Rolling windows, which measure backward from the current evaluation time.
+- Calendar-aligned windows, which snap to fixed boundaries in a timezone-aware local clock.
+
+The current implementation uses `TimeWindow::contains(timestamp, now)` in Rust and `neuralbudget.is_timestamp_in_window(...)` in Python. Calendar-aligned windows accept a timezone offset in seconds so the same logic works across UTC and local schedules.
+
+Example:
+
+```rust
+use neuralbudget::TimeWindow;
+
+let rolling = TimeWindow::rolling(3_600);
+assert!(rolling.contains(1_699_999_999, 1_700_000_000));
+
+let calendar = TimeWindow::calendar_aligned(86_400, 18_000);
+assert!(calendar.contains(68_400, 90_000));
+```
+
 ## Releases
 
 The project is currently at `v0.1.1`. That version represents the foundation layer: core models, serialization helpers, Python wrappers, the first availability calculation primitive, and the initial CI/CD pipeline polish.
@@ -113,6 +134,8 @@ This repository is still in an early foundation phase. The current codebase is i
 ```bash
 cargo test
 ```
+
+The repository also keeps integration coverage in [tests/integration_tests.rs](tests/integration_tests.rs). CI and CD run both the unit test suite and the integration suite separately so changes are validated at both levels.
 
 ### CI/CD Flow
 
