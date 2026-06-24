@@ -1,5 +1,6 @@
 use neuralbudget::{
-    calculate_availability, ErrorBudget, JsonYamlExt, MetricPoint, SloConfig, TimeWindow,
+    calculate_availability, calculate_burn_rate, calculate_error_budget, ErrorBudget, JsonYamlExt,
+    MetricPoint, SloConfig, TimeWindow,
 };
 
 #[test]
@@ -7,6 +8,27 @@ fn availability_matches_classic_sli_ratio() {
     let availability = calculate_availability(995, 1000);
 
     assert_eq!(availability, 0.995);
+}
+
+#[test]
+fn error_budget_scales_from_slo_target() {
+    let budget = calculate_error_budget(0.999, 3_600);
+
+    assert!((budget - 3.6).abs() < 1e-9);
+}
+
+#[test]
+fn burn_rate_compares_five_minutes_against_one_hour() {
+    let stream: Vec<MetricPoint> = (0..3_600)
+        .map(|timestamp| MetricPoint {
+            timestamp,
+            value: if timestamp >= 3_300 { 1.0 } else { 0.0 },
+            labels: Default::default(),
+        })
+        .collect();
+
+    assert_eq!(calculate_burn_rate(stream.clone(), 300), 1.0);
+    assert_eq!(calculate_burn_rate(stream, 3_600), 300.0 / 3_600.0);
 }
 
 #[test]

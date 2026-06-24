@@ -189,6 +189,45 @@ pub fn calculate_availability(success: u64, total: u64) -> f64 {
 }
 
 #[pyfunction]
+/// Calculate the remaining error budget in seconds for a target and window.
+pub fn calculate_error_budget(slo_target: f64, time_window_seconds: u64) -> f64 {
+    let bounded_target = slo_target.clamp(0.0, 1.0);
+    (1.0 - bounded_target) * time_window_seconds as f64
+}
+
+#[pyfunction]
+/// Calculate burn rate from a metric stream where values above `0.0` consume budget.
+pub fn calculate_burn_rate(metric_stream: Vec<MetricPoint>, window_secs: u64) -> f64 {
+    if metric_stream.is_empty() || window_secs == 0 {
+        return 0.0;
+    }
+
+    let window_secs = match i64::try_from(window_secs) {
+        Ok(value) if value > 0 => value,
+        _ => return 0.0,
+    };
+
+    let now = match metric_stream.iter().map(|point| point.timestamp).max() {
+        Some(value) => value,
+        None => return 0.0,
+    };
+
+    let window_start = match now.checked_sub(window_secs) {
+        Some(value) => value,
+        None => return 0.0,
+    };
+
+    // Treat the metric stream as one sample per second and count budget-consuming samples.
+    let consumed_seconds = metric_stream
+        .iter()
+        .filter(|point| point.timestamp > window_start && point.timestamp <= now)
+        .filter(|point| point.value > 0.0)
+        .count() as f64;
+
+    consumed_seconds / window_secs as f64
+}
+
+#[pyfunction]
 /// Check whether a timestamp is inside the active SLO window.
 pub fn is_timestamp_in_window(timestamp: i64, now: i64, window: TimeWindow) -> bool {
     window.contains(timestamp, now)
@@ -571,6 +610,8 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMetricPoint>()?;
     module.add_class::<PyTimeWindow>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
+    module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
+    module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
     module.add_function(wrap_pyfunction!(is_timestamp_in_window, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
@@ -609,6 +650,30 @@ mod tests {
 
             assert_eq!(calculate_availability(success, total), expected);
         });
+    }
+
+    #[test]
+    fn calculate_error_budget_scales_with_window() {
+        let budget = calculate_error_budget(0.99, 3_600);
+
+        assert!((budget - 36.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn burn_rate_rises_with_more_recent_consumption() {
+        let stream: Vec<MetricPoint> = (0..3_600)
+            .map(|timestamp| MetricPoint {
+                timestamp,
+                value: if timestamp >= 3_300 { 1.0 } else { 0.0 },
+                labels: HashMap::new(),
+            })
+            .collect();
+
+        let five_minute = calculate_burn_rate(stream.clone(), 300);
+        let one_hour = calculate_burn_rate(stream, 3_600);
+
+        assert_eq!(five_minute, 1.0);
+        assert_eq!(one_hour, 300.0 / 3_600.0);
     }
 
     #[test]

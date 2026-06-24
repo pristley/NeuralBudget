@@ -51,6 +51,9 @@ jobs:
       - name: Run integration tests
         run: cargo test --test integration_tests --all-features
 
+      - name: Run functional tests
+        run: cargo test --test functional_tests --all-features
+
       - name: Package crate
         run: cargo package --allow-dirty --no-verify
 

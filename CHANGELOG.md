@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Release entries are maintained automatically by the CD workflow on tagged releases.
 
+## [Unreleased]
+
+### Added
+
+- Core error budget and burn-rate helpers for SLO analysis.
+- `calculate_error_budget(slo_target, time_window_seconds)` for the absolute budget in seconds.
+- `calculate_burn_rate(metric_stream, window_secs)` for 5-minute and 1-hour burn-rate comparisons.
+
 ## [0.1.1] - 2026-06-24
 
 ### Changed
