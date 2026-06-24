@@ -32,6 +32,63 @@ pub struct MetricPoint {
     pub labels: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Timestamped web API request sample.
+pub struct WebApiRequest {
+    pub timestamp: i64,
+    pub latency_ms: f64,
+    pub status_code: u16,
+    #[serde(default)]
+    pub labels: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Outlier filtering controls for latency-sensitive SLO calculations.
+pub struct OutlierFilterConfig {
+    pub enabled: bool,
+    pub mad_threshold: f64,
+    pub min_samples: usize,
+}
+
+impl Default for OutlierFilterConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            mad_threshold: 3.5,
+            min_samples: 10,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// SLO policy for a generic web API.
+pub struct WebApiSloPolicy {
+    /// Availability target in decimal form, e.g. `0.999`.
+    pub availability_target: f64,
+    /// Latency objective threshold in milliseconds.
+    pub latency_threshold_ms: f64,
+    /// Evaluation window in seconds.
+    pub time_window_seconds: u64,
+    /// Optional outlier filtering strategy.
+    #[serde(default)]
+    pub outlier_filter: OutlierFilterConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Computed SLO report for a web API evaluation window.
+pub struct WebApiSloReport {
+    pub total_requests: u64,
+    pub successful_requests: u64,
+    pub availability: f64,
+    pub latency_evaluated_requests: u64,
+    pub latency_compliant_requests: u64,
+    pub latency_sli: f64,
+    pub filtered_outliers: u64,
+    pub error_budget_seconds: f64,
+    pub burn_rate_5m: f64,
+    pub burn_rate_1h: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// Supported SLO window styles.
@@ -136,6 +193,10 @@ pub trait JsonYamlExt: Sized + Serialize + DeserializeOwned {
 impl JsonYamlExt for SloConfig {}
 impl JsonYamlExt for ErrorBudget {}
 impl JsonYamlExt for MetricPoint {}
+impl JsonYamlExt for WebApiRequest {}
+impl JsonYamlExt for OutlierFilterConfig {}
+impl JsonYamlExt for WebApiSloPolicy {}
+impl JsonYamlExt for WebApiSloReport {}
 impl JsonYamlExt for TimeWindow {}
 
 fn missing_key(key: &str) -> PyErr {
@@ -176,6 +237,72 @@ fn window_alignment_name(alignment: WindowAlignment) -> &'static str {
         WindowAlignment::Rolling => "rolling",
         WindowAlignment::CalendarAligned => "calendar_aligned",
     }
+}
+
+fn median(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let mid = sorted.len() / 2;
+    if sorted.len().is_multiple_of(2) {
+        Some((sorted[mid - 1] + sorted[mid]) / 2.0)
+    } else {
+        Some(sorted[mid])
+    }
+}
+
+/// Compute Median Absolute Deviation (MAD) for a value series.
+pub fn calculate_mad(values: &[f64]) -> Option<f64> {
+    let center = median(values)?;
+    let deviations: Vec<f64> = values.iter().map(|value| (value - center).abs()).collect();
+    median(&deviations)
+}
+
+fn mad_outlier_mask(values: &[f64], mad_threshold: f64, min_samples: usize) -> Vec<bool> {
+    if values.len() < min_samples || mad_threshold <= 0.0 {
+        return vec![false; values.len()];
+    }
+
+    let center = match median(values) {
+        Some(value) => value,
+        None => return vec![false; values.len()],
+    };
+    let mad = match calculate_mad(values) {
+        Some(value) if value > 0.0 => value,
+        _ => return vec![false; values.len()],
+    };
+
+    values
+        .iter()
+        .map(|value| {
+            let modified_z = 0.6745 * (value - center) / mad;
+            modified_z.abs() > mad_threshold
+        })
+        .collect()
+}
+
+/// Filter metric outliers using Median Absolute Deviation.
+pub fn filter_statistical_outliers(
+    metric_stream: &[MetricPoint],
+    mad_threshold: f64,
+    min_samples: usize,
+) -> Vec<MetricPoint> {
+    let values: Vec<f64> = metric_stream.iter().map(|point| point.value).collect();
+    let outlier_mask = mad_outlier_mask(&values, mad_threshold, min_samples);
+    metric_stream
+        .iter()
+        .zip(outlier_mask)
+        .filter_map(|(point, is_outlier)| {
+            if is_outlier {
+                None
+            } else {
+                Some(point.clone())
+            }
+        })
+        .collect()
 }
 
 #[pyfunction]
@@ -225,6 +352,98 @@ pub fn calculate_burn_rate(metric_stream: Vec<MetricPoint>, window_secs: u64) ->
         .count() as f64;
 
     consumed_seconds / window_secs as f64
+}
+
+/// Compute a complete SLO report for a generic web API request stream.
+pub fn calculate_web_api_slo(
+    requests: &[WebApiRequest],
+    policy: &WebApiSloPolicy,
+    now: i64,
+) -> WebApiSloReport {
+    let window_secs = match i64::try_from(policy.time_window_seconds) {
+        Ok(value) if value > 0 => value,
+        _ => {
+            return WebApiSloReport {
+                total_requests: 0,
+                successful_requests: 0,
+                availability: 0.0,
+                latency_evaluated_requests: 0,
+                latency_compliant_requests: 0,
+                latency_sli: 0.0,
+                filtered_outliers: 0,
+                error_budget_seconds: 0.0,
+                burn_rate_5m: 0.0,
+                burn_rate_1h: 0.0,
+            }
+        }
+    };
+
+    let window_start = match now.checked_sub(window_secs) {
+        Some(value) => value,
+        None => now,
+    };
+
+    let in_window: Vec<&WebApiRequest> = requests
+        .iter()
+        .filter(|request| request.timestamp > window_start && request.timestamp <= now)
+        .collect();
+
+    let total_requests = in_window.len() as u64;
+    let successful_requests = in_window
+        .iter()
+        .filter(|request| request.status_code < 500)
+        .count() as u64;
+    let availability = calculate_availability(successful_requests, total_requests);
+
+    let latency_values: Vec<f64> = in_window.iter().map(|request| request.latency_ms).collect();
+    let outlier_mask = if policy.outlier_filter.enabled {
+        mad_outlier_mask(
+            &latency_values,
+            policy.outlier_filter.mad_threshold,
+            policy.outlier_filter.min_samples,
+        )
+    } else {
+        vec![false; latency_values.len()]
+    };
+
+    let filtered_outliers = outlier_mask
+        .iter()
+        .filter(|is_outlier| **is_outlier)
+        .count() as u64;
+    let latency_evaluated_requests = (outlier_mask.len() as u64).saturating_sub(filtered_outliers);
+    let latency_compliant_requests = in_window
+        .iter()
+        .zip(outlier_mask.iter())
+        .filter(|(_, is_outlier)| !**is_outlier)
+        .filter(|(request, _)| request.latency_ms <= policy.latency_threshold_ms)
+        .count() as u64;
+    let latency_sli =
+        calculate_availability(latency_compliant_requests, latency_evaluated_requests);
+
+    let burn_stream: Vec<MetricPoint> = in_window
+        .iter()
+        .map(|request| MetricPoint {
+            timestamp: request.timestamp,
+            value: if request.status_code >= 500 { 1.0 } else { 0.0 },
+            labels: HashMap::new(),
+        })
+        .collect();
+
+    WebApiSloReport {
+        total_requests,
+        successful_requests,
+        availability,
+        latency_evaluated_requests,
+        latency_compliant_requests,
+        latency_sli,
+        filtered_outliers,
+        error_budget_seconds: calculate_error_budget(
+            policy.availability_target,
+            policy.time_window_seconds,
+        ),
+        burn_rate_5m: calculate_burn_rate(burn_stream.clone(), 300),
+        burn_rate_1h: calculate_burn_rate(burn_stream, 3_600),
+    }
 }
 
 #[pyfunction]
@@ -624,6 +843,15 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 mod tests {
     use super::*;
 
+    fn make_request(timestamp: i64, latency_ms: f64, status_code: u16) -> WebApiRequest {
+        WebApiRequest {
+            timestamp,
+            latency_ms,
+            status_code,
+            labels: HashMap::new(),
+        }
+    }
+
     #[test]
     fn calculate_availability_matches_pure_python_ratio() {
         pyo3::prepare_freethreaded_python();
@@ -674,6 +902,73 @@ mod tests {
 
         assert_eq!(five_minute, 1.0);
         assert_eq!(one_hour, 300.0 / 3_600.0);
+    }
+
+    #[test]
+    fn mad_identifies_large_latency_spike() {
+        let values = vec![100.0, 101.0, 99.0, 102.0, 500.0];
+        let mad = calculate_mad(&values).unwrap();
+        let mask = mad_outlier_mask(&values, 3.5, 3);
+
+        assert!(mad > 0.0);
+        assert_eq!(mask, vec![false, false, false, false, true]);
+    }
+
+    #[test]
+    fn filter_statistical_outliers_removes_single_spike() {
+        let stream = vec![
+            MetricPoint {
+                timestamp: 1,
+                value: 100.0,
+                labels: HashMap::new(),
+            },
+            MetricPoint {
+                timestamp: 2,
+                value: 101.0,
+                labels: HashMap::new(),
+            },
+            MetricPoint {
+                timestamp: 3,
+                value: 500.0,
+                labels: HashMap::new(),
+            },
+        ];
+
+        let filtered = filter_statistical_outliers(&stream, 3.5, 3);
+        assert_eq!(filtered.len(), 2);
+        assert!(filtered.iter().all(|point| point.value < 200.0));
+    }
+
+    #[test]
+    fn web_api_slo_filters_latency_outlier_when_enabled() {
+        let requests = vec![
+            make_request(1, 120.0, 200),
+            make_request(2, 130.0, 200),
+            make_request(3, 110.0, 200),
+            make_request(4, 4_000.0, 200),
+            make_request(5, 115.0, 500),
+        ];
+
+        let policy = WebApiSloPolicy {
+            availability_target: 0.99,
+            latency_threshold_ms: 250.0,
+            time_window_seconds: 10,
+            outlier_filter: OutlierFilterConfig {
+                enabled: true,
+                mad_threshold: 3.5,
+                min_samples: 3,
+            },
+        };
+
+        let report = calculate_web_api_slo(&requests, &policy, 6);
+
+        assert_eq!(report.total_requests, 5);
+        assert_eq!(report.successful_requests, 4);
+        assert!((report.availability - 0.8).abs() < 1e-9);
+        assert_eq!(report.filtered_outliers, 1);
+        assert_eq!(report.latency_evaluated_requests, 4);
+        assert_eq!(report.latency_compliant_requests, 4);
+        assert!((report.latency_sli - 1.0).abs() < 1e-9);
     }
 
     #[test]

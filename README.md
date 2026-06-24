@@ -52,9 +52,15 @@ print(availability)
 - `SloConfig`: target and evaluation window metadata
 - `ErrorBudget`: remaining budget and burn velocity
 - `MetricPoint`: timestamped observations with optional labels
+- `WebApiRequest`: timestamped request metrics (`latency_ms`, `status_code`, labels)
+- `WebApiSloPolicy`: policy for availability/latency targets, window size, and outlier filtering
+- `WebApiSloReport`: complete report including availability, latency SLI, burn rates, and budget
 - `calculate_availability(success, total)`: classic SLI ratio, returned as a `float`
 - `calculate_error_budget(slo_target, window_secs)`: remaining budget in seconds for an SLO target and time window
 - `calculate_burn_rate(metric_stream, window_secs)`: normalized burn rate for a stream of budget-consuming samples
+- `calculate_mad(values)`: Median Absolute Deviation for robust spike detection
+- `filter_statistical_outliers(metric_stream, mad_threshold, min_samples)`: configurable outlier filtering
+- `calculate_web_api_slo(requests, policy, now)`: end-to-end SLO calculation for web API streams
 
 ### Serialization
 
@@ -98,6 +104,52 @@ assert_eq!(budget, 3.6);
 ```
 
 Burn rate works over a stream of timestamped samples. In this repository, samples with a value above `0.0` are treated as budget-consuming events. That makes it easy to compare the last 5 minutes against the last hour by calling `calculate_burn_rate(metric_stream, 300)` and `calculate_burn_rate(metric_stream, 3_600)`.
+
+## Web API SLO Framework
+
+NeuralBudget now includes a generic web API SLO framework for request-level streams.
+
+- Availability uses successful requests (`status_code < 500`) over total requests.
+- Latency SLI uses `latency_threshold_ms` with optional MAD-based outlier filtering.
+- Error budget uses `calculate_error_budget` over the configured window.
+- Burn rates are reported for both 5-minute and 1-hour windows.
+
+Example:
+
+```rust
+use neuralbudget::{
+	calculate_web_api_slo, OutlierFilterConfig, WebApiRequest, WebApiSloPolicy,
+};
+
+let requests = vec![
+	WebApiRequest {
+		timestamp: 1,
+		latency_ms: 120.0,
+		status_code: 200,
+		labels: Default::default(),
+	},
+	WebApiRequest {
+		timestamp: 2,
+		latency_ms: 4000.0,
+		status_code: 200,
+		labels: Default::default(),
+	},
+];
+
+let policy = WebApiSloPolicy {
+	availability_target: 0.99,
+	latency_threshold_ms: 250.0,
+	time_window_seconds: 60,
+	outlier_filter: OutlierFilterConfig {
+		enabled: true,
+		mad_threshold: 3.5,
+		min_samples: 2,
+	},
+};
+
+let report = calculate_web_api_slo(&requests, &policy, 2);
+assert!(report.total_requests >= 1);
+```
 
 ## Releases
 
@@ -173,8 +225,7 @@ Equivalent local commands:
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --lib --all-features
-cargo test --test integration_tests --all-features
-cargo test --test functional_tests --all-features
+cargo test --tests --all-features
 ```
 
 ### Formatting and Linting

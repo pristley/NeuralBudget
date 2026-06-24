@@ -42,8 +42,5 @@ jobs:
       - name: Run unit tests
         run: cargo test --lib --all-features
 
-      - name: Run integration tests
-        run: cargo test --test integration_tests --all-features
-
-      - name: Run functional tests
-        run: cargo test --test functional_tests --all-features
+      - name: Run external test suites
+        run: cargo test --tests --all-features

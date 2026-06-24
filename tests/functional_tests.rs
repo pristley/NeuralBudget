@@ -1,6 +1,7 @@
 use neuralbudget::{
-    calculate_availability, calculate_burn_rate, calculate_error_budget, is_timestamp_in_window,
-    MetricPoint, TimeWindow,
+    calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_web_api_slo,
+    is_timestamp_in_window, MetricPoint, OutlierFilterConfig, TimeWindow, WebApiRequest,
+    WebApiSloPolicy,
 };
 
 #[test]
@@ -60,4 +61,54 @@ fn functional_availability_and_budget_consistency() {
 
     assert!((availability - 0.999).abs() < 1e-12);
     assert!((budget - 86.4).abs() < 1e-9);
+}
+
+#[test]
+fn functional_web_api_slo_handles_ai_latency_anomaly() {
+    let requests = vec![
+        WebApiRequest {
+            timestamp: 1,
+            latency_ms: 120.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 2,
+            latency_ms: 130.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 3,
+            latency_ms: 4_000.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 4,
+            latency_ms: 110.0,
+            status_code: 500,
+            labels: Default::default(),
+        },
+    ];
+
+    let policy = WebApiSloPolicy {
+        availability_target: 0.99,
+        latency_threshold_ms: 250.0,
+        time_window_seconds: 10,
+        outlier_filter: OutlierFilterConfig {
+            enabled: true,
+            mad_threshold: 3.5,
+            min_samples: 3,
+        },
+    };
+
+    let report = calculate_web_api_slo(&requests, &policy, 5);
+
+    assert_eq!(report.total_requests, 4);
+    assert_eq!(report.successful_requests, 3);
+    assert_eq!(report.filtered_outliers, 1);
+    assert_eq!(report.latency_evaluated_requests, 3);
+    assert_eq!(report.latency_compliant_requests, 3);
+    assert!((report.latency_sli - 1.0).abs() < 1e-9);
 }

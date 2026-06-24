@@ -1,6 +1,7 @@
 use neuralbudget::{
-    calculate_availability, calculate_burn_rate, calculate_error_budget, ErrorBudget, JsonYamlExt,
-    MetricPoint, SloConfig, TimeWindow,
+    calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
+    calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, JsonYamlExt, MetricPoint,
+    OutlierFilterConfig, SloConfig, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -29,6 +30,81 @@ fn burn_rate_compares_five_minutes_against_one_hour() {
 
     assert_eq!(calculate_burn_rate(stream.clone(), 300), 1.0);
     assert_eq!(calculate_burn_rate(stream, 3_600), 300.0 / 3_600.0);
+}
+
+#[test]
+fn mad_and_outlier_filter_handle_latency_spike() {
+    let values = vec![120.0, 130.0, 110.0, 125.0, 4_000.0];
+    let mad = calculate_mad(&values).unwrap();
+    assert!(mad > 0.0);
+
+    let stream: Vec<MetricPoint> = values
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| MetricPoint {
+            timestamp: idx as i64,
+            value: *value,
+            labels: Default::default(),
+        })
+        .collect();
+
+    let filtered = filter_statistical_outliers(&stream, 3.5, 3);
+    assert_eq!(filtered.len(), 4);
+    assert!(filtered.iter().all(|point| point.value < 1_000.0));
+}
+
+#[test]
+fn web_api_slo_framework_reports_budget_and_outlier_filtered_latency() {
+    let requests = vec![
+        WebApiRequest {
+            timestamp: 1,
+            latency_ms: 120.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 2,
+            latency_ms: 130.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 3,
+            latency_ms: 110.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 4,
+            latency_ms: 4_000.0,
+            status_code: 200,
+            labels: Default::default(),
+        },
+        WebApiRequest {
+            timestamp: 5,
+            latency_ms: 115.0,
+            status_code: 500,
+            labels: Default::default(),
+        },
+    ];
+
+    let policy = WebApiSloPolicy {
+        availability_target: 0.99,
+        latency_threshold_ms: 250.0,
+        time_window_seconds: 10,
+        outlier_filter: OutlierFilterConfig {
+            enabled: true,
+            mad_threshold: 3.5,
+            min_samples: 3,
+        },
+    };
+
+    let report = calculate_web_api_slo(&requests, &policy, 6);
+
+    assert_eq!(report.total_requests, 5);
+    assert_eq!(report.filtered_outliers, 1);
+    assert_eq!(report.latency_compliant_requests, 4);
+    assert!((report.error_budget_seconds - 0.1).abs() < 1e-9);
 }
 
 #[test]
