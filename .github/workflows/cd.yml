@@ -1,0 +1,36 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify tests before packaging
+        run: cargo test --all-targets --all-features
+
+      - name: Package crate
+        run: cargo package --allow-dirty --no-verify
+
+      - name: Upload packaged crate metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuralbudget-package
+          path: target/package/*.crate
+          if-no-files-found: error

@@ -1,0 +1,18 @@
+[package]
+name = "neuralbudget"
+version = "0.1.0"
+edition = "2021"
+description = "Rust-first SLO data models and Python interop for availability, latency, and error-budget analysis"
+readme = "README.md"
+repository = "https://github.com/pristley/NeuralBudget"
+homepage = "https://github.com/pristley/NeuralBudget"
+
+[lib]
+name = "neuralbudget"
+crate-type = ["rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
