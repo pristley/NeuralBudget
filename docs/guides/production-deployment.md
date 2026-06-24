@@ -42,6 +42,10 @@ kubectl apply -f examples/kubernetes/deployment.yaml
 kubectl apply -f examples/kubernetes/service.yaml
 ```
 
+For a full environment bootstrap and day-2 operations walkthrough, see:
+
+- [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
+
 ### Operational Recommendations
 
 - Set resource requests/limits to avoid noisy-neighbor latency spikes.
@@ -72,6 +76,41 @@ This integrates with kube-prometheus-stack style installations and targets the `
 
 Use [examples/kubernetes/prometheus-additional-scrape-config.yaml](examples/kubernetes/prometheus-additional-scrape-config.yaml)
 and inject it into your Prometheus config or Helm values.
+
+For detailed scrape, relabel, recording-rule, and alert examples, see:
+
+- [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+
+## Deployment Strategies
+
+For production-grade releases, use one of these strategies:
+
+- Rolling update: default and lowest operational overhead.
+- Blue/green: safest for strict zero-risk cutovers.
+- Canary: best when evaluating new SLO policy behavior under partial traffic.
+
+Recommended canary sequence:
+
+1. Roll out a second deployment with the new image and policy config.
+2. Route 5-10% traffic to canary.
+3. Compare `neuralbudget_eval_fail_total` ratio and latency histograms between stable and canary.
+4. Promote only if canary passes over at least 3 consecutive evaluation windows.
+
+## Config Rollout and Drift Control
+
+When policy values change frequently, treat config as a first-class deployable:
+
+- Keep policy files versioned in Git.
+- Stamp ConfigMaps with release IDs.
+- Trigger rollout restarts after config updates.
+- Emit a `policy_version` label in app metrics for correlation.
+
+Example rollout restart:
+
+```bash
+kubectl rollout restart deploy/neuralbudget-evaluator
+kubectl rollout status deploy/neuralbudget-evaluator
+```
 
 ## Suggested Metric Names
 
@@ -138,3 +177,9 @@ for fail-fast SLO gating.
 
 - Confirm all pods mount the same config revision.
 - Roll deployment after ConfigMap policy updates.
+
+### Publish pipeline succeeds but runtime checks fail
+
+- Validate that runtime policy file matches the release tag that was promoted.
+- Confirm your scrape interval is shorter than the evaluation window.
+- Verify burn-rate and pass/fail alerts are computed from the same metric labels.

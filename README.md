@@ -1,7 +1,7 @@
 # NeuralBudget
 
 [![CI](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml)
-[![CD](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml)
+[![CD](https://github.com/pristley/NeuralBudget/actions/workflows/release.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/release.yml)
 [![Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/tags)
 [![Last Commit](https://img.shields.io/github/last-commit/pristley/NeuralBudget/main)](https://github.com/pristley/NeuralBudget/commits/main)
@@ -469,6 +469,8 @@ For production rollout patterns, Kubernetes manifests, and Prometheus scraping i
 see:
 
 - [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
+- [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
+- [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
 
 ## Development and CI/CD
 
@@ -504,7 +506,7 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 NeuralBudget publishes pre-built artifacts from the CD workflow:
 
-- [`.github/workflows/cd.yml`](.github/workflows/cd.yml)
+- [`.github/workflows/release.yml`](.github/workflows/release.yml)
 
 On tagged releases (`v*`), CD now performs:
 
@@ -517,14 +519,14 @@ On tagged releases (`v*`), CD now performs:
 Published artifacts include:
 
 - Linux (`manylinux`, `x86_64`)
-- macOS (`x86_64` and `aarch64`)
+- macOS (`aarch64`)
 - Windows (`x86_64`)
 - source distribution (`sdist`)
 
 ### One-time repository setup
 
 1. In PyPI, create a Trusted Publisher for this repository.
-2. Use workflow path `.github/workflows/cd.yml`.
+2. Use workflow path `.github/workflows/release.yml`.
 3. Configure environment name `pypi` in both PyPI Trusted Publisher and GitHub repository environments.
 4. Ensure project name is `neuralbudget` on PyPI.
 
@@ -541,6 +543,9 @@ Published artifacts include:
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Documentation index: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
 - Comprehensive user guide: [docs/guides/user-guide.md](docs/guides/user-guide.md)
+- Production deployment guide: [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
+- Kubernetes integration guide: [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
+- Prometheus scraping examples: [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
 - Convenience reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
 - Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
 - ML plan: [docs/plans/mlops-model-drift-serving-plan.md](docs/plans/mlops-model-drift-serving-plan.md)

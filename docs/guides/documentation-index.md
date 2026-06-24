@@ -7,6 +7,8 @@ This index groups documentation by audience and workflow.
 - README: Project overview, installation, examples, and high-level API surface.
 - docs/guides/user-guide.md: End-to-end installation, usage, examples, applications, and troubleshooting.
 - docs/guides/production-deployment.md: Production rollout patterns, Kubernetes manifests, and Prometheus scraping setup.
+- docs/guides/kubernetes-integration.md: Kubernetes rollout runbook for config updates, canary strategy, and rollback.
+- docs/guides/prometheus-scraping-examples.md: Prometheus Operator and vanilla scrape examples with recording rules and alerts.
 - CHANGELOG.md: Versioned release history and categorized change entries.
 
 ## Feature Plans
@@ -21,8 +23,8 @@ This index groups documentation by audience and workflow.
 ## Testing and Quality Gates
 
 - CI workflow: .github/workflows/ci.yml
-- CD workflow: .github/workflows/cd.yml (validation + release + distribution)
-- PyPI release process: .github/workflows/cd.yml (trusted publishing)
+- CD workflow: .github/workflows/release.yml (validation + release + distribution)
+- PyPI release process: .github/workflows/release.yml (trusted publishing)
 - Python convenience tests: tests/python_convenience_tests.py
 - Python client facade tests: tests/python_client_tests.py
 
@@ -39,7 +41,9 @@ This index groups documentation by audience and workflow.
 1. README
 2. docs/guides/user-guide.md
 3. docs/guides/production-deployment.md
-4. CHANGELOG.md
-5. docs/reference/convenience-layer.md
-6. docs/reference/composite-slo-dag.md
-7. docs/plans/mlops-model-drift-serving-plan.md
+4. docs/guides/kubernetes-integration.md
+5. docs/guides/prometheus-scraping-examples.md
+6. CHANGELOG.md
+7. docs/reference/convenience-layer.md
+8. docs/reference/composite-slo-dag.md
+9. docs/plans/mlops-model-drift-serving-plan.md

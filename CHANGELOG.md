@@ -59,7 +59,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 
 ### Changed
 
-- Integrated cross-platform wheel builds directly into CD release path (`.github/workflows/cd.yml`) for Linux, Windows, and macOS.
+- Integrated cross-platform wheel builds directly into CD release path (`.github/workflows/release.yml`) for Linux, Windows, and macOS.
 - Integrated PyPI trusted publishing into CD using OIDC (`id-token: write`) and environment `pypi`.
 - Consolidated release automation by removing standalone `.github/workflows/pypi-release.yml` and using CD as the single release orchestration workflow.
 

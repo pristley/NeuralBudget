@@ -292,7 +292,7 @@ Example GitHub Actions step:
 
 ## Release and Distribution Automation
 
-Release packaging and publishing are integrated in `.github/workflows/cd.yml`.
+Release packaging and publishing are integrated in `.github/workflows/release.yml`.
 
 For tagged releases (`v*`), CD performs:
 
@@ -302,7 +302,6 @@ For tagged releases (`v*`), CD performs:
 - cross-platform wheel builds:
     - Linux `x86_64` (`manylinux`)
     - Windows `x86_64`
-    - macOS `x86_64`
     - macOS `aarch64`
 - GitHub Release creation with all generated artifacts
 - PyPI publish through trusted publishing (`pypa/gh-action-pypi-publish`)
@@ -310,7 +309,7 @@ For tagged releases (`v*`), CD performs:
 ### Trusted Publisher setup checklist
 
 1. In PyPI, create a Trusted Publisher for repository `pristley/NeuralBudget`.
-2. Set workflow path to `.github/workflows/cd.yml`.
+2. Set workflow path to `.github/workflows/release.yml`.
 3. Use environment name `pypi`.
 4. Ensure the same `pypi` environment exists in GitHub repository settings.
 
