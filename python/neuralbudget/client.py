@@ -25,6 +25,7 @@ EvaluationMode = Literal["http", "stateful", "ml", "genai", "composite"]
 class ClientConfigFile(TypedDict, total=False):
     """Serialized config schema accepted by NeuralBudgetClient.load_config."""
 
+    schema_version: int
     mode: EvaluationMode
     profile: str
     return_dataclass: bool
@@ -70,6 +71,7 @@ EvaluationResult = (
 @dataclass(frozen=True)
 class NeuralBudgetClientConfig:
     mode: EvaluationMode
+    schema_version: int = 1
     profile: str | None = None
     return_dataclass: bool = False
     params: dict[str, Any] | None = None
@@ -84,6 +86,9 @@ class NeuralBudgetClient:
     2. `result = client.evaluate(metric_data)`
     """
 
+    CONFIG_SCHEMA_VERSION = 1
+    SUPPORTED_CONFIG_SCHEMA_VERSIONS = {CONFIG_SCHEMA_VERSION}
+
     def __init__(self, config: NeuralBudgetClientConfig | None = None) -> None:
         self._config: NeuralBudgetClientConfig | None = config
 
@@ -97,6 +102,7 @@ class NeuralBudgetClient:
 
         Supported keys:
 
+        - `schema_version`: optional int, defaults to `1`
         - `mode`: `http | stateful | ml | genai | composite`
         - `profile`: optional named profile for non-composite modes
         - `return_dataclass`: optional bool for convenience-layer modes
@@ -104,7 +110,9 @@ class NeuralBudgetClient:
         """
         config_path = Path(path)
         raw = self._read_config_file(config_path)
-        mode = cast(EvaluationMode, str(raw.get("mode", "http")))
+        raw = self._validate_config_schema(raw)
+
+        mode = cast(EvaluationMode, raw["mode"])
         if mode not in {"http", "stateful", "ml", "genai", "composite"}:
             raise ValueError(
                 "invalid mode in config. expected one of: "
@@ -114,8 +122,10 @@ class NeuralBudgetClient:
         params = dict(raw.get("params", {}))
         profile = raw.get("profile")
         return_dataclass = bool(raw.get("return_dataclass", False))
+        schema_version = int(raw["schema_version"])
 
         self._config = NeuralBudgetClientConfig(
+            schema_version=schema_version,
             mode=mode,
             profile=str(profile) if profile is not None else None,
             return_dataclass=return_dataclass,
@@ -236,3 +246,62 @@ class NeuralBudgetClient:
                 return cast(ClientConfigFile, data or {})
 
         raise ValueError("Unsupported config extension. Use .json, .yaml, or .yml")
+
+    @classmethod
+    def _validate_config_schema(cls, raw: ClientConfigFile) -> ClientConfigFile:
+        """Validate top-level client config schema and version compatibility."""
+        if not isinstance(raw, dict):
+            raise ValueError("Invalid config: expected a JSON/YAML object at the top level")
+
+        allowed_keys = {
+            "schema_version",
+            "mode",
+            "profile",
+            "return_dataclass",
+            "params",
+        }
+        unknown_keys = sorted(set(raw.keys()) - allowed_keys)
+        if unknown_keys:
+            raise ValueError(
+                "Invalid config: unknown keys: " + ", ".join(unknown_keys)
+            )
+
+        schema_version = raw.get("schema_version", cls.CONFIG_SCHEMA_VERSION)
+        if not isinstance(schema_version, int):
+            raise ValueError("Invalid config: schema_version must be an integer")
+        if schema_version not in cls.SUPPORTED_CONFIG_SCHEMA_VERSIONS:
+            supported = ", ".join(str(v) for v in sorted(cls.SUPPORTED_CONFIG_SCHEMA_VERSIONS))
+            raise ValueError(
+                f"Unsupported schema_version: {schema_version}. Supported: {supported}"
+            )
+
+        if "mode" not in raw:
+            raise ValueError("Invalid config: missing required key 'mode'")
+
+        mode = raw.get("mode")
+        if not isinstance(mode, str):
+            raise ValueError("Invalid config: mode must be a string")
+
+        profile = raw.get("profile")
+        if profile is not None and not isinstance(profile, str):
+            raise ValueError("Invalid config: profile must be a string when provided")
+
+        return_dataclass = raw.get("return_dataclass", False)
+        if not isinstance(return_dataclass, bool):
+            raise ValueError("Invalid config: return_dataclass must be a boolean")
+
+        params = raw.get("params", {})
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            raise ValueError("Invalid config: params must be an object/map")
+
+        normalized: ClientConfigFile = {
+            "schema_version": schema_version,
+            "mode": cast(EvaluationMode, mode),
+            "return_dataclass": return_dataclass,
+            "params": cast(dict[str, Any], params),
+        }
+        if profile is not None:
+            normalized["profile"] = profile
+        return normalized

@@ -290,6 +290,51 @@ Example GitHub Actions step:
   run: python3 scripts/slo_gate.py
 ```
 
+## Config Schema Validation and Versioning
+
+`NeuralBudgetClient.load_config(...)` now validates YAML/JSON config files against a
+versioned schema.
+
+Top-level fields:
+
+- `schema_version` (optional, integer): defaults to `1`
+- `mode` (required): `http | stateful | ml | genai | composite`
+- `profile` (optional, string)
+- `return_dataclass` (optional, boolean)
+- `params` (optional, object/map)
+
+Validation behavior:
+
+- unknown top-level keys are rejected
+- unsupported `schema_version` values are rejected
+- missing `mode` fails fast with a clear error
+- invalid field types fail with explicit messages
+
+Example JSON config:
+
+```json
+{
+    "schema_version": 1,
+    "mode": "http",
+    "profile": "strict_latency",
+    "return_dataclass": false,
+    "params": {
+        "latency_threshold_ms": 220.0
+    }
+}
+```
+
+Example YAML config:
+
+```yaml
+schema_version: 1
+mode: stateful
+profile: database_primary
+return_dataclass: false
+params:
+    min_pass_score: 0.9
+```
+
 ## Release and Distribution Automation
 
 Release packaging and publishing are integrated in `.github/workflows/release.yml`.

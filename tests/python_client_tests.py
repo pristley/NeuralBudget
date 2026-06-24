@@ -134,6 +134,7 @@ class NeuralBudgetClientTests(unittest.TestCase):
             path.write_text(
                 json.dumps(
                     {
+                        "schema_version": 1,
                         "mode": "http",
                         "profile": "strict_latency",
                         "return_dataclass": False,
@@ -161,6 +162,7 @@ class NeuralBudgetClientTests(unittest.TestCase):
     def test_load_yaml_and_evaluate_composite(self):
         fake_yaml = types.ModuleType("yaml")
         fake_yaml.safe_load = lambda _: {
+            "schema_version": 1,
             "mode": "composite",
             "params": {"global_min_pass_score": 0.88},
         }
@@ -196,6 +198,82 @@ class NeuralBudgetClientTests(unittest.TestCase):
             self.assertEqual(result["services"], 2)
             self.assertEqual(result["dependencies"], 1)
             self.assertEqual(result["global_min_pass_score"], 0.88)
+
+    def test_load_config_defaults_schema_version_to_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "mode": "http",
+                        "params": {"latency_threshold_ms": 120.0},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            client = self.client_module.NeuralBudgetClient().load_config(path)
+            self.assertIsNotNone(client.config)
+            assert client.config is not None
+            self.assertEqual(client.config.schema_version, 1)
+
+    def test_load_config_rejects_unsupported_schema_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 99,
+                        "mode": "http",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "Unsupported schema_version"):
+                self.client_module.NeuralBudgetClient().load_config(path)
+
+    def test_load_config_rejects_missing_required_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "missing required key 'mode'"):
+                self.client_module.NeuralBudgetClient().load_config(path)
+
+    def test_load_config_rejects_unknown_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "http",
+                        "unexpected": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "unknown keys"):
+                self.client_module.NeuralBudgetClient().load_config(path)
+
+    def test_load_config_rejects_non_object_params(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "http",
+                        "params": ["not", "a", "dict"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "params must be an object/map"):
+                self.client_module.NeuralBudgetClient().load_config(path)
 
 
 if __name__ == "__main__":
