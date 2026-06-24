@@ -7,14 +7,77 @@ use std::convert::TryFrom;
 use pyo3::exceptions::{PyKeyError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use serde::de::DeserializeOwned;
+use serde::de::{DeserializeOwned, Error as DeError};
 use serde::{Deserialize, Serialize};
+
+const SLO_CONFIG_SCHEMA_VERSION: u32 = 1;
+
+fn deserialize_slo_config_schema_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let version = Option::<u32>::deserialize(deserializer)?.unwrap_or(SLO_CONFIG_SCHEMA_VERSION);
+    if version != SLO_CONFIG_SCHEMA_VERSION {
+        return Err(D::Error::custom(format!(
+            "unsupported schema_version {version}; supported schema_version is {SLO_CONFIG_SCHEMA_VERSION}"
+        )));
+    }
+    Ok(version)
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SloConfigSchemaV1 {
+    #[serde(default, deserialize_with = "deserialize_slo_config_schema_version")]
+    schema_version: u32,
+    target: f64,
+    window: String,
+}
+
+impl From<SloConfigSchemaV1> for SloConfig {
+    fn from(value: SloConfigSchemaV1) -> Self {
+        Self {
+            target: value.target,
+            window: value.window,
+        }
+    }
+}
+
+impl From<&SloConfig> for SloConfigSchemaV1 {
+    fn from(value: &SloConfig) -> Self {
+        Self {
+            schema_version: SLO_CONFIG_SCHEMA_VERSION,
+            target: value.target,
+            window: value.window.clone(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Basic SLO target metadata used by the Rust and Python surfaces.
 pub struct SloConfig {
     pub target: f64,
     pub window: String,
+}
+
+impl SloConfig {
+    pub fn from_json_str(input: &str) -> Result<Self, serde_json::Error> {
+        let schema: SloConfigSchemaV1 = serde_json::from_str(input)?;
+        Ok(schema.into())
+    }
+
+    pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&SloConfigSchemaV1::from(self))
+    }
+
+    pub fn from_yaml_str(input: &str) -> Result<Self, serde_yaml::Error> {
+        let schema: SloConfigSchemaV1 = serde_yaml::from_str(input)?;
+        Ok(schema.into())
+    }
+
+    pub fn to_yaml_string(&self) -> Result<String, serde_yaml::Error> {
+        serde_yaml::to_string(&SloConfigSchemaV1::from(self))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

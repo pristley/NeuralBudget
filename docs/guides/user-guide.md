@@ -295,6 +295,10 @@ Example GitHub Actions step:
 `NeuralBudgetClient.load_config(...)` now validates YAML/JSON config files against a
 versioned schema.
 
+Rust `SloConfig` JSON/YAML parsing (`SloConfig::from_json_str`,
+`SloConfig::from_yaml_str`) uses the same schema-version validation policy and
+rejects unsupported versions or unknown keys.
+
 Top-level fields:
 
 - `schema_version` (optional, integer): defaults to `1`

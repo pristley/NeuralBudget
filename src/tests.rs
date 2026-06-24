@@ -280,6 +280,40 @@ fn slo_config_round_trips_through_json_and_yaml() {
 }
 
 #[test]
+fn slo_config_rejects_unsupported_schema_versions() {
+    let bad_json = r#"{"schema_version":2,"target":99.9,"window":"30d"}"#;
+    let bad_yaml = "schema_version: 2\ntarget: 99.9\nwindow: 30d\n";
+
+    let json_err = SloConfig::from_json_str(bad_json).unwrap_err().to_string();
+    let yaml_err = SloConfig::from_yaml_str(bad_yaml).unwrap_err().to_string();
+
+    assert!(json_err.contains("unsupported schema_version"));
+    assert!(yaml_err.contains("unsupported schema_version"));
+}
+
+#[test]
+fn slo_config_rejects_unknown_keys() {
+    let bad_json = r#"{"target":99.9,"window":"30d","unexpected":true}"#;
+    let bad_yaml = "target: 99.9\nwindow: 30d\nunexpected: true\n";
+
+    assert!(SloConfig::from_json_str(bad_json).is_err());
+    assert!(SloConfig::from_yaml_str(bad_yaml).is_err());
+}
+
+#[test]
+fn slo_config_defaults_schema_version_when_omitted() {
+    let json = r#"{"target":99.9,"window":"30d"}"#;
+    let yaml = "target: 99.9\nwindow: 30d\n";
+    let expected = SloConfig {
+        target: 99.9,
+        window: "30d".to_string(),
+    };
+
+    assert_eq!(SloConfig::from_json_str(json).unwrap(), expected);
+    assert_eq!(SloConfig::from_yaml_str(yaml).unwrap(), expected);
+}
+
+#[test]
 fn metric_point_defaults_labels_when_absent() {
     let yaml = "timestamp: 1719220000\nvalue: 0.999\n";
     let point = MetricPoint::from_yaml_str(yaml).unwrap();
