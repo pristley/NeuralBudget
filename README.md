@@ -39,6 +39,7 @@ Core capabilities:
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
 - [Development and CI/CD](#development-and-cicd)
+- [PyPI Publishing](#pypi-publishing)
 - [Changelog and Documentation](#changelog-and-documentation)
 - [License](#license)
 
@@ -477,6 +478,32 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 - CI validates format, lint, tests, coverage gate, and packaging checks.
 - CD re-validates and publishes artifacts on tagged release workflows.
 - Coverage floor is enforced at 89% line coverage.
+
+## PyPI Publishing
+
+NeuralBudget publishes pre-built wheels for major platforms using:
+
+- [`.github/workflows/pypi-release.yml`](.github/workflows/pypi-release.yml)
+
+Release artifacts include:
+
+- Linux (`manylinux`, `x86_64`)
+- macOS (`x86_64` and `aarch64`)
+- Windows (`x86_64`)
+- source distribution (`sdist`)
+
+### One-time repository setup
+
+1. In PyPI, create a Trusted Publisher for this GitHub repository.
+2. In GitHub, keep the workflow environment named `pypi`.
+3. Ensure your project name on PyPI is `neuralbudget`.
+
+### Release flow
+
+1. Bump version in `pyproject.toml` and crate metadata as needed.
+2. Create and push a tag like `v0.1.2`.
+3. Publish a GitHub Release for that tag.
+4. The `PyPI Release` workflow builds cross-platform wheels and uploads to PyPI.
 
 ## Changelog and Documentation
 

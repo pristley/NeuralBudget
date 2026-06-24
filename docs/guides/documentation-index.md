@@ -20,6 +20,7 @@ This index groups documentation by audience and workflow.
 
 - CI workflow: .github/workflows/ci.yml
 - CD workflow: .github/workflows/cd.yml
+- PyPI release workflow: .github/workflows/pypi-release.yml
 - Python convenience tests: tests/python_convenience_tests.py
 - Python client facade tests: tests/python_client_tests.py
 
