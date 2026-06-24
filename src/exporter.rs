@@ -8,7 +8,11 @@ use crate::core::{
 const METRIC_TYPE_GAUGE: &str = "gauge";
 
 fn bool_as_f64(value: bool) -> f64 {
-    if value { 1.0 } else { 0.0 }
+    if value {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 fn sanitize_metric_component(input: &str) -> String {
@@ -106,7 +110,13 @@ impl PrometheusExporter {
     /// Record HTTP SLO evaluation metrics.
     pub fn observe_http_slo(&mut self, service: &str, evaluation: &HttpSloEvaluation) {
         self.observe_mode_timestamp("http", service, evaluation.timestamp);
-        self.observe_mode_bool("http", service, "pass", evaluation.pass, "HTTP SLO pass flag");
+        self.observe_mode_bool(
+            "http",
+            service,
+            "pass",
+            evaluation.pass,
+            "HTTP SLO pass flag",
+        );
         self.observe_mode_bool(
             "http",
             service,
@@ -292,13 +302,19 @@ impl PrometheusExporter {
             "composite_global_slo",
             "Composite graph global SLO score",
             evaluation.global_slo,
-            vec![("graph", graph.to_string()), ("mode", "composite".to_string())],
+            vec![
+                ("graph", graph.to_string()),
+                ("mode", "composite".to_string()),
+            ],
         );
         self.observe_gauge(
             "composite_global_pass",
             "Composite graph global pass flag",
             bool_as_f64(evaluation.global_pass),
-            vec![("graph", graph.to_string()), ("mode", "composite".to_string())],
+            vec![
+                ("graph", graph.to_string()),
+                ("mode", "composite".to_string()),
+            ],
         );
         for service in &evaluation.services {
             self.observe_composite_service(graph, service);
@@ -350,13 +366,19 @@ impl PrometheusExporter {
             "error_budget_remaining",
             "Remaining error budget",
             budget.remaining,
-            vec![("service", service.to_string()), ("mode", "budget".to_string())],
+            vec![
+                ("service", service.to_string()),
+                ("mode", "budget".to_string()),
+            ],
         );
         self.observe_gauge(
             "error_budget_velocity",
             "Error budget burn velocity",
             budget.velocity,
-            vec![("service", service.to_string()), ("mode", "budget".to_string())],
+            vec![
+                ("service", service.to_string()),
+                ("mode", "budget".to_string()),
+            ],
         );
     }
 
@@ -365,7 +387,10 @@ impl PrometheusExporter {
         let mut lines = Vec::new();
 
         for (metric_name, family) in &self.families {
-            lines.push(format!("# HELP {metric_name} {}", format_help(&family.help)));
+            lines.push(format!(
+                "# HELP {metric_name} {}",
+                format_help(&family.help)
+            ));
             lines.push(format!("# TYPE {metric_name} {}", family.metric_type));
 
             for (labels, value) in &family.samples {
@@ -432,19 +457,30 @@ impl PrometheusExporter {
         );
     }
 
-    fn observe_mode_bool(&mut self, mode: &str, service: &str, suffix: &str, value: bool, help: &str) {
+    fn observe_mode_bool(
+        &mut self,
+        mode: &str,
+        service: &str,
+        suffix: &str,
+        value: bool,
+        help: &str,
+    ) {
         self.observe_mode_gauge(mode, service, suffix, bool_as_f64(value), help);
     }
 
-    fn observe_mode_gauge(&mut self, mode: &str, service: &str, suffix: &str, value: f64, help: &str) {
+    fn observe_mode_gauge(
+        &mut self,
+        mode: &str,
+        service: &str,
+        suffix: &str,
+        value: f64,
+        help: &str,
+    ) {
         self.observe_gauge(
             &format!("{mode}_{suffix}"),
             help,
             value,
-            vec![
-                ("mode", mode.to_string()),
-                ("service", service.to_string()),
-            ],
+            vec![("mode", mode.to_string()), ("service", service.to_string())],
         );
     }
 

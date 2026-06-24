@@ -1512,7 +1512,7 @@ fn composite_global_score_fallback_paths_are_exercised() {
 
 #[test]
 fn composite_error_display_variants_are_exercised() {
-    let messages = vec![
+    let messages = [
         CompositeSloError::DuplicateService("svc".to_string()).to_string(),
         CompositeSloError::DuplicateDependencyEdge {
             dependency: "a".to_string(),
@@ -1569,16 +1569,26 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         assert_eq!(budget.remaining(), 0.8);
         assert_eq!(budget.velocity(), 1.2);
         let budget_dict = budget.to_dict(py).unwrap();
-        assert_eq!(PyErrorBudget::from_dict(&budget_dict).unwrap().remaining(), 0.8);
+        assert_eq!(
+            PyErrorBudget::from_dict(&budget_dict).unwrap().remaining(),
+            0.8
+        );
         assert!(budget.to_json().unwrap().contains("remaining"));
         assert!(budget.to_yaml().unwrap().contains("velocity"));
 
-        let point = PyMetricPoint::new(10, 2.5, Some(HashMap::from([(String::from("k"), String::from("v"))])));
+        let point = PyMetricPoint::new(
+            10,
+            2.5,
+            Some(HashMap::from([(String::from("k"), String::from("v"))])),
+        );
         assert_eq!(point.timestamp(), 10);
         assert_eq!(point.value(), 2.5);
         assert_eq!(point.labels().get("k").unwrap(), "v");
         let point_dict = point.to_dict(py).unwrap();
-        assert_eq!(PyMetricPoint::from_dict(&point_dict).unwrap().timestamp(), 10);
+        assert_eq!(
+            PyMetricPoint::from_dict(&point_dict).unwrap().timestamp(),
+            10
+        );
         assert!(point.to_json().unwrap().contains("timestamp"));
         assert!(point.to_yaml().unwrap().contains("value"));
 
@@ -1609,7 +1619,17 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         assert!(bucket.to_json().unwrap().contains("count"));
         assert!(bucket.to_yaml().unwrap().contains("upper_bound_ms"));
 
-        let hs = PyHistogramSample::new(1, 95, 100, vec![HistogramBucket { upper_bound_ms: 250.0, count: 95 }], "prometheus_cumulative").unwrap();
+        let hs = PyHistogramSample::new(
+            1,
+            95,
+            100,
+            vec![HistogramBucket {
+                upper_bound_ms: 250.0,
+                count: 95,
+            }],
+            "prometheus_cumulative",
+        )
+        .unwrap();
         assert_eq!(hs.timestamp(), 1);
         assert_eq!(hs.success(), 95);
         assert_eq!(hs.total(), 100);
@@ -1622,9 +1642,18 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
 
         let http_default_dict = PyDict::new_bound(py);
         let http_defaults: HttpSlo = http_default_dict.extract().unwrap();
-        assert_eq!(http_defaults.latency_threshold_ms, HttpSlo::default().latency_threshold_ms);
-        assert_eq!(http_defaults.latency_percentile, HttpSlo::default().latency_percentile);
-        assert_eq!(http_defaults.availability_threshold, HttpSlo::default().availability_threshold);
+        assert_eq!(
+            http_defaults.latency_threshold_ms,
+            HttpSlo::default().latency_threshold_ms
+        );
+        assert_eq!(
+            http_defaults.latency_percentile,
+            HttpSlo::default().latency_percentile
+        );
+        assert_eq!(
+            http_defaults.availability_threshold,
+            HttpSlo::default().availability_threshold
+        );
 
         let http = PyHttpSlo::new(200.0, 0.99, 0.999);
         assert_eq!(http.latency_p99_threshold_ms(), 200.0);
@@ -1633,13 +1662,22 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             success: 99,
             total: 100,
             buckets: vec![
-                HistogramBucket { upper_bound_ms: 100.0, count: 98 },
-                HistogramBucket { upper_bound_ms: 200.0, count: 100 },
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 98,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 100,
+                },
             ],
             format: HistogramFormat::PrometheusCumulative,
         });
         assert_eq!(http_eval.timestamp(), 1);
-        assert_eq!(http_eval.p99_latency_ms(), http_eval.percentile_latency_ms());
+        assert_eq!(
+            http_eval.p99_latency_ms(),
+            http_eval.percentile_latency_ms()
+        );
         assert!(http_eval.to_dict(py).unwrap().contains("pass").unwrap());
         assert!(http_eval.to_json().unwrap().contains("availability"));
         assert!(http_eval.to_yaml().unwrap().contains("latency_ok"));
@@ -1647,7 +1685,10 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             timestamp: 2,
             success: 100,
             total: 100,
-            buckets: vec![HistogramBucket { upper_bound_ms: 100.0, count: 100 }],
+            buckets: vec![HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 100,
+            }],
             format: HistogramFormat::PrometheusCumulative,
         }]);
         let _ = http.to_dict(py).unwrap();
@@ -1657,9 +1698,17 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         let state_sample = PyStatefulSample::new(1, 50.0, 10, 0.5, 10.0);
         assert_eq!(state_sample.connection_pool_saturation(), 0.5);
         let state_sample_dict = state_sample.to_dict(py).unwrap();
-        assert_eq!(PyStatefulSample::from_dict(&state_sample_dict).unwrap().queue_depth(), 10);
+        assert_eq!(
+            PyStatefulSample::from_dict(&state_sample_dict)
+                .unwrap()
+                .queue_depth(),
+            10
+        );
         assert!(state_sample.to_json().unwrap().contains("queue_depth"));
-        assert!(state_sample.to_yaml().unwrap().contains("replication_lag_ms"));
+        assert!(state_sample
+            .to_yaml()
+            .unwrap()
+            .contains("replication_lag_ms"));
 
         let state_slo = PyStatefulSlo::new(200.0, 100, 0.8, 20.0, 0.2, 0.9);
         let state_eval = state_slo.evaluate_sample(StatefulSample {
@@ -1670,7 +1719,11 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             connection_wait_time_ms: 10.0,
         });
         assert!(state_eval.replication_lag_ok());
-        assert!(state_eval.to_dict(py).unwrap().contains("connection_wait_penalized").unwrap());
+        assert!(state_eval
+            .to_dict(py)
+            .unwrap()
+            .contains("connection_wait_penalized")
+            .unwrap());
         assert!(state_eval.to_json().unwrap().contains("score"));
         assert!(state_eval.to_yaml().unwrap().contains("pass"));
         let _ = state_slo.evaluate_stream(vec![StatefulSample {
@@ -1681,14 +1734,23 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             connection_wait_time_ms: 5.0,
         }]);
         let _ = state_slo.to_dict(py).unwrap();
-        assert!(state_slo.to_json().unwrap().contains("queue_depth_threshold"));
+        assert!(state_slo
+            .to_json()
+            .unwrap()
+            .contains("queue_depth_threshold"));
         assert!(state_slo.to_yaml().unwrap().contains("min_pass_score"));
 
         let ml_default_dict = PyDict::new_bound(py);
-        ml_default_dict.set_item("max_inference_latency_ms", 300.0).unwrap();
-        ml_default_dict.set_item("max_gpu_utilization", 0.9).unwrap();
+        ml_default_dict
+            .set_item("max_inference_latency_ms", 300.0)
+            .unwrap();
+        ml_default_dict
+            .set_item("max_gpu_utilization", 0.9)
+            .unwrap();
         ml_default_dict.set_item("max_feature_drift", 0.3).unwrap();
-        ml_default_dict.set_item("min_prediction_confidence", 0.7).unwrap();
+        ml_default_dict
+            .set_item("min_prediction_confidence", 0.7)
+            .unwrap();
         let ml_defaults: MlSlo = ml_default_dict.extract().unwrap();
         assert_eq!(ml_defaults.latency_weight, MlSlo::default().latency_weight);
         assert_eq!(ml_defaults.drift_weight, MlSlo::default().drift_weight);
@@ -1697,9 +1759,15 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         let ml_sample = PyMlSample::new(1, 100.0, 0.7, 0.1, 0.9);
         assert_eq!(ml_sample.inference_latency_ms(), 100.0);
         let ml_sample_dict = ml_sample.to_dict(py).unwrap();
-        assert_eq!(PyMlSample::from_dict(&ml_sample_dict).unwrap().timestamp(), 1);
+        assert_eq!(
+            PyMlSample::from_dict(&ml_sample_dict).unwrap().timestamp(),
+            1
+        );
         assert!(ml_sample.to_json().unwrap().contains("feature_drift"));
-        assert!(ml_sample.to_yaml().unwrap().contains("prediction_confidence"));
+        assert!(ml_sample
+            .to_yaml()
+            .unwrap()
+            .contains("prediction_confidence"));
 
         let ml_slo = PyMlSlo::new(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9);
         let ml_eval = ml_slo.evaluate_sample(MlSample {
@@ -1710,7 +1778,11 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             prediction_confidence: 0.9,
         });
         assert!(ml_eval.system_score() > 0.0);
-        assert!(ml_eval.to_dict(py).unwrap().contains("prediction_confidence_score").unwrap());
+        assert!(ml_eval
+            .to_dict(py)
+            .unwrap()
+            .contains("prediction_confidence_score")
+            .unwrap());
         assert!(ml_eval.to_json().unwrap().contains("hybrid_score"));
         assert!(ml_eval.to_yaml().unwrap().contains("latency_weight"));
         let _ = ml_slo.evaluate_stream(vec![MlSample {
@@ -1722,12 +1794,21 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         }]);
         let _ = ml_slo.to_dict(py).unwrap();
         assert!(ml_slo.to_json().unwrap().contains("max_gpu_utilization"));
-        assert!(ml_slo.to_yaml().unwrap().contains("min_prediction_confidence"));
+        assert!(ml_slo
+            .to_yaml()
+            .unwrap()
+            .contains("min_prediction_confidence"));
 
         let genai_default_dict = PyDict::new_bound(py);
-        genai_default_dict.set_item("min_tokens_per_second", 10.0).unwrap();
-        genai_default_dict.set_item("max_time_to_first_token_ms", 1500.0).unwrap();
-        genai_default_dict.set_item("min_semantic_similarity", 0.6).unwrap();
+        genai_default_dict
+            .set_item("min_tokens_per_second", 10.0)
+            .unwrap();
+        genai_default_dict
+            .set_item("max_time_to_first_token_ms", 1500.0)
+            .unwrap();
+        genai_default_dict
+            .set_item("min_semantic_similarity", 0.6)
+            .unwrap();
         let genai_defaults: GenAiSlo = genai_default_dict.extract().unwrap();
         assert_eq!(
             genai_defaults.semantic_model_name,
@@ -1744,11 +1825,17 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         );
         assert_eq!(genai_sample.tokens_generated(), 200);
         let genai_sample_dict = genai_sample.to_dict(py).unwrap();
-        assert_eq!(PyGenAiSample::from_dict(&genai_sample_dict).unwrap().timestamp(), 1);
+        assert_eq!(
+            PyGenAiSample::from_dict(&genai_sample_dict)
+                .unwrap()
+                .timestamp(),
+            1
+        );
         assert!(genai_sample.to_json().unwrap().contains("reference_text"));
         assert!(genai_sample.to_yaml().unwrap().contains("generated_text"));
 
-        let genai_slo = PyGenAiSlo::new(20.0, 1200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2");
+        let genai_slo =
+            PyGenAiSlo::new(20.0, 1200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2");
         let genai_eval = genai_slo.evaluate_sample(GenAiSample {
             timestamp: 1,
             tokens_generated: 200,
@@ -1758,9 +1845,19 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             generated_text: "hello world".to_string(),
         });
         assert!(genai_eval.semantic_similarity_ok());
-        assert!(genai_eval.to_dict(py).unwrap().contains("tokens_per_second_ok").unwrap());
-        assert!(genai_eval.to_json().unwrap().contains("semantic_similarity"));
-        assert!(genai_eval.to_yaml().unwrap().contains("time_to_first_token_ok"));
+        assert!(genai_eval
+            .to_dict(py)
+            .unwrap()
+            .contains("tokens_per_second_ok")
+            .unwrap());
+        assert!(genai_eval
+            .to_json()
+            .unwrap()
+            .contains("semantic_similarity"));
+        assert!(genai_eval
+            .to_yaml()
+            .unwrap()
+            .contains("time_to_first_token_ok"));
         let _ = genai_slo.evaluate_stream(vec![GenAiSample {
             timestamp: 2,
             tokens_generated: 250,
@@ -1770,36 +1867,58 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             generated_text: "a b c".to_string(),
         }]);
         let _ = genai_slo.to_dict(py).unwrap();
-        assert!(genai_slo.to_json().unwrap().contains("min_semantic_similarity"));
+        assert!(genai_slo
+            .to_json()
+            .unwrap()
+            .contains("min_semantic_similarity"));
         assert!(genai_slo.to_yaml().unwrap().contains("semantic_model_name"));
 
         let composite_service = PyCompositeServiceSlo::new("api".to_string(), 0.95, 0.9, 1.0);
         assert_eq!(composite_service.service(), "api");
         let cs_dict = composite_service.to_dict(py).unwrap();
-        assert_eq!(PyCompositeServiceSlo::from_dict(&cs_dict).unwrap().impact_weight(), 1.0);
+        assert_eq!(
+            PyCompositeServiceSlo::from_dict(&cs_dict)
+                .unwrap()
+                .impact_weight(),
+            1.0
+        );
         assert!(composite_service.to_json().unwrap().contains("local_score"));
-        assert!(composite_service.to_yaml().unwrap().contains("min_pass_score"));
+        assert!(composite_service
+            .to_yaml()
+            .unwrap()
+            .contains("min_pass_score"));
 
-        let composite_edge = PyCompositeDependencyEdge::new("db".to_string(), "api".to_string(), 0.3);
+        let composite_edge =
+            PyCompositeDependencyEdge::new("db".to_string(), "api".to_string(), 0.3);
         assert_eq!(composite_edge.dependent(), "api");
         let ce_dict = composite_edge.to_dict(py).unwrap();
-        assert_eq!(PyCompositeDependencyEdge::from_dict(&ce_dict).unwrap().failure_penalty(), 0.3);
+        assert_eq!(
+            PyCompositeDependencyEdge::from_dict(&ce_dict)
+                .unwrap()
+                .failure_penalty(),
+            0.3
+        );
         assert!(composite_edge.to_json().unwrap().contains("dependency"));
-        assert!(composite_edge.to_yaml().unwrap().contains("failure_penalty"));
+        assert!(composite_edge
+            .to_yaml()
+            .unwrap()
+            .contains("failure_penalty"));
 
         let graph = PyCompositeSloGraph::new(
-            vec![CompositeServiceSlo {
-                service: "api".to_string(),
-                local_score: 0.95,
-                min_pass_score: 0.9,
-                impact_weight: 1.0,
-            },
-            CompositeServiceSlo {
-                service: "db".to_string(),
-                local_score: 0.99,
-                min_pass_score: 0.9,
-                impact_weight: 1.0,
-            }],
+            vec![
+                CompositeServiceSlo {
+                    service: "api".to_string(),
+                    local_score: 0.95,
+                    min_pass_score: 0.9,
+                    impact_weight: 1.0,
+                },
+                CompositeServiceSlo {
+                    service: "db".to_string(),
+                    local_score: 0.99,
+                    min_pass_score: 0.9,
+                    impact_weight: 1.0,
+                },
+            ],
             vec![CompositeDependencyEdge {
                 dependency: "db".to_string(),
                 dependent: "api".to_string(),
@@ -2078,7 +2197,7 @@ assert "nb_http_availability" in rendered
 }
 
 fn sample_otlp_payload_json() -> &'static str {
-        r#"{
+    r#"{
     "resourceMetrics": [
         {
             "scopeMetrics": [
@@ -2122,52 +2241,50 @@ fn sample_otlp_payload_json() -> &'static str {
 
 #[test]
 fn otlp_histogram_ingestion_produces_histogram_samples() {
-        let samples = ingest_otlp_histogram_json(sample_otlp_payload_json(), "http.server.duration")
-                .unwrap();
-        assert_eq!(samples.len(), 1);
+    let samples =
+        ingest_otlp_histogram_json(sample_otlp_payload_json(), "http.server.duration").unwrap();
+    assert_eq!(samples.len(), 1);
 
-        let sample = &samples[0];
-        assert_eq!(sample.timestamp, 1_700_000_000);
-        assert_eq!(sample.total, 100);
-        assert_eq!(sample.success, 100);
-        assert_eq!(sample.format, HistogramFormat::OpenTelemetryDelta);
-        assert_eq!(sample.buckets.len(), 3);
-        assert_eq!(sample.buckets[0].upper_bound_ms, 100.0);
-        assert!(sample.buckets[2].upper_bound_ms.is_infinite());
+    let sample = &samples[0];
+    assert_eq!(sample.timestamp, 1_700_000_000);
+    assert_eq!(sample.total, 100);
+    assert_eq!(sample.success, 100);
+    assert_eq!(sample.format, HistogramFormat::OpenTelemetryDelta);
+    assert_eq!(sample.buckets.len(), 3);
+    assert_eq!(sample.buckets[0].upper_bound_ms, 100.0);
+    assert!(sample.buckets[2].upper_bound_ms.is_infinite());
 }
 
 #[test]
 fn otlp_numeric_ingestion_produces_metric_points_with_labels() {
-        let points = ingest_otlp_numeric_json(
-                sample_otlp_payload_json(),
-                "service.error_budget.consumed",
-        )
-        .unwrap();
-        assert_eq!(points.len(), 1);
+    let points =
+        ingest_otlp_numeric_json(sample_otlp_payload_json(), "service.error_budget.consumed")
+            .unwrap();
+    assert_eq!(points.len(), 1);
 
-        let point = &points[0];
-        assert_eq!(point.timestamp, 1_700_000_000);
-        assert!((point.value - 0.25).abs() < 1e-12);
-        assert_eq!(point.labels.get("service").unwrap(), "api");
-        assert_eq!(point.labels.get("env").unwrap(), "prod");
+    let point = &points[0];
+    assert_eq!(point.timestamp, 1_700_000_000);
+    assert!((point.value - 0.25).abs() < 1e-12);
+    assert_eq!(point.labels.get("service").unwrap(), "api");
+    assert_eq!(point.labels.get("env").unwrap(), "prod");
 }
 
 #[test]
 fn python_otlp_ingestion_and_http_evaluation_work() {
-        pyo3::prepare_freethreaded_python();
+    pyo3::prepare_freethreaded_python();
 
-        Python::with_gil(|py| {
-                let module = PyModule::new_bound(py, "neuralbudget_otlp_test").unwrap();
-                neuralbudget(py, &module).unwrap();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "neuralbudget_otlp_test").unwrap();
+        neuralbudget(py, &module).unwrap();
 
-                let locals = PyDict::new_bound(py);
-                locals.set_item("nb", &module).unwrap();
-                locals
-                        .set_item("otlp_payload", sample_otlp_payload_json())
-                        .unwrap();
+        let locals = PyDict::new_bound(py);
+        locals.set_item("nb", &module).unwrap();
+        locals
+            .set_item("otlp_payload", sample_otlp_payload_json())
+            .unwrap();
 
-                py.run_bound(
-                        r#"
+        py.run_bound(
+            r#"
 hist = nb.ingest_otlp_histogram(otlp_payload, "http.server.duration")
 assert len(hist) == 1
 assert hist[0].format == "open_telemetry_delta"
@@ -2181,11 +2298,11 @@ evaluations = nb.evaluate_http_slo_otlp(otlp_payload, "http.server.duration", sl
 assert len(evaluations) == 1
 assert evaluations[0].availability == 1.0
 "#,
-                        None,
-                        Some(&locals),
-                )
-                .unwrap();
-        });
+            None,
+            Some(&locals),
+        )
+        .unwrap();
+    });
 }
 
 proptest! {

@@ -20,7 +20,10 @@ impl std::fmt::Display for OtlpIngestError {
             Self::Json(err) => write!(f, "invalid OTLP JSON payload: {err}"),
             Self::MetricNotFound(name) => write!(f, "OTLP metric '{name}' was not found"),
             Self::UnsupportedMetricType(name) => {
-                write!(f, "OTLP metric '{name}' is not a supported type for this operation")
+                write!(
+                    f,
+                    "OTLP metric '{name}' is not a supported type for this operation"
+                )
             }
             Self::InvalidHistogramBuckets(name) => write!(
                 f,
@@ -183,10 +186,7 @@ where
     match parsed {
         None => Ok(None),
         Some(I64Like::Number(value)) => Ok(Some(value)),
-        Some(I64Like::String(value)) => value
-            .parse::<i64>()
-            .map(Some)
-            .map_err(D::Error::custom),
+        Some(I64Like::String(value)) => value.parse::<i64>().map(Some).map_err(D::Error::custom),
     }
 }
 
