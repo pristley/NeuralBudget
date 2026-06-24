@@ -281,6 +281,96 @@ pub struct StatefulSloEvaluation {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// One timestamped ML-serving sample combining system and data quality signals.
+pub struct MlSample {
+    pub timestamp: i64,
+    pub inference_latency_ms: f64,
+    /// Saturation ratio in `[0.0, 1.0]`.
+    pub gpu_utilization: f64,
+    /// Feature drift distance where lower is better.
+    pub feature_drift: f64,
+    /// Model confidence in `[0.0, 1.0]` where higher is better.
+    pub prediction_confidence: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Hybrid MLOps SLO policy that blends serving latency/system and drift/data signals.
+pub struct MlSlo {
+    pub max_inference_latency_ms: f64,
+    pub max_gpu_utilization: f64,
+    pub max_feature_drift: f64,
+    pub min_prediction_confidence: f64,
+    /// Weight applied to `latency_score` (`system_score`) in the hybrid formula.
+    pub latency_weight: f64,
+    /// Weight applied to `drift_score` (`data_score`) in the hybrid formula.
+    pub drift_weight: f64,
+    /// Minimum hybrid score required to pass.
+    pub min_pass_score: f64,
+}
+
+impl Default for MlSlo {
+    fn default() -> Self {
+        Self {
+            max_inference_latency_ms: 200.0,
+            max_gpu_utilization: 0.85,
+            max_feature_drift: 0.2,
+            min_prediction_confidence: 0.8,
+            latency_weight: 0.6,
+            drift_weight: 0.4,
+            min_pass_score: 0.9,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// ML-serving SLO evaluation output per sample.
+pub struct MlSloEvaluation {
+    pub timestamp: i64,
+    pub inference_latency_score: f64,
+    pub gpu_utilization_score: f64,
+    pub system_score: f64,
+    /// Alias for `system_score` used by the published hybrid formula.
+    pub latency_score: f64,
+    pub feature_drift_score: f64,
+    pub prediction_confidence_score: f64,
+    pub drift_score: f64,
+    pub latency_weight: f64,
+    pub drift_weight: f64,
+    pub hybrid_score: f64,
+    pub pass: bool,
+}
+
+pub struct MlSloIterator<I>
+where
+    I: Iterator<Item = MlSample>,
+{
+    slo: MlSlo,
+    source: I,
+}
+
+impl<I> MlSloIterator<I>
+where
+    I: Iterator<Item = MlSample>,
+{
+    pub fn new(slo: MlSlo, source: I) -> Self {
+        Self { slo, source }
+    }
+}
+
+impl<I> Iterator for MlSloIterator<I>
+where
+    I: Iterator<Item = MlSample>,
+{
+    type Item = MlSloEvaluation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source
+            .next()
+            .map(|sample| self.slo.evaluate_sample(&sample))
+    }
+}
+
 pub struct StatefulSloIterator<I>
 where
     I: Iterator<Item = StatefulSample>,
@@ -459,6 +549,9 @@ impl JsonYamlExt for StatefulPolicyProfile {}
 impl JsonYamlExt for StatefulPolicyProfileSet {}
 impl JsonYamlExt for StatefulSlo {}
 impl JsonYamlExt for StatefulSloEvaluation {}
+impl JsonYamlExt for MlSample {}
+impl JsonYamlExt for MlSlo {}
+impl JsonYamlExt for MlSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
 
 pub(crate) fn missing_key(key: &str) -> PyErr {
@@ -908,5 +1001,86 @@ impl StatefulSlo {
         profiles: &StatefulPolicyProfileSet,
     ) -> StatefulSloEvaluation {
         self.evaluate_sample_with_profile(sample, profiles.profile_for_tier(tier))
+    }
+}
+
+impl MlSlo {
+    fn normalized_weights(&self) -> (f64, f64) {
+        let latency = self.latency_weight.max(0.0);
+        let drift = self.drift_weight.max(0.0);
+        let sum = latency + drift;
+
+        if sum <= 0.0 {
+            return (0.6, 0.4);
+        }
+
+        (latency / sum, drift / sum)
+    }
+
+    fn score_below_threshold(sample_value: f64, max_allowed: f64) -> f64 {
+        if !sample_value.is_finite() || max_allowed <= 0.0 {
+            return 0.0;
+        }
+
+        if sample_value <= 0.0 {
+            return 1.0;
+        }
+
+        (max_allowed / sample_value).clamp(0.0, 1.0)
+    }
+
+    fn score_above_threshold(sample_value: f64, min_allowed: f64) -> f64 {
+        if !sample_value.is_finite() || min_allowed <= 0.0 {
+            return 0.0;
+        }
+
+        if sample_value >= min_allowed {
+            return 1.0;
+        }
+
+        (sample_value / min_allowed).clamp(0.0, 1.0)
+    }
+
+    pub fn evaluate_sample(&self, sample: &MlSample) -> MlSloEvaluation {
+        let inference_latency_score =
+            Self::score_below_threshold(sample.inference_latency_ms, self.max_inference_latency_ms);
+        let gpu_utilization_score =
+            Self::score_below_threshold(sample.gpu_utilization, self.max_gpu_utilization);
+        let feature_drift_score =
+            if !sample.feature_drift.is_finite() || self.max_feature_drift <= 0.0 {
+                0.0
+            } else {
+                (1.0 - (sample.feature_drift / self.max_feature_drift)).clamp(0.0, 1.0)
+            };
+        let prediction_confidence_score = Self::score_above_threshold(
+            sample.prediction_confidence,
+            self.min_prediction_confidence,
+        );
+
+        let system_score =
+            ((inference_latency_score + gpu_utilization_score) / 2.0).clamp(0.0, 1.0);
+        let latency_score = system_score;
+        let drift_score =
+            ((feature_drift_score + prediction_confidence_score) / 2.0).clamp(0.0, 1.0);
+
+        let (latency_weight, drift_weight) = self.normalized_weights();
+        let hybrid_score =
+            (latency_score * latency_weight + drift_score * drift_weight).clamp(0.0, 1.0);
+        let pass = hybrid_score >= self.min_pass_score.clamp(0.0, 1.0);
+
+        MlSloEvaluation {
+            timestamp: sample.timestamp,
+            inference_latency_score,
+            gpu_utilization_score,
+            system_score,
+            latency_score,
+            feature_drift_score,
+            prediction_confidence_score,
+            drift_score,
+            latency_weight,
+            drift_weight,
+            hybrid_score,
+            pass,
+        }
     }
 }

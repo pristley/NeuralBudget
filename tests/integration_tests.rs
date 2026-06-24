@@ -2,9 +2,9 @@ use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
     calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, HistogramBucket,
     HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
-    MetricPoint, OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet, StatefulSample,
-    StatefulSlo, StatefulSloEvaluation, StatefulSloIterator, StatefulTier, TimeWindow,
-    WebApiRequest, WebApiSloPolicy,
+    MetricPoint, MlSample, MlSlo, MlSloEvaluation, MlSloIterator, OutlierFilterConfig, SloConfig,
+    StatefulPolicyProfileSet, StatefulSample, StatefulSlo, StatefulSloEvaluation,
+    StatefulSloIterator, StatefulTier, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -410,4 +410,100 @@ fn weighted_stateful_policy_profiles_round_trip_and_diverge_by_tier() {
     assert!(database_eval.pass);
     assert!(!queue_eval.pass);
     assert!(database_eval.score > queue_eval.score);
+}
+
+#[test]
+fn ml_slo_hybrid_score_uses_default_latency_and_drift_weights() {
+    let slo = MlSlo::default();
+    let sample = MlSample {
+        timestamp: 11,
+        inference_latency_ms: 220.0,
+        gpu_utilization: 0.9,
+        feature_drift: 0.1,
+        prediction_confidence: 0.9,
+    };
+
+    let result = slo.evaluate_sample(&sample);
+
+    assert!((result.inference_latency_score - (200.0 / 220.0)).abs() < 1e-9);
+    assert!((result.gpu_utilization_score - (0.85 / 0.9)).abs() < 1e-9);
+    assert!(
+        (result.system_score
+            - ((result.inference_latency_score + result.gpu_utilization_score) / 2.0))
+            .abs()
+            < 1e-9
+    );
+    assert!((result.feature_drift_score - 0.5).abs() < 1e-9);
+    assert!((result.prediction_confidence_score - 1.0).abs() < 1e-9);
+    assert!((result.drift_score - 0.75).abs() < 1e-9);
+
+    let expected = result.latency_score * 0.6 + result.drift_score * 0.4;
+    assert!((result.hybrid_score - expected).abs() < 1e-9);
+    assert!(!result.pass);
+}
+
+#[test]
+fn ml_slo_weight_normalization_handles_non_unit_weight_sums() {
+    let slo = MlSlo {
+        latency_weight: 3.0,
+        drift_weight: 2.0,
+        min_pass_score: 0.75,
+        ..MlSlo::default()
+    };
+    let sample = MlSample {
+        timestamp: 12,
+        inference_latency_ms: 180.0,
+        gpu_utilization: 0.7,
+        feature_drift: 0.09,
+        prediction_confidence: 0.92,
+    };
+
+    let result = slo.evaluate_sample(&sample);
+    assert!((result.latency_weight - 0.6).abs() < 1e-9);
+    assert!((result.drift_weight - 0.4).abs() < 1e-9);
+    assert!(result.pass);
+}
+
+#[test]
+fn ml_slo_iterator_and_serialization_round_trip() {
+    let slo = MlSlo::default();
+    let samples = vec![
+        MlSample {
+            timestamp: 20,
+            inference_latency_ms: 160.0,
+            gpu_utilization: 0.75,
+            feature_drift: 0.08,
+            prediction_confidence: 0.94,
+        },
+        MlSample {
+            timestamp: 21,
+            inference_latency_ms: 260.0,
+            gpu_utilization: 0.95,
+            feature_drift: 0.22,
+            prediction_confidence: 0.72,
+        },
+    ];
+
+    let results: Vec<MlSloEvaluation> =
+        MlSloIterator::new(slo.clone(), samples.into_iter()).collect();
+    assert_eq!(results.len(), 2);
+    assert!(results[0].pass);
+    assert!(!results[1].pass);
+
+    let round_trip = MlSlo::from_json_str(&slo.to_json_string().unwrap()).unwrap();
+    assert_eq!(round_trip, slo);
+
+    let sample_round_trip = MlSample::from_yaml_str(
+        &MlSample {
+            timestamp: 99,
+            inference_latency_ms: 120.0,
+            gpu_utilization: 0.5,
+            feature_drift: 0.03,
+            prediction_confidence: 0.98,
+        }
+        .to_yaml_string()
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(sample_round_trip.timestamp, 99);
 }

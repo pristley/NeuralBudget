@@ -9,6 +9,7 @@ from .convenience import (
     availability_snapshot,
     burn_rate_from_values,
     evaluate_http_histogram_once,
+    evaluate_ml_once,
     evaluate_stateful_once,
     metric_stream,
 )

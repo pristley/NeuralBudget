@@ -129,3 +129,50 @@ def evaluate_stateful_once(
         "connection_wait_penalized": bool(evaluation.connection_wait_penalized),
         "pass": bool(getattr(evaluation, "pass")),
     }
+
+
+def evaluate_ml_once(
+    sample: Mapping[str, Any],
+    max_inference_latency_ms: float = 200.0,
+    max_gpu_utilization: float = 0.85,
+    max_feature_drift: float = 0.2,
+    min_prediction_confidence: float = 0.8,
+    latency_weight: float = 0.6,
+    drift_weight: float = 0.4,
+    min_pass_score: float = 0.9,
+) -> dict[str, Any]:
+    """Evaluate one ML-serving sample with hybrid latency and drift weighting."""
+    slo = _native.MlSlo(
+        max_inference_latency_ms=float(max_inference_latency_ms),
+        max_gpu_utilization=float(max_gpu_utilization),
+        max_feature_drift=float(max_feature_drift),
+        min_prediction_confidence=float(min_prediction_confidence),
+        latency_weight=float(latency_weight),
+        drift_weight=float(drift_weight),
+        min_pass_score=float(min_pass_score),
+    )
+
+    ml_sample = _native.MlSample(
+        timestamp=int(sample["timestamp"]),
+        inference_latency_ms=float(sample["inference_latency_ms"]),
+        gpu_utilization=float(sample["gpu_utilization"]),
+        feature_drift=float(sample["feature_drift"]),
+        prediction_confidence=float(sample["prediction_confidence"]),
+    )
+
+    evaluation = slo.evaluate_sample(ml_sample)
+
+    return {
+        "timestamp": int(evaluation.timestamp),
+        "inference_latency_score": float(evaluation.inference_latency_score),
+        "gpu_utilization_score": float(evaluation.gpu_utilization_score),
+        "system_score": float(evaluation.system_score),
+        "latency_score": float(evaluation.latency_score),
+        "feature_drift_score": float(evaluation.feature_drift_score),
+        "prediction_confidence_score": float(evaluation.prediction_confidence_score),
+        "drift_score": float(evaluation.drift_score),
+        "latency_weight": float(evaluation.latency_weight),
+        "drift_weight": float(evaluation.drift_weight),
+        "hybrid_score": float(evaluation.hybrid_score),
+        "pass": bool(getattr(evaluation, "pass")),
+    }

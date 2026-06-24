@@ -86,8 +86,10 @@ Key classes and functions:
 - TimeWindow for rolling and calendar-aligned windows
 - HistogramBucket, HistogramSample, HttpSlo
 - StatefulSample, StatefulSlo
+- MlSample, MlSlo
 - calculate_availability, calculate_error_budget, calculate_burn_rate
 - filter_statistical_outliers, calculate_web_api_slo
+- evaluate_ml_slo, evaluate_ml_slo_stream
 
 Example:
 
@@ -124,11 +126,16 @@ Helpers:
 - burn_rate_from_values: burn-rate calculation from raw values
 - evaluate_http_histogram_once: evaluate one histogram payload dict
 - evaluate_stateful_once: evaluate one stateful payload dict
+- evaluate_ml_once: evaluate one ML serving payload dict with hybrid scoring
 
 Example:
 
 ```python
-from neuralbudget.convenience import availability_snapshot, evaluate_http_histogram_once
+from neuralbudget.convenience import (
+	availability_snapshot,
+	evaluate_http_histogram_once,
+	evaluate_ml_once,
+)
 
 snapshot = availability_snapshot(success=9995, total=10000, slo_target=0.999)
 http_eval = evaluate_http_histogram_once(
@@ -145,12 +152,24 @@ http_eval = evaluate_http_histogram_once(
 	}
 )
 
-print(snapshot["target_met"], http_eval["pass"])
+ml_eval = evaluate_ml_once(
+	{
+		"timestamp": 1,
+		"inference_latency_ms": 185.0,
+		"gpu_utilization": 0.72,
+		"feature_drift": 0.07,
+		"prediction_confidence": 0.93,
+	},
+	latency_weight=0.6,
+	drift_weight=0.4,
+)
+
+print(snapshot["target_met"], http_eval["pass"], ml_eval["pass"])
 ```
 
 ### Python Examples
 
-Reference scripts are available in [examples/python/availability_budget.py](examples/python/availability_budget.py), [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py), [examples/python/stateful_slo.py](examples/python/stateful_slo.py), [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py), and [examples/python/convenience_layer.py](examples/python/convenience_layer.py).
+Reference scripts are available in [examples/python/availability_budget.py](examples/python/availability_budget.py), [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py), [examples/python/stateful_slo.py](examples/python/stateful_slo.py), [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py), [examples/python/convenience_layer.py](examples/python/convenience_layer.py), and [examples/python/ml_slo_drift_serving.py](examples/python/ml_slo_drift_serving.py).
 
 Run any example with:
 

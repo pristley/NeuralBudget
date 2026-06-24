@@ -201,6 +201,55 @@ impl<'py> FromPyObject<'py> for StatefulSlo {
     }
 }
 
+impl<'py> FromPyObject<'py> for MlSample {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyMlSample>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("MlSample"))?;
+        Ok(Self {
+            timestamp: extract_required(dict, "timestamp")?,
+            inference_latency_ms: extract_required(dict, "inference_latency_ms")?,
+            gpu_utilization: extract_required(dict, "gpu_utilization")?,
+            feature_drift: extract_required(dict, "feature_drift")?,
+            prediction_confidence: extract_required(dict, "prediction_confidence")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for MlSlo {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyMlSlo>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("MlSlo"))?;
+        Ok(Self {
+            max_inference_latency_ms: extract_required(dict, "max_inference_latency_ms")?,
+            max_gpu_utilization: extract_required(dict, "max_gpu_utilization")?,
+            max_feature_drift: extract_required(dict, "max_feature_drift")?,
+            min_prediction_confidence: extract_required(dict, "min_prediction_confidence")?,
+            latency_weight: match dict.get_item("latency_weight")? {
+                Some(value) => value.extract::<f64>()?,
+                None => MlSlo::default().latency_weight,
+            },
+            drift_weight: match dict.get_item("drift_weight")? {
+                Some(value) => value.extract::<f64>()?,
+                None => MlSlo::default().drift_weight,
+            },
+            min_pass_score: match dict.get_item("min_pass_score")? {
+                Some(value) => value.extract::<f64>()?,
+                None => MlSlo::default().min_pass_score,
+            },
+        })
+    }
+}
+
 #[pyclass(name = "SloConfig")]
 #[derive(Clone)]
 pub struct PySloConfig {
@@ -1037,6 +1086,315 @@ impl PyStatefulSlo {
     }
 }
 
+#[pyclass(name = "MlSample")]
+#[derive(Clone)]
+pub struct PyMlSample {
+    inner: MlSample,
+}
+
+#[pymethods]
+impl PyMlSample {
+    #[new]
+    fn new(
+        timestamp: i64,
+        inference_latency_ms: f64,
+        gpu_utilization: f64,
+        feature_drift: f64,
+        prediction_confidence: f64,
+    ) -> Self {
+        Self {
+            inner: MlSample {
+                timestamp,
+                inference_latency_ms,
+                gpu_utilization,
+                feature_drift,
+                prediction_confidence,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<MlSample>()?,
+        })
+    }
+
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn inference_latency_ms(&self) -> f64 {
+        self.inner.inference_latency_ms
+    }
+
+    #[getter]
+    fn gpu_utilization(&self) -> f64 {
+        self.inner.gpu_utilization
+    }
+
+    #[getter]
+    fn feature_drift(&self) -> f64 {
+        self.inner.feature_drift
+    }
+
+    #[getter]
+    fn prediction_confidence(&self) -> f64 {
+        self.inner.prediction_confidence
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("inference_latency_ms", self.inner.inference_latency_ms)?;
+        dict.set_item("gpu_utilization", self.inner.gpu_utilization)?;
+        dict.set_item("feature_drift", self.inner.feature_drift)?;
+        dict.set_item("prediction_confidence", self.inner.prediction_confidence)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "MlSloEvaluation")]
+#[derive(Clone)]
+pub struct PyMlSloEvaluation {
+    inner: MlSloEvaluation,
+}
+
+#[pymethods]
+impl PyMlSloEvaluation {
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn inference_latency_score(&self) -> f64 {
+        self.inner.inference_latency_score
+    }
+
+    #[getter]
+    fn gpu_utilization_score(&self) -> f64 {
+        self.inner.gpu_utilization_score
+    }
+
+    #[getter]
+    fn system_score(&self) -> f64 {
+        self.inner.system_score
+    }
+
+    #[getter]
+    fn latency_score(&self) -> f64 {
+        self.inner.latency_score
+    }
+
+    #[getter]
+    fn feature_drift_score(&self) -> f64 {
+        self.inner.feature_drift_score
+    }
+
+    #[getter]
+    fn prediction_confidence_score(&self) -> f64 {
+        self.inner.prediction_confidence_score
+    }
+
+    #[getter]
+    fn drift_score(&self) -> f64 {
+        self.inner.drift_score
+    }
+
+    #[getter]
+    fn latency_weight(&self) -> f64 {
+        self.inner.latency_weight
+    }
+
+    #[getter]
+    fn drift_weight(&self) -> f64 {
+        self.inner.drift_weight
+    }
+
+    #[getter]
+    fn hybrid_score(&self) -> f64 {
+        self.inner.hybrid_score
+    }
+
+    #[getter]
+    fn pass(&self) -> bool {
+        self.inner.pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item(
+            "inference_latency_score",
+            self.inner.inference_latency_score,
+        )?;
+        dict.set_item("gpu_utilization_score", self.inner.gpu_utilization_score)?;
+        dict.set_item("system_score", self.inner.system_score)?;
+        dict.set_item("latency_score", self.inner.latency_score)?;
+        dict.set_item("feature_drift_score", self.inner.feature_drift_score)?;
+        dict.set_item(
+            "prediction_confidence_score",
+            self.inner.prediction_confidence_score,
+        )?;
+        dict.set_item("drift_score", self.inner.drift_score)?;
+        dict.set_item("latency_weight", self.inner.latency_weight)?;
+        dict.set_item("drift_weight", self.inner.drift_weight)?;
+        dict.set_item("hybrid_score", self.inner.hybrid_score)?;
+        dict.set_item("pass", self.inner.pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "MlSlo")]
+#[derive(Clone)]
+pub struct PyMlSlo {
+    inner: MlSlo,
+}
+
+#[pymethods]
+impl PyMlSlo {
+    #[new]
+    #[pyo3(signature = (
+        max_inference_latency_ms=200.0,
+        max_gpu_utilization=0.85,
+        max_feature_drift=0.2,
+        min_prediction_confidence=0.8,
+        latency_weight=0.6,
+        drift_weight=0.4,
+        min_pass_score=0.9
+    ))]
+    fn new(
+        max_inference_latency_ms: f64,
+        max_gpu_utilization: f64,
+        max_feature_drift: f64,
+        min_prediction_confidence: f64,
+        latency_weight: f64,
+        drift_weight: f64,
+        min_pass_score: f64,
+    ) -> Self {
+        Self {
+            inner: MlSlo {
+                max_inference_latency_ms,
+                max_gpu_utilization,
+                max_feature_drift,
+                min_prediction_confidence,
+                latency_weight,
+                drift_weight,
+                min_pass_score,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<MlSlo>()?,
+        })
+    }
+
+    #[getter]
+    fn max_inference_latency_ms(&self) -> f64 {
+        self.inner.max_inference_latency_ms
+    }
+
+    #[getter]
+    fn max_gpu_utilization(&self) -> f64 {
+        self.inner.max_gpu_utilization
+    }
+
+    #[getter]
+    fn max_feature_drift(&self) -> f64 {
+        self.inner.max_feature_drift
+    }
+
+    #[getter]
+    fn min_prediction_confidence(&self) -> f64 {
+        self.inner.min_prediction_confidence
+    }
+
+    #[getter]
+    fn latency_weight(&self) -> f64 {
+        self.inner.latency_weight
+    }
+
+    #[getter]
+    fn drift_weight(&self) -> f64 {
+        self.inner.drift_weight
+    }
+
+    #[getter]
+    fn min_pass_score(&self) -> f64 {
+        self.inner.min_pass_score
+    }
+
+    fn evaluate_sample(&self, sample: MlSample) -> PyMlSloEvaluation {
+        self.inner.evaluate_sample(&sample).into()
+    }
+
+    fn evaluate_stream(&self, samples: Vec<MlSample>) -> Vec<PyMlSloEvaluation> {
+        MlSloIterator::new(self.inner.clone(), samples.into_iter())
+            .map(Into::into)
+            .collect()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item(
+            "max_inference_latency_ms",
+            self.inner.max_inference_latency_ms,
+        )?;
+        dict.set_item("max_gpu_utilization", self.inner.max_gpu_utilization)?;
+        dict.set_item("max_feature_drift", self.inner.max_feature_drift)?;
+        dict.set_item(
+            "min_prediction_confidence",
+            self.inner.min_prediction_confidence,
+        )?;
+        dict.set_item("latency_weight", self.inner.latency_weight)?;
+        dict.set_item("drift_weight", self.inner.drift_weight)?;
+        dict.set_item("min_pass_score", self.inner.min_pass_score)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
 impl From<SloConfig> for PySloConfig {
     fn from(inner: SloConfig) -> Self {
         Self { inner }
@@ -1103,6 +1461,24 @@ impl From<StatefulSlo> for PyStatefulSlo {
     }
 }
 
+impl From<MlSample> for PyMlSample {
+    fn from(inner: MlSample) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<MlSloEvaluation> for PyMlSloEvaluation {
+    fn from(inner: MlSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<MlSlo> for PyMlSlo {
+    fn from(inner: MlSlo) -> Self {
+        Self { inner }
+    }
+}
+
 #[pyfunction]
 pub fn coerce_slo_config(config: SloConfig) -> PySloConfig {
     config.into()
@@ -1149,6 +1525,16 @@ pub fn coerce_stateful_slo(slo: StatefulSlo) -> PyStatefulSlo {
 }
 
 #[pyfunction]
+pub fn coerce_ml_sample(sample: MlSample) -> PyMlSample {
+    sample.into()
+}
+
+#[pyfunction]
+pub fn coerce_ml_slo(slo: MlSlo) -> PyMlSlo {
+    slo.into()
+}
+
+#[pyfunction]
 pub fn evaluate_http_slo_histogram(sample: HistogramSample, slo: HttpSlo) -> PyHttpSloEvaluation {
     slo.evaluate_histogram(&sample).into()
 }
@@ -1178,6 +1564,18 @@ pub fn evaluate_stateful_slo_stream(
         .collect()
 }
 
+#[pyfunction]
+pub fn evaluate_ml_slo(sample: MlSample, slo: MlSlo) -> PyMlSloEvaluation {
+    slo.evaluate_sample(&sample).into()
+}
+
+#[pyfunction]
+pub fn evaluate_ml_slo_stream(samples: Vec<MlSample>, slo: MlSlo) -> Vec<PyMlSloEvaluation> {
+    MlSloIterator::new(slo, samples.into_iter())
+        .map(Into::into)
+        .collect()
+}
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -1192,6 +1590,9 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStatefulSample>()?;
     module.add_class::<PyStatefulSlo>()?;
     module.add_class::<PyStatefulSloEvaluation>()?;
+    module.add_class::<PyMlSample>()?;
+    module.add_class::<PyMlSlo>()?;
+    module.add_class::<PyMlSloEvaluation>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
@@ -1203,6 +1604,8 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     module.add_function(wrap_pyfunction!(evaluate_stateful_slo, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_stateful_slo_stream, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_ml_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_ml_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;
@@ -1212,6 +1615,8 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(coerce_http_slo, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_stateful_sample, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_stateful_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_ml_sample, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_ml_slo, module)?)?;
     Ok(())
 }
 

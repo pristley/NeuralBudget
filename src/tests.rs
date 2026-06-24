@@ -655,6 +655,48 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let state_stream = stateful.evaluate_stream(vec![stateful_sample.inner.clone()]);
         assert_eq!(state_stream.len(), 1);
 
+        let ml_sample = PyMlSample::new(3, 180.0, 0.7, 0.09, 0.92);
+        let _ = ml_sample.timestamp();
+        let _ = ml_sample.inference_latency_ms();
+        let _ = ml_sample.gpu_utilization();
+        let _ = ml_sample.feature_drift();
+        let _ = ml_sample.prediction_confidence();
+        let ml_sample_dict = ml_sample.to_dict(py).unwrap();
+        let _ = ml_sample.to_json().unwrap();
+        let _ = ml_sample.to_yaml().unwrap();
+        let _ = PyMlSample::from_dict(&ml_sample_dict).unwrap();
+
+        let ml = PyMlSlo::new(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9);
+        let _ = ml.max_inference_latency_ms();
+        let _ = ml.max_gpu_utilization();
+        let _ = ml.max_feature_drift();
+        let _ = ml.min_prediction_confidence();
+        let _ = ml.latency_weight();
+        let _ = ml.drift_weight();
+        let _ = ml.min_pass_score();
+        let ml_dict = ml.to_dict(py).unwrap();
+        let _ = ml.to_json().unwrap();
+        let _ = ml.to_yaml().unwrap();
+        let _ = PyMlSlo::from_dict(&ml_dict).unwrap();
+        let ml_eval = ml.evaluate_sample(ml_sample.inner.clone());
+        let _ = ml_eval.timestamp();
+        let _ = ml_eval.inference_latency_score();
+        let _ = ml_eval.gpu_utilization_score();
+        let _ = ml_eval.system_score();
+        let _ = ml_eval.latency_score();
+        let _ = ml_eval.feature_drift_score();
+        let _ = ml_eval.prediction_confidence_score();
+        let _ = ml_eval.drift_score();
+        let _ = ml_eval.latency_weight();
+        let _ = ml_eval.drift_weight();
+        let _ = ml_eval.hybrid_score();
+        let _ = ml_eval.pass();
+        let _ = ml_eval.to_dict(py).unwrap();
+        let _ = ml_eval.to_json().unwrap();
+        let _ = ml_eval.to_yaml().unwrap();
+        let ml_stream = ml.evaluate_stream(vec![ml_sample.inner.clone()]);
+        assert_eq!(ml_stream.len(), 1);
+
         let _ = coerce_slo_config(cfg.inner.clone());
         let _ = coerce_error_budget(budget.inner.clone());
         let _ = coerce_metric_point(point.inner.clone());
@@ -664,6 +706,8 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
         let _ = coerce_http_slo(http.inner.clone());
         let _ = coerce_stateful_sample(stateful_sample.inner.clone());
         let _ = coerce_stateful_slo(stateful.inner.clone());
+        let _ = coerce_ml_sample(ml_sample.inner.clone());
+        let _ = coerce_ml_slo(ml.inner.clone());
 
         let _ = evaluate_http_slo_histogram(sample.inner.clone(), http.inner.clone());
         let _ = evaluate_http_slo_histogram_stream(vec![sample.inner.clone()], http.inner.clone());
@@ -672,6 +716,8 @@ fn pyo3_wrapper_surface_round_trip_methods_work() {
             vec![stateful_sample.inner.clone()],
             stateful.inner.clone(),
         );
+        let _ = evaluate_ml_slo(ml_sample.inner.clone(), ml.inner.clone());
+        let _ = evaluate_ml_slo_stream(vec![ml_sample.inner.clone()], ml.inner.clone());
     });
 }
 
@@ -808,6 +854,71 @@ fn weighted_stateful_policy_profiles_shift_tier_scores() {
 }
 
 #[test]
+fn ml_slo_formula_matches_weighted_hybrid_definition() {
+    let slo = MlSlo::default();
+    let sample = MlSample {
+        timestamp: 30,
+        inference_latency_ms: 210.0,
+        gpu_utilization: 0.9,
+        feature_drift: 0.1,
+        prediction_confidence: 0.9,
+    };
+
+    let evaluation = slo.evaluate_sample(&sample);
+
+    let expected_latency_score =
+        (evaluation.inference_latency_score + evaluation.gpu_utilization_score) / 2.0;
+    let expected_drift_score =
+        (evaluation.feature_drift_score + evaluation.prediction_confidence_score) / 2.0;
+    let expected_hybrid = expected_latency_score * 0.6 + expected_drift_score * 0.4;
+
+    assert!((evaluation.latency_score - expected_latency_score).abs() < 1e-9);
+    assert!((evaluation.drift_score - expected_drift_score).abs() < 1e-9);
+    assert!((evaluation.hybrid_score - expected_hybrid).abs() < 1e-9);
+}
+
+#[test]
+fn ml_slo_rebalances_non_normalized_weights() {
+    let slo = MlSlo {
+        latency_weight: 12.0,
+        drift_weight: 8.0,
+        ..MlSlo::default()
+    };
+    let sample = MlSample {
+        timestamp: 31,
+        inference_latency_ms: 190.0,
+        gpu_utilization: 0.8,
+        feature_drift: 0.08,
+        prediction_confidence: 0.9,
+    };
+
+    let evaluation = slo.evaluate_sample(&sample);
+    assert!((evaluation.latency_weight - 0.6).abs() < 1e-9);
+    assert!((evaluation.drift_weight - 0.4).abs() < 1e-9);
+}
+
+#[test]
+fn ml_slo_fallback_weights_apply_when_config_is_invalid() {
+    let slo = MlSlo {
+        latency_weight: -1.0,
+        drift_weight: -4.0,
+        ..MlSlo::default()
+    };
+    let sample = MlSample {
+        timestamp: 32,
+        inference_latency_ms: 180.0,
+        gpu_utilization: 0.7,
+        feature_drift: 0.06,
+        prediction_confidence: 0.95,
+    };
+
+    let evaluation = slo.evaluate_sample(&sample);
+    assert!((evaluation.latency_weight - 0.6).abs() < 1e-9);
+    assert!((evaluation.drift_weight - 0.4).abs() < 1e-9);
+    assert!(evaluation.pass);
+}
+
+#[test]
 fn python_module_registration_exports_expected_symbols() {
     pyo3::prepare_freethreaded_python();
 
@@ -827,6 +938,9 @@ fn python_module_registration_exports_expected_symbols() {
             "StatefulSample",
             "StatefulSlo",
             "StatefulSloEvaluation",
+            "MlSample",
+            "MlSlo",
+            "MlSloEvaluation",
             "calculate_availability",
             "calculate_error_budget",
             "calculate_burn_rate",
@@ -835,6 +949,8 @@ fn python_module_registration_exports_expected_symbols() {
             "evaluate_http_slo_histogram_stream",
             "evaluate_stateful_slo",
             "evaluate_stateful_slo_stream",
+            "evaluate_ml_slo",
+            "evaluate_ml_slo_stream",
             "coerce_slo_config",
             "coerce_error_budget",
             "coerce_metric_point",
@@ -844,6 +960,8 @@ fn python_module_registration_exports_expected_symbols() {
             "coerce_http_slo",
             "coerce_stateful_sample",
             "coerce_stateful_slo",
+            "coerce_ml_sample",
+            "coerce_ml_slo",
         ] {
             assert!(module.getattr(name).is_ok(), "missing symbol: {name}");
         }
@@ -900,6 +1018,14 @@ fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
             Py::new(py, PyStatefulSlo::new(250.0, 1_000, 0.8, 20.0, 0.2, 0.9)).unwrap();
         let state_slo: StatefulSlo = state_slo_obj.bind(py).extract().unwrap();
         assert_eq!(state_slo.queue_depth_threshold, 1_000);
+
+        let ml_sample_obj = Py::new(py, PyMlSample::new(3, 150.0, 0.6, 0.08, 0.95)).unwrap();
+        let ml_sample: MlSample = ml_sample_obj.bind(py).extract().unwrap();
+        assert_eq!(ml_sample.timestamp, 3);
+
+        let ml_slo_obj = Py::new(py, PyMlSlo::new(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9)).unwrap();
+        let ml_slo: MlSlo = ml_slo_obj.bind(py).extract().unwrap();
+        assert_eq!(ml_slo.max_feature_drift, 0.2);
 
         let dict = PyDict::new_bound(py);
         dict.set_item("latency_p99_threshold_ms", 175.0).unwrap();
@@ -1031,4 +1157,24 @@ fn core_branch_edges_are_exercised_for_maximum_coverage() {
         },
     );
     assert!(!weighted_fail.pass);
+
+    let invalid_thresholds = MlSlo {
+        max_inference_latency_ms: 0.0,
+        max_gpu_utilization: 0.0,
+        max_feature_drift: 0.0,
+        min_prediction_confidence: 0.0,
+        ..MlSlo::default()
+    };
+    let invalid_eval = invalid_thresholds.evaluate_sample(&MlSample {
+        timestamp: 40,
+        inference_latency_ms: 100.0,
+        gpu_utilization: 0.5,
+        feature_drift: 0.1,
+        prediction_confidence: 0.9,
+    });
+    assert_eq!(invalid_eval.inference_latency_score, 0.0);
+    assert_eq!(invalid_eval.gpu_utilization_score, 0.0);
+    assert_eq!(invalid_eval.feature_drift_score, 0.0);
+    assert_eq!(invalid_eval.prediction_confidence_score, 0.0);
+    assert!(!invalid_eval.pass);
 }
