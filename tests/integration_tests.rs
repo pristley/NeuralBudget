@@ -1,11 +1,13 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
-    calculate_web_api_slo, filter_statistical_outliers, semantic_similarity_placeholder,
-    ErrorBudget, GenAiSample, GenAiSlo, GenAiSloEvaluation, GenAiSloIterator, HistogramBucket,
-    HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
-    MetricPoint, MlSample, MlSlo, MlSloEvaluation, MlSloIterator, OutlierFilterConfig, SloConfig,
-    StatefulPolicyProfileSet, StatefulSample, StatefulSlo, StatefulSloEvaluation,
-    StatefulSloIterator, StatefulTier, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    calculate_web_api_slo, evaluate_composite_slo, filter_statistical_outliers,
+    semantic_similarity_placeholder, CompositeDependencyEdge, CompositeServiceSlo,
+    CompositeSloError, CompositeSloGraph, ErrorBudget, GenAiSample, GenAiSlo,
+    GenAiSloEvaluation, GenAiSloIterator, HistogramBucket, HistogramFormat, HistogramSample,
+    HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt, MetricPoint, MlSample, MlSlo,
+    MlSloEvaluation, MlSloIterator, OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet,
+    StatefulSample, StatefulSlo, StatefulSloEvaluation, StatefulSloIterator, StatefulTier,
+    TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -570,4 +572,114 @@ fn semantic_similarity_placeholder_is_bounded() {
     assert!((0.0..=1.0).contains(&same));
     assert!((0.0..=1.0).contains(&different));
     assert!(same >= different);
+}
+
+#[test]
+fn composite_slo_dag_computes_global_slo_with_dependency_impact() {
+    let graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "edge".to_string(),
+                local_score: 0.72,
+                min_pass_score: 0.9,
+                impact_weight: 2.0,
+            },
+            CompositeServiceSlo {
+                service: "api".to_string(),
+                local_score: 0.97,
+                min_pass_score: 0.9,
+                impact_weight: 3.0,
+            },
+            CompositeServiceSlo {
+                service: "worker".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![CompositeDependencyEdge {
+            dependency: "edge".to_string(),
+            dependent: "api".to_string(),
+            failure_penalty: 0.2,
+        }],
+        global_min_pass_score: 0.85,
+    };
+
+    let result = evaluate_composite_slo(&graph).unwrap();
+    assert_eq!(result.topological_order.len(), 3);
+
+    let edge_eval = result.services.iter().find(|entry| entry.service == "edge").unwrap();
+    let api_eval = result.services.iter().find(|entry| entry.service == "api").unwrap();
+    let worker_eval = result
+        .services
+        .iter()
+        .find(|entry| entry.service == "worker")
+        .unwrap();
+
+    assert!(!edge_eval.pass);
+    assert!(api_eval.dependency_adjusted);
+    assert_eq!(api_eval.failed_dependencies, vec!["edge".to_string()]);
+    assert!((api_eval.effective_score - 0.776).abs() < 1e-9);
+    assert!(!api_eval.pass);
+    assert!(worker_eval.pass);
+
+    let expected_global =
+        (edge_eval.effective_score * 2.0 + api_eval.effective_score * 3.0 + worker_eval.effective_score)
+            / 6.0;
+    assert!((result.global_slo - expected_global).abs() < 1e-9);
+    assert!(!result.global_pass);
+}
+
+#[test]
+fn composite_slo_dag_detects_invalid_dependency_graphs() {
+    let unknown_service_graph = CompositeSloGraph {
+        services: vec![CompositeServiceSlo {
+            service: "a".to_string(),
+            local_score: 0.95,
+            min_pass_score: 0.9,
+            impact_weight: 1.0,
+        }],
+        dependencies: vec![CompositeDependencyEdge {
+            dependency: "a".to_string(),
+            dependent: "missing".to_string(),
+            failure_penalty: 0.2,
+        }],
+        global_min_pass_score: 0.9,
+    };
+
+    let unknown_err = evaluate_composite_slo(&unknown_service_graph).unwrap_err();
+    assert_eq!(unknown_err, CompositeSloError::UnknownService("missing".to_string()));
+
+    let cycle_graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "a".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "b".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![
+            CompositeDependencyEdge {
+                dependency: "a".to_string(),
+                dependent: "b".to_string(),
+                failure_penalty: 0.2,
+            },
+            CompositeDependencyEdge {
+                dependency: "b".to_string(),
+                dependent: "a".to_string(),
+                failure_penalty: 0.2,
+            },
+        ],
+        global_min_pass_score: 0.9,
+    };
+
+    let cycle_err = evaluate_composite_slo(&cycle_graph).unwrap_err();
+    assert_eq!(cycle_err, CompositeSloError::CycleDetected);
 }

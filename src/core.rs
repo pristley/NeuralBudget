@@ -1,6 +1,6 @@
 #![allow(clippy::useless_conversion)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 
 use pyo3::exceptions::{PyKeyError, PyTypeError};
@@ -385,6 +385,93 @@ pub struct GenAiSloEvaluation {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Composite SLO policy for one service node in a dependency graph.
+pub struct CompositeServiceSlo {
+    pub service: String,
+    /// Local service SLO score in `[0.0, 1.0]` before dependency adjustments.
+    pub local_score: f64,
+    /// Minimum effective score required for this service to pass.
+    pub min_pass_score: f64,
+    /// Relative impact weight for System Global SLO aggregation.
+    pub impact_weight: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Directed edge where `dependent` consumes `dependency`.
+pub struct CompositeDependencyEdge {
+    /// Upstream dependency service name.
+    pub dependency: String,
+    /// Downstream dependent service name.
+    pub dependent: String,
+    /// Penalty in `[0.0, 1.0]` applied to dependent if dependency fails.
+    pub failure_penalty: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Composite SLO graph input for DAG traversal and global score computation.
+pub struct CompositeSloGraph {
+    pub services: Vec<CompositeServiceSlo>,
+    pub dependencies: Vec<CompositeDependencyEdge>,
+    /// Minimum system score required for the graph to pass globally.
+    pub global_min_pass_score: f64,
+}
+
+impl Default for CompositeSloGraph {
+    fn default() -> Self {
+        Self {
+            services: Vec::new(),
+            dependencies: Vec::new(),
+            global_min_pass_score: 0.9,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Composite SLO evaluation result for one service node.
+pub struct CompositeServiceSloEvaluation {
+    pub service: String,
+    pub local_score: f64,
+    pub effective_score: f64,
+    pub min_pass_score: f64,
+    /// True when at least one failed upstream dependency altered this node.
+    pub dependency_adjusted: bool,
+    /// Upstream services that failed and impacted this service.
+    pub failed_dependencies: Vec<String>,
+    pub pass: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Full DAG run output including node evaluations and global SLO.
+pub struct CompositeSloEvaluation {
+    pub topological_order: Vec<String>,
+    pub services: Vec<CompositeServiceSloEvaluation>,
+    pub global_slo: f64,
+    pub global_pass: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Error conditions returned when composite graph evaluation is invalid.
+pub enum CompositeSloError {
+    DuplicateService(String),
+    UnknownService(String),
+    SelfDependency(String),
+    CycleDetected,
+}
+
+impl std::fmt::Display for CompositeSloError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DuplicateService(name) => write!(f, "duplicate service '{name}'"),
+            Self::UnknownService(name) => write!(f, "unknown service '{name}' in dependency graph"),
+            Self::SelfDependency(name) => write!(f, "service '{name}' cannot depend on itself"),
+            Self::CycleDetected => write!(f, "composite dependency graph contains a cycle"),
+        }
+    }
+}
+
+impl std::error::Error for CompositeSloError {}
+
 pub struct GenAiSloIterator<I>
 where
     I: Iterator<Item = GenAiSample>,
@@ -629,6 +716,11 @@ impl JsonYamlExt for MlSloEvaluation {}
 impl JsonYamlExt for GenAiSample {}
 impl JsonYamlExt for GenAiSlo {}
 impl JsonYamlExt for GenAiSloEvaluation {}
+impl JsonYamlExt for CompositeServiceSlo {}
+impl JsonYamlExt for CompositeDependencyEdge {}
+impl JsonYamlExt for CompositeSloGraph {}
+impl JsonYamlExt for CompositeServiceSloEvaluation {}
+impl JsonYamlExt for CompositeSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
 
 pub(crate) fn missing_key(key: &str) -> PyErr {
@@ -954,6 +1046,151 @@ pub fn calculate_web_api_slo(
         burn_rate_5m: calculate_burn_rate(burn_stream.clone(), 300),
         burn_rate_1h: calculate_burn_rate(burn_stream, 3_600),
     }
+}
+
+/// Evaluate a Composite SLO dependency DAG and compute the System Global SLO.
+pub fn evaluate_composite_slo(
+    graph: &CompositeSloGraph,
+) -> Result<CompositeSloEvaluation, CompositeSloError> {
+    let mut services_by_name: HashMap<String, &CompositeServiceSlo> = HashMap::new();
+    for service in &graph.services {
+        if services_by_name
+            .insert(service.service.clone(), service)
+            .is_some()
+        {
+            return Err(CompositeSloError::DuplicateService(service.service.clone()));
+        }
+    }
+
+    let mut indegree: HashMap<String, usize> = services_by_name
+        .keys()
+        .map(|name| (name.clone(), 0_usize))
+        .collect();
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+    let mut incoming: HashMap<String, Vec<(String, f64)>> = HashMap::new();
+
+    for edge in &graph.dependencies {
+        if edge.dependency == edge.dependent {
+            return Err(CompositeSloError::SelfDependency(edge.dependency.clone()));
+        }
+
+        if !services_by_name.contains_key(&edge.dependency) {
+            return Err(CompositeSloError::UnknownService(edge.dependency.clone()));
+        }
+        if !services_by_name.contains_key(&edge.dependent) {
+            return Err(CompositeSloError::UnknownService(edge.dependent.clone()));
+        }
+
+        adjacency
+            .entry(edge.dependency.clone())
+            .or_default()
+            .push(edge.dependent.clone());
+        incoming
+            .entry(edge.dependent.clone())
+            .or_default()
+            .push((edge.dependency.clone(), edge.failure_penalty.clamp(0.0, 1.0)));
+
+        if let Some(entry) = indegree.get_mut(&edge.dependent) {
+            *entry += 1;
+        }
+    }
+
+    let mut queue: VecDeque<String> = indegree
+        .iter()
+        .filter_map(|(name, degree)| {
+            if *degree == 0 {
+                Some(name.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let mut topological_order: Vec<String> = Vec::with_capacity(services_by_name.len());
+
+    while let Some(service) = queue.pop_front() {
+        topological_order.push(service.clone());
+        for dependent in adjacency.get(&service).cloned().unwrap_or_default() {
+            if let Some(entry) = indegree.get_mut(&dependent) {
+                *entry = entry.saturating_sub(1);
+                if *entry == 0 {
+                    queue.push_back(dependent);
+                }
+            }
+        }
+    }
+
+    if topological_order.len() != services_by_name.len() {
+        return Err(CompositeSloError::CycleDetected);
+    }
+
+    let mut evaluations_by_service: HashMap<String, CompositeServiceSloEvaluation> = HashMap::new();
+    for service_name in &topological_order {
+        let service = match services_by_name.get(service_name) {
+            Some(node) => *node,
+            None => return Err(CompositeSloError::UnknownService(service_name.clone())),
+        };
+
+        let local_score = service.local_score.clamp(0.0, 1.0);
+        let min_pass_score = service.min_pass_score.clamp(0.0, 1.0);
+        let mut effective_score = local_score;
+        let mut failed_dependencies = Vec::new();
+
+        for (dependency, penalty) in incoming.get(service_name).cloned().unwrap_or_default() {
+            if let Some(dependency_eval) = evaluations_by_service.get(&dependency) {
+                if !dependency_eval.pass {
+                    failed_dependencies.push(dependency);
+                    effective_score *= 1.0 - penalty;
+                }
+            }
+        }
+
+        effective_score = effective_score.clamp(0.0, 1.0);
+        let pass = effective_score >= min_pass_score;
+
+        evaluations_by_service.insert(
+            service_name.clone(),
+            CompositeServiceSloEvaluation {
+                service: service_name.clone(),
+                local_score,
+                effective_score,
+                min_pass_score,
+                dependency_adjusted: !failed_dependencies.is_empty(),
+                failed_dependencies,
+                pass,
+            },
+        );
+    }
+
+    let services: Vec<CompositeServiceSloEvaluation> = topological_order
+        .iter()
+        .filter_map(|name| evaluations_by_service.get(name).cloned())
+        .collect();
+
+    let mut weighted_sum = 0.0;
+    let mut total_weight = 0.0;
+    for service in &graph.services {
+        if let Some(evaluation) = evaluations_by_service.get(&service.service) {
+            let weight = service.impact_weight.max(0.0);
+            weighted_sum += evaluation.effective_score * weight;
+            total_weight += weight;
+        }
+    }
+
+    let global_slo = if total_weight > 0.0 {
+        (weighted_sum / total_weight).clamp(0.0, 1.0)
+    } else if services.is_empty() {
+        0.0
+    } else {
+        (services.iter().map(|entry| entry.effective_score).sum::<f64>() / services.len() as f64)
+            .clamp(0.0, 1.0)
+    };
+
+    Ok(CompositeSloEvaluation {
+        topological_order,
+        services,
+        global_slo,
+        global_pass: global_slo >= graph.global_min_pass_score.clamp(0.0, 1.0),
+    })
 }
 
 impl HttpSlo {

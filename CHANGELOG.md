@@ -26,12 +26,14 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Added a small pure-Python convenience layer (`neuralbudget.convenience`) for dictionary-oriented snapshots and one-shot SLO evaluations.
 - Added GenAI convenience support with `evaluate_genai_once`, `GenAiSloProfile`, and `GENAI_PROFILE_PRESETS`.
 - Added convenience exports for GenAI helper and preset lookup via `get_genai_profile_preset`.
+- Added Composite SLO DAG support with `CompositeSloGraph`, `CompositeDependencyEdge`, `evaluate_composite_slo`, and weighted System Global SLO output.
+- Added dependency-impact propagation so downstream services are automatically adjusted and flagged when upstream dependencies fail.
 
 ### Documentation
 
 - Expanded README into a detailed first-class user guide with:
 	- complete installation paths for Rust and Python
-	- end-to-end examples for HTTP, Stateful, ML, and GenAI SLO workflows
+	- end-to-end examples for HTTP, Stateful, ML, GenAI, and Composite DAG SLO workflows
 	- convenience layer usage for presets and dataclass return mode
 	- explicit CI/CD and coverage policy sections
 	- direct changelog and documentation navigation badges/links

@@ -1288,3 +1288,111 @@ fn core_branch_edges_are_exercised_for_maximum_coverage() {
     assert_eq!(invalid_eval.prediction_confidence_score, 0.0);
     assert!(!invalid_eval.pass);
 }
+
+#[test]
+fn composite_slo_dag_propagates_dependency_failure_and_adjusts_dependents() {
+    let graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "service_a".to_string(),
+                local_score: 0.7,
+                min_pass_score: 0.9,
+                impact_weight: 3.0,
+            },
+            CompositeServiceSlo {
+                service: "service_b".to_string(),
+                local_score: 0.96,
+                min_pass_score: 0.85,
+                impact_weight: 2.0,
+            },
+            CompositeServiceSlo {
+                service: "service_c".to_string(),
+                local_score: 0.94,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![CompositeDependencyEdge {
+            dependency: "service_a".to_string(),
+            dependent: "service_b".to_string(),
+            failure_penalty: 0.25,
+        }],
+        global_min_pass_score: 0.85,
+    };
+
+    let evaluation = evaluate_composite_slo(&graph).unwrap();
+    assert_eq!(evaluation.topological_order.len(), 3);
+
+    let pos_a = evaluation
+        .topological_order
+        .iter()
+        .position(|name| name == "service_a")
+        .unwrap();
+    let pos_b = evaluation
+        .topological_order
+        .iter()
+        .position(|name| name == "service_b")
+        .unwrap();
+    assert!(pos_a < pos_b);
+
+    let by_name: HashMap<String, CompositeServiceSloEvaluation> = evaluation
+        .services
+        .iter()
+        .map(|entry| (entry.service.clone(), entry.clone()))
+        .collect();
+
+    let service_a = by_name.get("service_a").unwrap();
+    let service_b = by_name.get("service_b").unwrap();
+    let service_c = by_name.get("service_c").unwrap();
+
+    assert!(!service_a.pass);
+    assert!((service_b.effective_score - 0.72).abs() < 1e-9);
+    assert!(!service_b.pass);
+    assert!(service_b.dependency_adjusted);
+    assert_eq!(service_b.failed_dependencies, vec!["service_a".to_string()]);
+    assert!(service_c.pass);
+    assert!(!service_c.dependency_adjusted);
+
+    let expected_global = (service_a.effective_score * 3.0
+        + service_b.effective_score * 2.0
+        + service_c.effective_score * 1.0)
+        / 6.0;
+    assert!((evaluation.global_slo - expected_global).abs() < 1e-9);
+    assert!(!evaluation.global_pass);
+}
+
+#[test]
+fn composite_slo_dag_rejects_cycles() {
+    let graph = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "a".to_string(),
+                local_score: 0.99,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "b".to_string(),
+                local_score: 0.99,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+        ],
+        dependencies: vec![
+            CompositeDependencyEdge {
+                dependency: "a".to_string(),
+                dependent: "b".to_string(),
+                failure_penalty: 0.2,
+            },
+            CompositeDependencyEdge {
+                dependency: "b".to_string(),
+                dependent: "a".to_string(),
+                failure_penalty: 0.2,
+            },
+        ],
+        global_min_pass_score: 0.9,
+    };
+
+    let error = evaluate_composite_slo(&graph).unwrap_err();
+    assert_eq!(error, CompositeSloError::CycleDetected);
+}

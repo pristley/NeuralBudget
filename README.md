@@ -18,6 +18,7 @@ It provides a compact core for:
 - stateful service SLO evaluation (replication, queue depth, pool saturation, wait penalties)
 - ML serving + drift hybrid SLO (`MlSlo`)
 - GenAI qualitative SLO (`GenAiSlo`) with TPS, TTFT, and semantic-similarity placeholder scoring
+- Composite dependency DAG SLO evaluation with propagated impact and System Global SLO
 
 ## Table of Contents
 
@@ -26,6 +27,7 @@ It provides a compact core for:
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [User Guide](#user-guide)
+- [Composite SLOs (Dependencies)](#composite-slos-dependencies)
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
 - [Development and CI/CD](#development-and-cicd)
@@ -56,6 +58,7 @@ Recent additions include:
 - convenience-layer profile presets and optional dataclass returns
 - convenience helper for GenAI one-shot evaluations
 - expanded Python convenience tests and CI coverage for convenience workflows
+- Composite SLO DAG runner with cycle detection and weighted global score calculation
 
 ## Installation
 
@@ -256,6 +259,54 @@ print(
     result["semantic_similarity"],
     result["pass"],
 )
+```
+
+### Composite SLOs (Dependencies)
+
+Use `evaluate_composite_slo` when a service graph has upstream/downstream dependencies and you need propagated impact.
+
+Behavior:
+
+- traverses dependency graph in topological order
+- rejects invalid graphs with cycles
+- when a dependency fails, dependent services are automatically adjusted by edge penalty
+- marks dependency impact per service (`dependency_adjusted`, `failed_dependencies`)
+- computes weighted `global_slo` and evaluates `global_pass` against `global_min_pass_score`
+
+```rust
+use neuralbudget::{
+    evaluate_composite_slo, CompositeDependencyEdge, CompositeServiceSlo, CompositeSloGraph,
+};
+
+let graph = CompositeSloGraph {
+    services: vec![
+        CompositeServiceSlo {
+            service: "service_a".to_string(),
+            local_score: 0.72,
+            min_pass_score: 0.9,
+            impact_weight: 2.0,
+        },
+        CompositeServiceSlo {
+            service: "service_b".to_string(),
+            local_score: 0.97,
+            min_pass_score: 0.9,
+            impact_weight: 3.0,
+        },
+    ],
+    dependencies: vec![CompositeDependencyEdge {
+        dependency: "service_a".to_string(),
+        dependent: "service_b".to_string(),
+        failure_penalty: 0.2,
+    }],
+    global_min_pass_score: 0.85,
+};
+
+let result = evaluate_composite_slo(&graph).unwrap();
+assert_eq!(result.services.len(), 2);
+assert!(result
+    .services
+    .iter()
+    .any(|entry| entry.service == "service_b" && entry.dependency_adjusted));
 ```
 
 ## Convenience Layer Guide
