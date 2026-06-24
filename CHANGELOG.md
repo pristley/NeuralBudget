@@ -19,6 +19,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Stateful software SLO evaluation with `StatefulSlo`, `StatefulSample`, `StatefulSloEvaluation`, and `StatefulSloIterator`.
 - Stateful scoring model for replication lag, queue depth, connection pool saturation, and connection-wait-time penalties.
 - CI/CD updates to run documentation tests via `cargo test --doc --all-features`.
+- CI/CD updates to enforce a practical 90% line-coverage floor with `cargo llvm-cov`.
 
 ## [0.1.1] - 2026-06-24
 

@@ -117,16 +117,18 @@ pub struct HistogramSample {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-/// HTTP/gRPC SLO policy: availability + p99 latency objective.
+/// HTTP/gRPC SLO policy: availability + percentile latency objective.
 pub struct HttpSlo {
-    pub latency_p99_threshold_ms: f64,
+    pub latency_threshold_ms: f64,
+    pub latency_percentile: f64,
     pub availability_threshold: f64,
 }
 
 impl Default for HttpSlo {
     fn default() -> Self {
         Self {
-            latency_p99_threshold_ms: 200.0,
+            latency_threshold_ms: 200.0,
+            latency_percentile: 0.99,
             availability_threshold: 0.999,
         }
     }
@@ -137,7 +139,8 @@ impl Default for HttpSlo {
 pub struct HttpSloEvaluation {
     pub timestamp: i64,
     pub availability: f64,
-    pub p99_latency_ms: f64,
+    pub evaluated_percentile: f64,
+    pub percentile_latency_ms: f64,
     pub latency_ok: bool,
     pub availability_ok: bool,
     pub pass: bool,
@@ -409,6 +412,23 @@ fn window_alignment_name(alignment: WindowAlignment) -> &'static str {
     }
 }
 
+fn parse_histogram_format(value: &str) -> PyResult<HistogramFormat> {
+    match value {
+        "prometheus_cumulative" => Ok(HistogramFormat::PrometheusCumulative),
+        "open_telemetry_delta" => Ok(HistogramFormat::OpenTelemetryDelta),
+        _ => Err(PyTypeError::new_err(
+            "format must be 'prometheus_cumulative' or 'open_telemetry_delta'",
+        )),
+    }
+}
+
+fn histogram_format_name(format: HistogramFormat) -> &'static str {
+    match format {
+        HistogramFormat::PrometheusCumulative => "prometheus_cumulative",
+        HistogramFormat::OpenTelemetryDelta => "open_telemetry_delta",
+    }
+}
+
 fn median(values: &[f64]) -> Option<f64> {
     if values.is_empty() {
         return None;
@@ -676,16 +696,19 @@ pub fn calculate_web_api_slo(
 impl HttpSlo {
     pub fn evaluate_histogram(&self, sample: &HistogramSample) -> HttpSloEvaluation {
         let availability = calculate_availability(sample.success, sample.total);
-        let p99 = percentile_from_histogram(&sample.buckets, sample.format, 0.99)
-            .unwrap_or(f64::INFINITY);
+        let percentile = self.latency_percentile.clamp(0.0, 1.0);
+        let percentile_latency =
+            percentile_from_histogram(&sample.buckets, sample.format, percentile)
+                .unwrap_or(f64::INFINITY);
 
-        let latency_ok = p99 < self.latency_p99_threshold_ms;
+        let latency_ok = percentile_latency < self.latency_threshold_ms;
         let availability_ok = availability > self.availability_threshold;
 
         HttpSloEvaluation {
             timestamp: sample.timestamp,
             availability,
-            p99_latency_ms: p99,
+            evaluated_percentile: percentile,
+            percentile_latency_ms: percentile_latency,
             latency_ok,
             availability_ok,
             pass: latency_ok && availability_ok,
@@ -811,6 +834,124 @@ impl<'py> FromPyObject<'py> for TimeWindow {
                 Some(value) => value.extract::<i32>()?,
                 None => 0,
             },
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for HistogramBucket {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyHistogramBucket>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("HistogramBucket"))?;
+        Ok(Self {
+            upper_bound_ms: extract_required(dict, "upper_bound_ms")?,
+            count: extract_required(dict, "count")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for HistogramSample {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyHistogramSample>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("HistogramSample"))?;
+
+        let format = parse_histogram_format(&extract_required::<String>(dict, "format")?)?;
+        Ok(Self {
+            timestamp: extract_required(dict, "timestamp")?,
+            success: extract_required(dict, "success")?,
+            total: extract_required(dict, "total")?,
+            buckets: extract_required(dict, "buckets")?,
+            format,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for HttpSlo {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyHttpSlo>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("HttpSlo"))?;
+        let latency_threshold_ms = match dict.get_item("latency_threshold_ms")? {
+            Some(value) => value.extract::<f64>()?,
+            None => match dict.get_item("latency_p99_threshold_ms")? {
+                Some(value) => value.extract::<f64>()?,
+                None => HttpSlo::default().latency_threshold_ms,
+            },
+        };
+        let latency_percentile = match dict.get_item("latency_percentile")? {
+            Some(value) => value.extract::<f64>()?,
+            None => HttpSlo::default().latency_percentile,
+        };
+        let availability_threshold = match dict.get_item("availability_threshold")? {
+            Some(value) => value.extract::<f64>()?,
+            None => HttpSlo::default().availability_threshold,
+        };
+
+        Ok(Self {
+            latency_threshold_ms,
+            latency_percentile,
+            availability_threshold,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for StatefulSample {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyStatefulSample>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("StatefulSample"))?;
+        Ok(Self {
+            timestamp: extract_required(dict, "timestamp")?,
+            replication_lag_ms: extract_required(dict, "replication_lag_ms")?,
+            queue_depth: extract_required(dict, "queue_depth")?,
+            connection_pool_saturation: extract_required(dict, "connection_pool_saturation")?,
+            connection_wait_time_ms: extract_required(dict, "connection_wait_time_ms")?,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for StatefulSlo {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyStatefulSlo>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| invalid_dict_type("StatefulSlo"))?;
+        Ok(Self {
+            replication_lag_threshold_ms: extract_required(dict, "replication_lag_threshold_ms")?,
+            queue_depth_threshold: extract_required(dict, "queue_depth_threshold")?,
+            connection_pool_saturation_threshold: extract_required(
+                dict,
+                "connection_pool_saturation_threshold",
+            )?,
+            connection_wait_time_threshold_ms: extract_required(
+                dict,
+                "connection_wait_time_threshold_ms",
+            )?,
+            connection_wait_penalty_weight: extract_required(
+                dict,
+                "connection_wait_penalty_weight",
+            )?,
+            min_pass_score: extract_required(dict, "min_pass_score")?,
         })
     }
 }
@@ -1069,6 +1210,588 @@ impl PyTimeWindow {
     }
 }
 
+#[pyclass(name = "HistogramBucket")]
+#[derive(Clone)]
+pub struct PyHistogramBucket {
+    inner: HistogramBucket,
+}
+
+#[pymethods]
+impl PyHistogramBucket {
+    #[new]
+    fn new(upper_bound_ms: f64, count: u64) -> Self {
+        Self {
+            inner: HistogramBucket {
+                upper_bound_ms,
+                count,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<HistogramBucket>()?,
+        })
+    }
+
+    #[getter]
+    fn upper_bound_ms(&self) -> f64 {
+        self.inner.upper_bound_ms
+    }
+
+    #[getter]
+    fn count(&self) -> u64 {
+        self.inner.count
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("upper_bound_ms", self.inner.upper_bound_ms)?;
+        dict.set_item("count", self.inner.count)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "HistogramSample")]
+#[derive(Clone)]
+pub struct PyHistogramSample {
+    inner: HistogramSample,
+}
+
+#[pymethods]
+impl PyHistogramSample {
+    #[new]
+    #[pyo3(signature = (timestamp, success, total, buckets, format="prometheus_cumulative"))]
+    fn new(
+        timestamp: i64,
+        success: u64,
+        total: u64,
+        buckets: Vec<HistogramBucket>,
+        format: &str,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: HistogramSample {
+                timestamp,
+                success,
+                total,
+                buckets,
+                format: parse_histogram_format(format)?,
+            },
+        })
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<HistogramSample>()?,
+        })
+    }
+
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn success(&self) -> u64 {
+        self.inner.success
+    }
+
+    #[getter]
+    fn total(&self) -> u64 {
+        self.inner.total
+    }
+
+    #[getter]
+    fn buckets(&self) -> Vec<PyHistogramBucket> {
+        self.inner.buckets.iter().cloned().map(Into::into).collect()
+    }
+
+    #[getter]
+    fn format(&self) -> String {
+        histogram_format_name(self.inner.format).to_string()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        let buckets: Vec<Bound<'_, PyDict>> = self
+            .buckets()
+            .iter()
+            .map(|bucket| bucket.to_dict(py))
+            .collect::<PyResult<Vec<_>>>()?;
+
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("success", self.inner.success)?;
+        dict.set_item("total", self.inner.total)?;
+        dict.set_item("buckets", buckets)?;
+        dict.set_item("format", self.format())?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "HttpSloEvaluation")]
+#[derive(Clone)]
+pub struct PyHttpSloEvaluation {
+    inner: HttpSloEvaluation,
+}
+
+#[pymethods]
+impl PyHttpSloEvaluation {
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn availability(&self) -> f64 {
+        self.inner.availability
+    }
+
+    #[getter]
+    fn evaluated_percentile(&self) -> f64 {
+        self.inner.evaluated_percentile
+    }
+
+    #[getter]
+    fn percentile_latency_ms(&self) -> f64 {
+        self.inner.percentile_latency_ms
+    }
+
+    // Backward-compatible alias for older clients that still read p99_latency_ms.
+    #[getter]
+    fn p99_latency_ms(&self) -> f64 {
+        self.inner.percentile_latency_ms
+    }
+
+    #[getter]
+    fn latency_ok(&self) -> bool {
+        self.inner.latency_ok
+    }
+
+    #[getter]
+    fn availability_ok(&self) -> bool {
+        self.inner.availability_ok
+    }
+
+    #[getter]
+    fn pass(&self) -> bool {
+        self.inner.pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("availability", self.inner.availability)?;
+        dict.set_item("evaluated_percentile", self.inner.evaluated_percentile)?;
+        dict.set_item("percentile_latency_ms", self.inner.percentile_latency_ms)?;
+        dict.set_item("p99_latency_ms", self.inner.percentile_latency_ms)?;
+        dict.set_item("latency_ok", self.inner.latency_ok)?;
+        dict.set_item("availability_ok", self.inner.availability_ok)?;
+        dict.set_item("pass", self.inner.pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "HttpSlo")]
+#[derive(Clone)]
+pub struct PyHttpSlo {
+    inner: HttpSlo,
+}
+
+#[pymethods]
+impl PyHttpSlo {
+    #[new]
+    #[pyo3(signature = (latency_threshold_ms=200.0, latency_percentile=0.99, availability_threshold=0.999))]
+    fn new(
+        latency_threshold_ms: f64,
+        latency_percentile: f64,
+        availability_threshold: f64,
+    ) -> Self {
+        Self {
+            inner: HttpSlo {
+                latency_threshold_ms,
+                latency_percentile,
+                availability_threshold,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<HttpSlo>()?,
+        })
+    }
+
+    #[getter]
+    fn latency_threshold_ms(&self) -> f64 {
+        self.inner.latency_threshold_ms
+    }
+
+    // Backward-compatible alias for older clients.
+    #[getter]
+    fn latency_p99_threshold_ms(&self) -> f64 {
+        self.inner.latency_threshold_ms
+    }
+
+    #[getter]
+    fn latency_percentile(&self) -> f64 {
+        self.inner.latency_percentile
+    }
+
+    #[getter]
+    fn availability_threshold(&self) -> f64 {
+        self.inner.availability_threshold
+    }
+
+    fn evaluate_histogram(&self, sample: HistogramSample) -> PyHttpSloEvaluation {
+        self.inner.evaluate_histogram(&sample).into()
+    }
+
+    fn evaluate_stream(&self, samples: Vec<HistogramSample>) -> Vec<PyHttpSloEvaluation> {
+        HttpSloIterator::new(self.inner.clone(), samples.into_iter())
+            .map(Into::into)
+            .collect()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("latency_threshold_ms", self.inner.latency_threshold_ms)?;
+        dict.set_item("latency_p99_threshold_ms", self.inner.latency_threshold_ms)?;
+        dict.set_item("latency_percentile", self.inner.latency_percentile)?;
+        dict.set_item("availability_threshold", self.inner.availability_threshold)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "StatefulSample")]
+#[derive(Clone)]
+pub struct PyStatefulSample {
+    inner: StatefulSample,
+}
+
+#[pymethods]
+impl PyStatefulSample {
+    #[new]
+    fn new(
+        timestamp: i64,
+        replication_lag_ms: f64,
+        queue_depth: u64,
+        connection_pool_saturation: f64,
+        connection_wait_time_ms: f64,
+    ) -> Self {
+        Self {
+            inner: StatefulSample {
+                timestamp,
+                replication_lag_ms,
+                queue_depth,
+                connection_pool_saturation,
+                connection_wait_time_ms,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<StatefulSample>()?,
+        })
+    }
+
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn replication_lag_ms(&self) -> f64 {
+        self.inner.replication_lag_ms
+    }
+
+    #[getter]
+    fn queue_depth(&self) -> u64 {
+        self.inner.queue_depth
+    }
+
+    #[getter]
+    fn connection_pool_saturation(&self) -> f64 {
+        self.inner.connection_pool_saturation
+    }
+
+    #[getter]
+    fn connection_wait_time_ms(&self) -> f64 {
+        self.inner.connection_wait_time_ms
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("replication_lag_ms", self.inner.replication_lag_ms)?;
+        dict.set_item("queue_depth", self.inner.queue_depth)?;
+        dict.set_item(
+            "connection_pool_saturation",
+            self.inner.connection_pool_saturation,
+        )?;
+        dict.set_item(
+            "connection_wait_time_ms",
+            self.inner.connection_wait_time_ms,
+        )?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "StatefulSloEvaluation")]
+#[derive(Clone)]
+pub struct PyStatefulSloEvaluation {
+    inner: StatefulSloEvaluation,
+}
+
+#[pymethods]
+impl PyStatefulSloEvaluation {
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn replication_lag_ok(&self) -> bool {
+        self.inner.replication_lag_ok
+    }
+
+    #[getter]
+    fn queue_depth_ok(&self) -> bool {
+        self.inner.queue_depth_ok
+    }
+
+    #[getter]
+    fn connection_pool_ok(&self) -> bool {
+        self.inner.connection_pool_ok
+    }
+
+    #[getter]
+    fn connection_wait_penalized(&self) -> bool {
+        self.inner.connection_wait_penalized
+    }
+
+    #[getter]
+    fn score(&self) -> f64 {
+        self.inner.score
+    }
+
+    #[getter]
+    fn pass(&self) -> bool {
+        self.inner.pass
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("replication_lag_ok", self.inner.replication_lag_ok)?;
+        dict.set_item("queue_depth_ok", self.inner.queue_depth_ok)?;
+        dict.set_item("connection_pool_ok", self.inner.connection_pool_ok)?;
+        dict.set_item(
+            "connection_wait_penalized",
+            self.inner.connection_wait_penalized,
+        )?;
+        dict.set_item("score", self.inner.score)?;
+        dict.set_item("pass", self.inner.pass)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "StatefulSlo")]
+#[derive(Clone)]
+pub struct PyStatefulSlo {
+    inner: StatefulSlo,
+}
+
+#[pymethods]
+impl PyStatefulSlo {
+    #[new]
+    #[pyo3(signature = (
+        replication_lag_threshold_ms=250.0,
+        queue_depth_threshold=1000,
+        connection_pool_saturation_threshold=0.8,
+        connection_wait_time_threshold_ms=20.0,
+        connection_wait_penalty_weight=0.2,
+        min_pass_score=0.9
+    ))]
+    fn new(
+        replication_lag_threshold_ms: f64,
+        queue_depth_threshold: u64,
+        connection_pool_saturation_threshold: f64,
+        connection_wait_time_threshold_ms: f64,
+        connection_wait_penalty_weight: f64,
+        min_pass_score: f64,
+    ) -> Self {
+        Self {
+            inner: StatefulSlo {
+                replication_lag_threshold_ms,
+                queue_depth_threshold,
+                connection_pool_saturation_threshold,
+                connection_wait_time_threshold_ms,
+                connection_wait_penalty_weight,
+                min_pass_score,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<StatefulSlo>()?,
+        })
+    }
+
+    #[getter]
+    fn replication_lag_threshold_ms(&self) -> f64 {
+        self.inner.replication_lag_threshold_ms
+    }
+
+    #[getter]
+    fn queue_depth_threshold(&self) -> u64 {
+        self.inner.queue_depth_threshold
+    }
+
+    #[getter]
+    fn connection_pool_saturation_threshold(&self) -> f64 {
+        self.inner.connection_pool_saturation_threshold
+    }
+
+    #[getter]
+    fn connection_wait_time_threshold_ms(&self) -> f64 {
+        self.inner.connection_wait_time_threshold_ms
+    }
+
+    #[getter]
+    fn connection_wait_penalty_weight(&self) -> f64 {
+        self.inner.connection_wait_penalty_weight
+    }
+
+    #[getter]
+    fn min_pass_score(&self) -> f64 {
+        self.inner.min_pass_score
+    }
+
+    fn evaluate_sample(&self, sample: StatefulSample) -> PyStatefulSloEvaluation {
+        self.inner.evaluate_sample(&sample).into()
+    }
+
+    fn evaluate_stream(&self, samples: Vec<StatefulSample>) -> Vec<PyStatefulSloEvaluation> {
+        StatefulSloIterator::new(self.inner.clone(), samples.into_iter())
+            .map(Into::into)
+            .collect()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item(
+            "replication_lag_threshold_ms",
+            self.inner.replication_lag_threshold_ms,
+        )?;
+        dict.set_item("queue_depth_threshold", self.inner.queue_depth_threshold)?;
+        dict.set_item(
+            "connection_pool_saturation_threshold",
+            self.inner.connection_pool_saturation_threshold,
+        )?;
+        dict.set_item(
+            "connection_wait_time_threshold_ms",
+            self.inner.connection_wait_time_threshold_ms,
+        )?;
+        dict.set_item(
+            "connection_wait_penalty_weight",
+            self.inner.connection_wait_penalty_weight,
+        )?;
+        dict.set_item("min_pass_score", self.inner.min_pass_score)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
 impl From<SloConfig> for PySloConfig {
     fn from(inner: SloConfig) -> Self {
         Self { inner }
@@ -1093,6 +1816,48 @@ impl From<TimeWindow> for PyTimeWindow {
     }
 }
 
+impl From<HistogramBucket> for PyHistogramBucket {
+    fn from(inner: HistogramBucket) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<HistogramSample> for PyHistogramSample {
+    fn from(inner: HistogramSample) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<HttpSloEvaluation> for PyHttpSloEvaluation {
+    fn from(inner: HttpSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<HttpSlo> for PyHttpSlo {
+    fn from(inner: HttpSlo) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<StatefulSample> for PyStatefulSample {
+    fn from(inner: StatefulSample) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<StatefulSloEvaluation> for PyStatefulSloEvaluation {
+    fn from(inner: StatefulSloEvaluation) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<StatefulSlo> for PyStatefulSlo {
+    fn from(inner: StatefulSlo) -> Self {
+        Self { inner }
+    }
+}
+
 #[pyfunction]
 fn coerce_slo_config(config: SloConfig) -> PySloConfig {
     config.into()
@@ -1113,6 +1878,61 @@ fn coerce_time_window(time_window: TimeWindow) -> PyTimeWindow {
     time_window.into()
 }
 
+#[pyfunction]
+fn coerce_histogram_bucket(bucket: HistogramBucket) -> PyHistogramBucket {
+    bucket.into()
+}
+
+#[pyfunction]
+fn coerce_histogram_sample(sample: HistogramSample) -> PyHistogramSample {
+    sample.into()
+}
+
+#[pyfunction]
+fn coerce_http_slo(slo: HttpSlo) -> PyHttpSlo {
+    slo.into()
+}
+
+#[pyfunction]
+fn coerce_stateful_sample(sample: StatefulSample) -> PyStatefulSample {
+    sample.into()
+}
+
+#[pyfunction]
+fn coerce_stateful_slo(slo: StatefulSlo) -> PyStatefulSlo {
+    slo.into()
+}
+
+#[pyfunction]
+fn evaluate_http_slo_histogram(sample: HistogramSample, slo: HttpSlo) -> PyHttpSloEvaluation {
+    slo.evaluate_histogram(&sample).into()
+}
+
+#[pyfunction]
+fn evaluate_http_slo_histogram_stream(
+    samples: Vec<HistogramSample>,
+    slo: HttpSlo,
+) -> Vec<PyHttpSloEvaluation> {
+    HttpSloIterator::new(slo, samples.into_iter())
+        .map(Into::into)
+        .collect()
+}
+
+#[pyfunction]
+fn evaluate_stateful_slo(sample: StatefulSample, slo: StatefulSlo) -> PyStatefulSloEvaluation {
+    slo.evaluate_sample(&sample).into()
+}
+
+#[pyfunction]
+fn evaluate_stateful_slo_stream(
+    samples: Vec<StatefulSample>,
+    slo: StatefulSlo,
+) -> Vec<PyStatefulSloEvaluation> {
+    StatefulSloIterator::new(slo, samples.into_iter())
+        .map(Into::into)
+        .collect()
+}
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -1120,20 +1940,40 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyErrorBudget>()?;
     module.add_class::<PyMetricPoint>()?;
     module.add_class::<PyTimeWindow>()?;
+    module.add_class::<PyHistogramBucket>()?;
+    module.add_class::<PyHistogramSample>()?;
+    module.add_class::<PyHttpSlo>()?;
+    module.add_class::<PyHttpSloEvaluation>()?;
+    module.add_class::<PyStatefulSample>()?;
+    module.add_class::<PyStatefulSlo>()?;
+    module.add_class::<PyStatefulSloEvaluation>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
     module.add_function(wrap_pyfunction!(is_timestamp_in_window, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_http_slo_histogram, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        evaluate_http_slo_histogram_stream,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(evaluate_stateful_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_stateful_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_time_window, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_histogram_bucket, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_histogram_sample, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_http_slo, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_stateful_sample, module)?)?;
+    module.add_function(wrap_pyfunction!(coerce_stateful_slo, module)?)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyo3::types::PyList;
 
     fn make_request(timestamp: i64, latency_ms: f64, status_code: u16) -> WebApiRequest {
         WebApiRequest {
@@ -1312,6 +2152,91 @@ mod tests {
     }
 
     #[test]
+    fn python_http_slo_histogram_wrapper_evaluates_sample() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "neuralbudget_http_slo_test").unwrap();
+            module
+                .add_function(wrap_pyfunction!(evaluate_http_slo_histogram, &module).unwrap())
+                .unwrap();
+
+            let sample = PyDict::new_bound(py);
+            sample.set_item("timestamp", 1_i64).unwrap();
+            sample.set_item("success", 9_995_u64).unwrap();
+            sample.set_item("total", 10_000_u64).unwrap();
+            let buckets = PyList::empty_bound(py);
+            for (upper_bound_ms, count) in [(100.0, 9_700_u64), (150.0, 200_u64), (220.0, 100_u64)]
+            {
+                let bucket = PyDict::new_bound(py);
+                bucket.set_item("upper_bound_ms", upper_bound_ms).unwrap();
+                bucket.set_item("count", count).unwrap();
+                buckets.append(bucket).unwrap();
+            }
+            sample.set_item("buckets", buckets).unwrap();
+            sample.set_item("format", "open_telemetry_delta").unwrap();
+
+            let slo = PyDict::new_bound(py);
+            slo.set_item("latency_threshold_ms", 200.0).unwrap();
+            slo.set_item("latency_percentile", 0.99).unwrap();
+            slo.set_item("availability_threshold", 0.999).unwrap();
+
+            let result = module
+                .getattr("evaluate_http_slo_histogram")
+                .unwrap()
+                .call1((&sample, &slo))
+                .unwrap();
+            let pass: bool = result.getattr("pass").unwrap().extract().unwrap();
+
+            assert!(pass);
+        });
+    }
+
+    #[test]
+    fn python_stateful_slo_wrapper_penalizes_wait_time() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "neuralbudget_stateful_slo_test").unwrap();
+            module
+                .add_function(wrap_pyfunction!(evaluate_stateful_slo, &module).unwrap())
+                .unwrap();
+
+            let sample = PyDict::new_bound(py);
+            sample.set_item("timestamp", 2_i64).unwrap();
+            sample.set_item("replication_lag_ms", 200.0).unwrap();
+            sample.set_item("queue_depth", 800_u64).unwrap();
+            sample.set_item("connection_pool_saturation", 0.75).unwrap();
+            sample.set_item("connection_wait_time_ms", 60.0).unwrap();
+
+            let slo = PyDict::new_bound(py);
+            slo.set_item("replication_lag_threshold_ms", 250.0).unwrap();
+            slo.set_item("queue_depth_threshold", 1_000_u64).unwrap();
+            slo.set_item("connection_pool_saturation_threshold", 0.8)
+                .unwrap();
+            slo.set_item("connection_wait_time_threshold_ms", 20.0)
+                .unwrap();
+            slo.set_item("connection_wait_penalty_weight", 0.3).unwrap();
+            slo.set_item("min_pass_score", 0.85).unwrap();
+
+            let result = module
+                .getattr("evaluate_stateful_slo")
+                .unwrap()
+                .call1((&sample, &slo))
+                .unwrap();
+            let pass: bool = result.getattr("pass").unwrap().extract().unwrap();
+            let penalized: bool = result
+                .getattr("connection_wait_penalized")
+                .unwrap()
+                .extract()
+                .unwrap();
+
+            assert!(penalized);
+            assert!(!pass);
+        });
+    }
+
+    #[test]
     fn slo_config_round_trips_through_json_and_yaml() {
         let config = SloConfig {
             target: 99.9,
@@ -1364,7 +2289,8 @@ mod tests {
         let mut iter = HttpSloIterator::new(slo, vec![sample].into_iter());
         let result = iter.next().unwrap();
 
-        assert!(result.p99_latency_ms < 200.0);
+        assert_eq!(result.evaluated_percentile, 0.99);
+        assert!(result.percentile_latency_ms < 200.0);
         assert!(result.latency_ok);
         assert!(result.availability_ok);
         assert!(result.pass);
@@ -1462,7 +2388,42 @@ mod tests {
             .next()
             .unwrap();
 
-        assert!(result.p99_latency_ms < 200.0);
+        assert_eq!(result.evaluated_percentile, 0.99);
+        assert!(result.percentile_latency_ms < 200.0);
+        assert!(result.pass);
+    }
+
+    #[test]
+    fn http_slo_supports_custom_percentile_policy() {
+        let slo = HttpSlo {
+            latency_threshold_ms: 150.0,
+            latency_percentile: 0.95,
+            availability_threshold: 0.999,
+        };
+        let sample = HistogramSample {
+            timestamp: 1,
+            success: 9_999,
+            total: 10_000,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 9_000,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 140.0,
+                    count: 9_600,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 10_000,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        };
+
+        let result = slo.evaluate_histogram(&sample);
+        assert_eq!(result.evaluated_percentile, 0.95);
+        assert!(result.percentile_latency_ms <= 150.0);
         assert!(result.pass);
     }
 
@@ -1535,5 +2496,260 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert!(results[0].pass);
         assert!(!results[1].pass);
+    }
+
+    #[test]
+    fn pyo3_wrapper_surface_round_trip_methods_work() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let cfg = PySloConfig::new(99.9, "30d".to_string());
+            let _ = cfg.target();
+            let _ = cfg.window();
+            let cfg_dict = cfg.to_dict(py).unwrap();
+            let _ = cfg.to_json().unwrap();
+            let _ = cfg.to_yaml().unwrap();
+            let _ = PySloConfig::from_dict(&cfg_dict).unwrap();
+
+            let budget = PyErrorBudget::new(0.5, 1.2);
+            let _ = budget.remaining();
+            let _ = budget.velocity();
+            let budget_dict = budget.to_dict(py).unwrap();
+            let _ = budget.to_json().unwrap();
+            let _ = budget.to_yaml().unwrap();
+            let _ = PyErrorBudget::from_dict(&budget_dict).unwrap();
+
+            let point = PyMetricPoint::new(1, 0.9, None);
+            let _ = point.timestamp();
+            let _ = point.value();
+            let _ = point.labels();
+            let point_dict = point.to_dict(py).unwrap();
+            let _ = point.to_json().unwrap();
+            let _ = point.to_yaml().unwrap();
+            let _ = PyMetricPoint::from_dict(&point_dict).unwrap();
+
+            let window = PyTimeWindow::new(3_600, "rolling", 0).unwrap();
+            let _ = window.alignment();
+            let _ = window.window_seconds();
+            let _ = window.timezone_offset_seconds();
+            let _ = window.contains(1, 2);
+            let window_dict = window.to_dict(py).unwrap();
+            let _ = window.to_json().unwrap();
+            let _ = window.to_yaml().unwrap();
+            let _ = PyTimeWindow::from_dict(&window_dict).unwrap();
+
+            let bucket = PyHistogramBucket::new(100.0, 10);
+            let _ = bucket.upper_bound_ms();
+            let _ = bucket.count();
+            let bucket_dict = bucket.to_dict(py).unwrap();
+            let _ = bucket.to_json().unwrap();
+            let _ = bucket.to_yaml().unwrap();
+            let _ = PyHistogramBucket::from_dict(&bucket_dict).unwrap();
+
+            let sample = PyHistogramSample::new(
+                1,
+                100,
+                100,
+                vec![HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 100,
+                }],
+                "prometheus_cumulative",
+            )
+            .unwrap();
+            let _ = sample.timestamp();
+            let _ = sample.success();
+            let _ = sample.total();
+            let _ = sample.buckets();
+            let _ = sample.format();
+            let sample_dict = sample.to_dict(py).unwrap();
+            let _ = sample.to_json().unwrap();
+            let _ = sample.to_yaml().unwrap();
+            let _ = PyHistogramSample::from_dict(&sample_dict).unwrap();
+
+            let http = PyHttpSlo::new(200.0, 0.99, 0.999);
+            let _ = http.latency_threshold_ms();
+            let _ = http.latency_p99_threshold_ms();
+            let _ = http.latency_percentile();
+            let _ = http.availability_threshold();
+            let http_dict = http.to_dict(py).unwrap();
+            let _ = http.to_json().unwrap();
+            let _ = http.to_yaml().unwrap();
+            let _ = PyHttpSlo::from_dict(&http_dict).unwrap();
+            let eval = http.evaluate_histogram(sample.inner.clone());
+            let _ = eval.timestamp();
+            let _ = eval.availability();
+            let _ = eval.evaluated_percentile();
+            let _ = eval.percentile_latency_ms();
+            let _ = eval.p99_latency_ms();
+            let _ = eval.latency_ok();
+            let _ = eval.availability_ok();
+            let _ = eval.pass();
+            let _ = eval.to_dict(py).unwrap();
+            let _ = eval.to_json().unwrap();
+            let _ = eval.to_yaml().unwrap();
+            let stream_eval = http.evaluate_stream(vec![sample.inner.clone()]);
+            assert_eq!(stream_eval.len(), 1);
+
+            let stateful_sample = PyStatefulSample::new(1, 100.0, 10, 0.2, 5.0);
+            let _ = stateful_sample.timestamp();
+            let _ = stateful_sample.replication_lag_ms();
+            let _ = stateful_sample.queue_depth();
+            let _ = stateful_sample.connection_pool_saturation();
+            let _ = stateful_sample.connection_wait_time_ms();
+            let stateful_sample_dict = stateful_sample.to_dict(py).unwrap();
+            let _ = stateful_sample.to_json().unwrap();
+            let _ = stateful_sample.to_yaml().unwrap();
+            let _ = PyStatefulSample::from_dict(&stateful_sample_dict).unwrap();
+
+            let stateful = PyStatefulSlo::new(250.0, 1_000, 0.8, 20.0, 0.2, 0.9);
+            let _ = stateful.replication_lag_threshold_ms();
+            let _ = stateful.queue_depth_threshold();
+            let _ = stateful.connection_pool_saturation_threshold();
+            let _ = stateful.connection_wait_time_threshold_ms();
+            let _ = stateful.connection_wait_penalty_weight();
+            let _ = stateful.min_pass_score();
+            let stateful_dict = stateful.to_dict(py).unwrap();
+            let _ = stateful.to_json().unwrap();
+            let _ = stateful.to_yaml().unwrap();
+            let _ = PyStatefulSlo::from_dict(&stateful_dict).unwrap();
+            let state_eval = stateful.evaluate_sample(stateful_sample.inner.clone());
+            let _ = state_eval.timestamp();
+            let _ = state_eval.replication_lag_ok();
+            let _ = state_eval.queue_depth_ok();
+            let _ = state_eval.connection_pool_ok();
+            let _ = state_eval.connection_wait_penalized();
+            let _ = state_eval.score();
+            let _ = state_eval.pass();
+            let _ = state_eval.to_dict(py).unwrap();
+            let _ = state_eval.to_json().unwrap();
+            let _ = state_eval.to_yaml().unwrap();
+            let state_stream = stateful.evaluate_stream(vec![stateful_sample.inner.clone()]);
+            assert_eq!(state_stream.len(), 1);
+
+            let _ = coerce_slo_config(cfg.inner.clone());
+            let _ = coerce_error_budget(budget.inner.clone());
+            let _ = coerce_metric_point(point.inner.clone());
+            let _ = coerce_time_window(window.inner.clone());
+            let _ = coerce_histogram_bucket(bucket.inner.clone());
+            let _ = coerce_histogram_sample(sample.inner.clone());
+            let _ = coerce_http_slo(http.inner.clone());
+            let _ = coerce_stateful_sample(stateful_sample.inner.clone());
+            let _ = coerce_stateful_slo(stateful.inner.clone());
+
+            let _ = evaluate_http_slo_histogram(sample.inner.clone(), http.inner.clone());
+            let _ =
+                evaluate_http_slo_histogram_stream(vec![sample.inner.clone()], http.inner.clone());
+            let _ = evaluate_stateful_slo(stateful_sample.inner.clone(), stateful.inner.clone());
+            let _ = evaluate_stateful_slo_stream(
+                vec![stateful_sample.inner.clone()],
+                stateful.inner.clone(),
+            );
+        });
+    }
+
+    #[test]
+    fn default_configs_and_error_paths_are_exercised() {
+        let outlier = OutlierFilterConfig::default();
+        assert!(!outlier.enabled);
+        assert_eq!(outlier.mad_threshold, 3.5);
+        assert_eq!(outlier.min_samples, 10);
+
+        assert!(parse_window_alignment("invalid").is_err());
+        assert!(parse_histogram_format("invalid").is_err());
+        assert_eq!(
+            histogram_format_name(HistogramFormat::PrometheusCumulative),
+            "prometheus_cumulative"
+        );
+        assert_eq!(window_alignment_name(WindowAlignment::Rolling), "rolling");
+
+        assert_eq!(calculate_mad(&[]), None);
+        assert_eq!(filter_statistical_outliers(&[], 3.5, 3).len(), 0);
+
+        let sample = HistogramSample {
+            timestamp: 1,
+            success: 1,
+            total: 1,
+            buckets: vec![],
+            format: HistogramFormat::PrometheusCumulative,
+        };
+        let result = HttpSlo::default().evaluate_histogram(&sample);
+        assert!(!result.latency_ok);
+    }
+
+    #[test]
+    fn edge_cases_cover_helper_branches() {
+        assert_eq!(calculate_availability(0, 0), 0.0);
+        assert_eq!(calculate_error_budget(-0.5, 10), 10.0);
+        assert_eq!(calculate_error_budget(2.0, 10), 0.0);
+        assert_eq!(calculate_burn_rate(Vec::new(), 0), 0.0);
+        assert_eq!(calculate_burn_rate(Vec::new(), 10), 0.0);
+        assert!(!TimeWindow::rolling(0).contains(1, 2));
+        assert!(!TimeWindow::calendar_aligned(0, 0).contains(1, 2));
+        assert_eq!(
+            window_alignment_name(WindowAlignment::CalendarAligned),
+            "calendar_aligned"
+        );
+        assert_eq!(
+            histogram_format_name(HistogramFormat::OpenTelemetryDelta),
+            "open_telemetry_delta"
+        );
+        assert!(parse_window_alignment("rolling").is_ok());
+        assert!(parse_window_alignment("calendar_aligned").is_ok());
+        assert!(parse_histogram_format("prometheus_cumulative").is_ok());
+        assert!(parse_histogram_format("open_telemetry_delta").is_ok());
+
+        let empty_histogram = HistogramSample {
+            timestamp: 1,
+            success: 0,
+            total: 0,
+            buckets: vec![],
+            format: HistogramFormat::PrometheusCumulative,
+        };
+        let empty_eval = HttpSlo::default().evaluate_histogram(&empty_histogram);
+        assert!(!empty_eval.pass);
+
+        let inf_histogram = HistogramSample {
+            timestamp: 1,
+            success: 100,
+            total: 100,
+            buckets: vec![
+                HistogramBucket {
+                    upper_bound_ms: 10.0,
+                    count: 100,
+                },
+                HistogramBucket {
+                    upper_bound_ms: f64::INFINITY,
+                    count: 100,
+                },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        };
+        let inf_eval = HttpSlo::default().evaluate_histogram(&inf_histogram);
+        assert!(inf_eval.percentile_latency_ms.is_finite());
+
+        let weird_stateful = StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 1_000.0,
+            queue_depth: 10_000,
+            connection_pool_saturation: 1.0,
+            connection_wait_time_ms: 1_000.0,
+        };
+        let weird_eval = StatefulSlo {
+            connection_wait_penalty_weight: 1.0,
+            min_pass_score: 0.99,
+            ..StatefulSlo::default()
+        }
+        .evaluate_sample(&weird_stateful);
+        assert!(!weird_eval.pass);
+
+        let http_zero = WebApiSloPolicy {
+            availability_target: 1.2,
+            latency_threshold_ms: 0.0,
+            time_window_seconds: 0,
+            outlier_filter: OutlierFilterConfig::default(),
+        };
+        let report = calculate_web_api_slo(&[], &http_zero, 0);
+        assert_eq!(report.total_requests, 0);
     }
 }

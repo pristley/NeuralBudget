@@ -32,6 +32,12 @@ jobs:
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
 
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview --toolchain stable
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
       - name: Fetch dependencies
         run: cargo fetch
 
@@ -53,6 +59,9 @@ jobs:
 
       - name: Run external test suites
         run: cargo test --tests --all-features
+
+      - name: Run coverage gate
+        run: cargo llvm-cov --workspace --all-features --summary-only --fail-under-lines 90
 
       - name: Package crate
         run: cargo package --allow-dirty --no-verify

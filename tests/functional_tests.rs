@@ -197,6 +197,43 @@ fn functional_http_slo_iterates_histogram_stream() {
 }
 
 #[test]
+fn functional_http_slo_supports_custom_percentile_policy() {
+    let slo = HttpSlo {
+        latency_threshold_ms: 150.0,
+        latency_percentile: 0.95,
+        availability_threshold: 0.999,
+    };
+    let stream = vec![HistogramSample {
+        timestamp: 1,
+        success: 9_999,
+        total: 10_000,
+        buckets: vec![
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 9_000,
+            },
+            HistogramBucket {
+                upper_bound_ms: 140.0,
+                count: 9_600,
+            },
+            HistogramBucket {
+                upper_bound_ms: 200.0,
+                count: 10_000,
+            },
+        ],
+        format: HistogramFormat::PrometheusCumulative,
+    }];
+
+    let result = HttpSloIterator::new(slo, stream.into_iter())
+        .next()
+        .unwrap();
+
+    assert_eq!(result.evaluated_percentile, 0.95);
+    assert!(result.percentile_latency_ms <= 150.0);
+    assert!(result.pass);
+}
+
+#[test]
 fn functional_stateful_slo_penalizes_connection_wait_regressions() {
     let slo = StatefulSlo::default();
     let samples = vec![

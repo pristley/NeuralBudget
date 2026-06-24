@@ -303,8 +303,46 @@ fn http_slo_iterator_accepts_opentelemetry_delta_histograms() {
         .unwrap();
 
     assert!(result.pass);
-    assert!(result.p99_latency_ms < 200.0);
+    assert_eq!(result.evaluated_percentile, 0.99);
+    assert!(result.percentile_latency_ms < 200.0);
     assert!(result.availability > 0.999);
+}
+
+#[test]
+fn http_slo_custom_percentile_policy_changes_latency_gate() {
+    let slo = HttpSlo {
+        latency_threshold_ms: 150.0,
+        latency_percentile: 0.95,
+        availability_threshold: 0.999,
+    };
+    let samples = vec![HistogramSample {
+        timestamp: 5,
+        success: 9_999,
+        total: 10_000,
+        buckets: vec![
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 9_000,
+            },
+            HistogramBucket {
+                upper_bound_ms: 140.0,
+                count: 9_600,
+            },
+            HistogramBucket {
+                upper_bound_ms: 200.0,
+                count: 10_000,
+            },
+        ],
+        format: HistogramFormat::PrometheusCumulative,
+    }];
+
+    let result = HttpSloIterator::new(slo, samples.into_iter())
+        .next()
+        .unwrap();
+
+    assert_eq!(result.evaluated_percentile, 0.95);
+    assert!(result.percentile_latency_ms <= 150.0);
+    assert!(result.pass);
 }
 
 #[test]

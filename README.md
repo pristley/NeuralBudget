@@ -267,8 +267,18 @@ Continuous integration runs on GitHub Actions using [CI](.github/workflows/ci.ym
 
 - CI runs formatting, linting, and tests on every push and pull request targeting `main`.
 - CD reruns validation on `main`, packages the crate, and publishes release artifacts for tagged builds.
+- Both pipelines also run `cargo llvm-cov` and enforce a 90% line-coverage floor.
 
 The badges above reflect the current state of both workflows.
+
+## Coverage Policy
+
+NeuralBudget uses line coverage as a practical quality gate instead of pretending every private branch and wrapper shim must be driven to 100%.
+
+- Coverage is measured with `cargo llvm-cov --workspace --all-features`.
+- CI/CD fail if total line coverage drops below 90%.
+- The policy intentionally treats PyO3 wrapper glue and similar boilerplate as normal maintenance code, not as a reason to chase zero-value tests for every branch.
+- The current validated coverage is above the enforced floor, so future changes must stay above that bar.
 
 ## Project Status
 
