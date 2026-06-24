@@ -14,6 +14,10 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  RUN_PUBLISH_FLOW: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-main-publish]')) }}
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
 jobs:
   package:
     if: github.actor != 'github-actions[bot]'
@@ -90,7 +94,7 @@ jobs:
         run: cargo package --allow-dirty --no-verify
 
       - name: Build source distribution
-        if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-main-publish]'))
+        if: env.RUN_PUBLISH_FLOW == 'true'
         run: maturin sdist --manifest-path Cargo.toml --out target/wheels
 
       - name: Upload packaged crate metadata
@@ -119,7 +123,7 @@ jobs:
 
       - name: Upload source distribution artifact
         uses: actions/upload-artifact@v4
-        if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-main-publish]'))
+        if: env.RUN_PUBLISH_FLOW == 'true'
         with:
           name: release-sdist
           path: target/wheels/*.tar.gz
@@ -139,7 +143,7 @@ jobs:
           git push origin HEAD:main
 
   build-release-wheels:
-    if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-main-publish]'))) && github.actor != 'github-actions[bot]'
+    if: env.RUN_PUBLISH_FLOW == 'true' && github.actor != 'github-actions[bot]'
     needs: package
     runs-on: ${{ matrix.os }}
     strategy:
@@ -177,7 +181,7 @@ jobs:
           if-no-files-found: error
 
   github-release:
-    if: startsWith(github.ref, 'refs/tags/v') && github.actor != 'github-actions[bot]'
+    if: env.RELEASE_TAG == 'true' && github.actor != 'github-actions[bot]'
     needs:
       - package
       - build-release-wheels
@@ -200,7 +204,7 @@ jobs:
           body_path: dist/release-notes.md
 
   publish-pypi:
-    if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-main-publish]'))) && github.actor != 'github-actions[bot]'
+    if: env.RUN_PUBLISH_FLOW == 'true' && github.actor != 'github-actions[bot]'
     needs:
       - package
       - build-release-wheels
