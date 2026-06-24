@@ -1970,6 +1970,113 @@ nb.is_timestamp_in_window(1, 2, tw)
     });
 }
 
+#[test]
+fn native_prometheus_exporter_renders_http_metrics() {
+    let mut exporter = PrometheusExporter::with_namespace("neuralbudget");
+    exporter.set_static_label("env", "test");
+    exporter.observe_http_slo(
+        "api-gateway",
+        &HttpSloEvaluation {
+            timestamp: 1_700_000_000,
+            availability: 0.999,
+            evaluated_percentile: 0.99,
+            percentile_latency_ms: 180.0,
+            latency_ok: true,
+            availability_ok: true,
+            pass: true,
+        },
+    );
+
+    let rendered = exporter.render();
+    assert!(rendered.contains("# TYPE neuralbudget_http_pass gauge"));
+    assert!(rendered.contains("neuralbudget_http_pass{"));
+    assert!(rendered.contains("service=\"api-gateway\""));
+    assert!(rendered.contains("env=\"test\""));
+    assert!(rendered.contains("neuralbudget_http_availability{"));
+    assert!(rendered.contains("neuralbudget_http_percentile_latency_ms{"));
+}
+
+#[test]
+fn native_prometheus_exporter_renders_composite_metrics() {
+    let mut exporter = PrometheusExporter::with_namespace("nb");
+
+    let evaluation = CompositeSloEvaluation {
+        topological_order: vec!["db".to_string(), "api".to_string()],
+        services: vec![
+            CompositeServiceSloEvaluation {
+                service: "db".to_string(),
+                local_score: 0.99,
+                effective_score: 0.99,
+                min_pass_score: 0.9,
+                dependency_adjusted: false,
+                failed_dependencies: vec![],
+                pass: true,
+            },
+            CompositeServiceSloEvaluation {
+                service: "api".to_string(),
+                local_score: 0.95,
+                effective_score: 0.82,
+                min_pass_score: 0.9,
+                dependency_adjusted: true,
+                failed_dependencies: vec!["db".to_string()],
+                pass: false,
+            },
+        ],
+        global_slo: 0.905,
+        global_pass: true,
+    };
+
+    exporter.observe_composite_slo("checkout-graph", &evaluation);
+    let rendered = exporter.render();
+
+    assert!(rendered.contains("nb_composite_global_slo"));
+    assert!(rendered.contains("graph=\"checkout-graph\""));
+    assert!(rendered.contains("nb_composite_service_effective_score"));
+    assert!(rendered.contains("service=\"api\""));
+    assert!(rendered.contains("nb_composite_service_dependency_adjusted"));
+}
+
+#[test]
+fn python_prometheus_export_helpers_and_class_work() {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "neuralbudget_prometheus_test").unwrap();
+        neuralbudget(py, &module).unwrap();
+
+        let locals = PyDict::new_bound(py);
+        locals.set_item("nb", &module).unwrap();
+
+        py.run_bound(
+            r#"
+sample = nb.HistogramSample(
+    1,
+    100,
+    100,
+    [nb.HistogramBucket(100.0, 100)],
+    "prometheus_cumulative",
+)
+slo = nb.HttpSlo(200.0, 0.99, 0.999)
+evaluation = slo.evaluate_histogram(sample)
+
+text = nb.export_http_slo_prometheus("api", evaluation, "nb")
+assert "nb_http_pass" in text
+assert "service=\"api\"" in text
+
+exporter = nb.PrometheusExporter("nb")
+exporter.set_static_label("env", "test")
+exporter.observe_http_slo("api", evaluation)
+rendered = exporter.render()
+assert "env=\"test\"" in rendered
+assert "nb_http_availability" in rendered
+"#,
+            None,
+            Some(&locals),
+        )
+        .unwrap();
+    });
+}
+
 proptest! {
     #[test]
     fn prop_availability_is_bounded(success in 0u64..1_000_000, total in 1u64..1_000_000) {

@@ -39,6 +39,7 @@ Core capabilities:
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
 - [Production Deployment](#production-deployment)
+- [Native Prometheus Exporter](#native-prometheus-exporter)
 - [Development and CI/CD](#development-and-cicd)
 - [PyPI Publishing](#pypi-publishing)
 - [Changelog and Documentation](#changelog-and-documentation)
@@ -471,6 +472,65 @@ see:
 - [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
 - [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
 - [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+
+## Native Prometheus Exporter
+
+NeuralBudget includes a native exporter that renders Prometheus text exposition
+format (`0.0.4`) from SLO evaluation outputs.
+
+### Rust usage
+
+```rust
+use neuralbudget::{HttpSloEvaluation, PrometheusExporter};
+
+let mut exporter = PrometheusExporter::with_namespace("neuralbudget");
+exporter.set_static_label("env", "prod");
+
+exporter.observe_http_slo(
+    "api-gateway",
+    &HttpSloEvaluation {
+        timestamp: 1_700_000_000,
+        availability: 0.999,
+        evaluated_percentile: 0.99,
+        percentile_latency_ms: 180.0,
+        latency_ok: true,
+        availability_ok: true,
+        pass: true,
+    },
+);
+
+let text = exporter.render();
+println!("{}", text);
+```
+
+### Python usage
+
+```python
+import neuralbudget
+
+slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
+sample = neuralbudget.HistogramSample(
+    timestamp=1,
+    success=100,
+    total=100,
+    buckets=[neuralbudget.HistogramBucket(100.0, 100)],
+    format="prometheus_cumulative",
+)
+evaluation = slo.evaluate_histogram(sample)
+
+# One-shot helper
+text = neuralbudget.export_http_slo_prometheus("api-gateway", evaluation)
+
+# Reusable exporter
+exporter = neuralbudget.PrometheusExporter("neuralbudget")
+exporter.set_static_label("env", "prod")
+exporter.observe_http_slo("api-gateway", evaluation)
+text = exporter.render()
+print(text)
+```
+
+Supported observers include HTTP, stateful, ML, GenAI, composite graph, web API
+reports, and error-budget snapshots.
 
 ## Development and CI/CD
 

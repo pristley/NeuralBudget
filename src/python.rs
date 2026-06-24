@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use crate::core::*;
+use crate::exporter::PrometheusExporter;
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -2390,6 +2391,124 @@ pub fn evaluate_composite_slo_graph(
         .map_err(|err| PyTypeError::new_err(err.to_string()))
 }
 
+#[pyclass(name = "PrometheusExporter")]
+#[derive(Clone)]
+pub struct PyPrometheusExporter {
+    inner: PrometheusExporter,
+}
+
+#[pymethods]
+impl PyPrometheusExporter {
+    #[new]
+    #[pyo3(signature = (namespace="neuralbudget"))]
+    fn new(namespace: &str) -> Self {
+        Self {
+            inner: PrometheusExporter::with_namespace(namespace.to_string()),
+        }
+    }
+
+    fn set_static_label(&mut self, key: String, value: String) {
+        self.inner.set_static_label(key, value);
+    }
+
+    fn clear(&mut self) {
+        self.inner.clear();
+    }
+
+    fn observe_http_slo(&mut self, service: String, evaluation: PyHttpSloEvaluation) {
+        self.inner.observe_http_slo(&service, &evaluation.inner);
+    }
+
+    fn observe_stateful_slo(&mut self, service: String, evaluation: PyStatefulSloEvaluation) {
+        self.inner.observe_stateful_slo(&service, &evaluation.inner);
+    }
+
+    fn observe_ml_slo(&mut self, service: String, evaluation: PyMlSloEvaluation) {
+        self.inner.observe_ml_slo(&service, &evaluation.inner);
+    }
+
+    fn observe_genai_slo(&mut self, service: String, evaluation: PyGenAiSloEvaluation) {
+        self.inner.observe_genai_slo(&service, &evaluation.inner);
+    }
+
+    fn observe_composite_slo(&mut self, graph: String, evaluation: PyCompositeSloEvaluation) {
+        self.inner.observe_composite_slo(&graph, &evaluation.inner);
+    }
+
+    fn observe_error_budget(&mut self, service: String, budget: ErrorBudget) {
+        self.inner.observe_error_budget(&service, &budget);
+    }
+
+    fn render(&self) -> String {
+        self.inner.render()
+    }
+}
+
+/// Build one-shot Prometheus text exposition from an HTTP SLO evaluation.
+#[pyfunction]
+#[pyo3(signature = (service, evaluation, namespace="neuralbudget"))]
+pub fn export_http_slo_prometheus(
+    service: String,
+    evaluation: PyHttpSloEvaluation,
+    namespace: &str,
+) -> String {
+    let mut exporter = PrometheusExporter::with_namespace(namespace.to_string());
+    exporter.observe_http_slo(&service, &evaluation.inner);
+    exporter.render()
+}
+
+/// Build one-shot Prometheus text exposition from a Stateful SLO evaluation.
+#[pyfunction]
+#[pyo3(signature = (service, evaluation, namespace="neuralbudget"))]
+pub fn export_stateful_slo_prometheus(
+    service: String,
+    evaluation: PyStatefulSloEvaluation,
+    namespace: &str,
+) -> String {
+    let mut exporter = PrometheusExporter::with_namespace(namespace.to_string());
+    exporter.observe_stateful_slo(&service, &evaluation.inner);
+    exporter.render()
+}
+
+/// Build one-shot Prometheus text exposition from an ML SLO evaluation.
+#[pyfunction]
+#[pyo3(signature = (service, evaluation, namespace="neuralbudget"))]
+pub fn export_ml_slo_prometheus(
+    service: String,
+    evaluation: PyMlSloEvaluation,
+    namespace: &str,
+) -> String {
+    let mut exporter = PrometheusExporter::with_namespace(namespace.to_string());
+    exporter.observe_ml_slo(&service, &evaluation.inner);
+    exporter.render()
+}
+
+/// Build one-shot Prometheus text exposition from a GenAI SLO evaluation.
+#[pyfunction]
+#[pyo3(signature = (service, evaluation, namespace="neuralbudget"))]
+pub fn export_genai_slo_prometheus(
+    service: String,
+    evaluation: PyGenAiSloEvaluation,
+    namespace: &str,
+) -> String {
+    let mut exporter = PrometheusExporter::with_namespace(namespace.to_string());
+    exporter.observe_genai_slo(&service, &evaluation.inner);
+    exporter.render()
+}
+
+/// Build one-shot Prometheus text exposition from a Composite graph evaluation.
+#[pyfunction]
+#[pyo3(signature = (graph, evaluation, namespace="neuralbudget"))]
+pub fn export_composite_slo_prometheus(
+    graph: String,
+    evaluation: PyCompositeSloEvaluation,
+    namespace: &str,
+) -> String {
+    let mut exporter = PrometheusExporter::with_namespace(namespace.to_string());
+    exporter.observe_composite_slo(&graph, &evaluation.inner);
+    exporter.render()
+}
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -2410,6 +2529,7 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGenAiSample>()?;
     module.add_class::<PyGenAiSlo>()?;
     module.add_class::<PyGenAiSloEvaluation>()?;
+    module.add_class::<PyPrometheusExporter>()?;
     module.add_class::<PyCompositeServiceSlo>()?;
     module.add_class::<PyCompositeDependencyEdge>()?;
     module.add_class::<PyCompositeServiceSloEvaluation>()?;
@@ -2432,6 +2552,11 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(evaluate_genai_slo, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_genai_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_composite_slo_graph, module)?)?;
+    module.add_function(wrap_pyfunction!(export_http_slo_prometheus, module)?)?;
+    module.add_function(wrap_pyfunction!(export_stateful_slo_prometheus, module)?)?;
+    module.add_function(wrap_pyfunction!(export_ml_slo_prometheus, module)?)?;
+    module.add_function(wrap_pyfunction!(export_genai_slo_prometheus, module)?)?;
+    module.add_function(wrap_pyfunction!(export_composite_slo_prometheus, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_slo_config, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_metric_point, module)?)?;

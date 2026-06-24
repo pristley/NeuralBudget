@@ -290,6 +290,56 @@ Example GitHub Actions step:
   run: python3 scripts/slo_gate.py
 ```
 
+## Native Prometheus Exporter
+
+NeuralBudget can export evaluated SLO outputs as native Prometheus metrics in
+text exposition format (`0.0.4`).
+
+Rust API:
+
+- `PrometheusExporter::new()`
+- `PrometheusExporter::with_namespace(namespace)`
+- `set_static_label(key, value)`
+- `observe_http_slo(service, evaluation)`
+- `observe_stateful_slo(service, evaluation)`
+- `observe_ml_slo(service, evaluation)`
+- `observe_genai_slo(service, evaluation)`
+- `observe_composite_slo(graph, evaluation)`
+- `observe_web_api_report(service, report)`
+- `observe_error_budget(service, budget)`
+- `render()`
+
+Python API:
+
+- class `neuralbudget.PrometheusExporter`
+- one-shot helpers:
+    - `export_http_slo_prometheus(service, evaluation, namespace="neuralbudget")`
+    - `export_stateful_slo_prometheus(service, evaluation, namespace="neuralbudget")`
+    - `export_ml_slo_prometheus(service, evaluation, namespace="neuralbudget")`
+    - `export_genai_slo_prometheus(service, evaluation, namespace="neuralbudget")`
+    - `export_composite_slo_prometheus(graph, evaluation, namespace="neuralbudget")`
+
+Python example:
+
+```python
+import neuralbudget
+
+slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
+sample = neuralbudget.HistogramSample(
+        timestamp=1,
+        success=100,
+        total=100,
+        buckets=[neuralbudget.HistogramBucket(100.0, 100)],
+        format="prometheus_cumulative",
+)
+evaluation = slo.evaluate_histogram(sample)
+
+exporter = neuralbudget.PrometheusExporter("neuralbudget")
+exporter.set_static_label("team", "platform")
+exporter.observe_http_slo("api-gateway", evaluation)
+print(exporter.render())
+```
+
 ## Testing and Coverage
 
 Recommended local validation sequence:
