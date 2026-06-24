@@ -20,6 +20,7 @@ serde_yaml = "0.9"
 
 [dev-dependencies]
 criterion = "0.5"
+proptest = "1.6"
 
 [[bench]]
 name = "composite_slo_dag"

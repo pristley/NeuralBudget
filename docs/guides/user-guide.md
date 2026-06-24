@@ -290,6 +290,32 @@ Example GitHub Actions step:
   run: python3 scripts/slo_gate.py
 ```
 
+## Testing and Coverage
+
+Recommended local validation sequence:
+
+```bash
+cargo fmt --all --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-targets --all-features
+cargo llvm-cov --workspace --all-features --lib --tests --summary-only
+python3 tests/python_convenience_tests.py
+python3 tests/python_client_tests.py
+```
+
+Property-based tests are implemented with `proptest` in `src/tests.rs` and are
+used to validate invariants such as:
+
+- availability ratio bounds
+- error-budget non-negative/window-bounded behavior
+- burn-rate output bounds for arbitrary metric streams
+- serialization round-trips for selected models
+
+Coverage note:
+
+- use line coverage as the primary quality gate
+- PyO3 wrapper-heavy modules can have lower region coverage due to generated boundaries
+
 ## Config Schema Validation and Versioning
 
 `NeuralBudgetClient.load_config(...)` now validates YAML/JSON config files against a

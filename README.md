@@ -481,9 +481,20 @@ cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 cargo test --doc --all-features
+cargo llvm-cov --workspace --all-features --lib --tests --summary-only
 python3 tests/python_convenience_tests.py
 python3 tests/python_client_tests.py
 ```
+
+### Property-based testing
+
+NeuralBudget uses property-based tests (via `proptest`) for core invariants,
+including availability bounds, error-budget clamping, burn-rate bounds, and
+JSON/YAML round-trip stability for selected models.
+
+Primary location:
+
+- `src/tests.rs` (`proptest!` suites and edge-case branch tests)
 
 ### Performance benchmarking
 
@@ -501,6 +512,8 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 - CI validates format, lint, tests, coverage gate, and packaging checks.
 - CD re-validates and publishes artifacts on tagged release workflows.
 - Coverage floor is enforced at 89% line coverage.
+- Local target for release confidence is 95%+ line coverage.
+- PyO3-heavy wrappers may report lower region coverage than line coverage; use line coverage as the primary merge gate unless workflow policy changes.
 
 ## PyPI Publishing
 

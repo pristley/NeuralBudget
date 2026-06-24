@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use proptest::prelude::*;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
@@ -1393,6 +1394,642 @@ fn core_branch_edges_are_exercised_for_maximum_coverage() {
     assert_eq!(invalid_eval.feature_drift_score, 0.0);
     assert_eq!(invalid_eval.prediction_confidence_score, 0.0);
     assert!(!invalid_eval.pass);
+}
+
+#[test]
+fn time_window_overflow_paths_return_false() {
+    let rolling = TimeWindow::rolling(1);
+    assert!(!rolling.contains(0, i64::MIN));
+
+    let calendar_now_overflow = TimeWindow::calendar_aligned(86_400, i32::MAX);
+    assert!(!calendar_now_overflow.contains(0, i64::MAX));
+
+    let calendar_timestamp_overflow = TimeWindow::calendar_aligned(86_400, i32::MAX);
+    assert!(!calendar_timestamp_overflow.contains(i64::MAX, 0));
+
+    let huge_window = TimeWindow::calendar_aligned(u64::MAX, 0);
+    assert!(!huge_window.contains(0, i64::MAX));
+}
+
+#[test]
+fn histogram_percentile_handles_zero_totals_and_zero_bucket_counts() {
+    let empty_total = HistogramSample {
+        timestamp: 1,
+        success: 0,
+        total: 0,
+        buckets: vec![HistogramBucket {
+            upper_bound_ms: 100.0,
+            count: 0,
+        }],
+        format: HistogramFormat::PrometheusCumulative,
+    };
+    let slo = HttpSlo {
+        latency_threshold_ms: 200.0,
+        latency_percentile: 0.99,
+        availability_threshold: 0.9,
+    };
+    let eval = slo.evaluate_histogram(&empty_total);
+    assert!(eval.percentile_latency_ms.is_infinite());
+
+    // For percentile=0.0 the first cumulative bucket can match target with zero bucket count.
+    let zero_bucket_count = HistogramSample {
+        timestamp: 2,
+        success: 10,
+        total: 10,
+        buckets: vec![
+            HistogramBucket {
+                upper_bound_ms: 100.0,
+                count: 0,
+            },
+            HistogramBucket {
+                upper_bound_ms: 200.0,
+                count: 10,
+            },
+        ],
+        format: HistogramFormat::PrometheusCumulative,
+    };
+    let eval_zero = HttpSlo {
+        latency_threshold_ms: 500.0,
+        latency_percentile: 0.0,
+        availability_threshold: 0.0,
+    }
+    .evaluate_histogram(&zero_bucket_count);
+    assert!(eval_zero.percentile_latency_ms.is_infinite());
+}
+
+#[test]
+fn web_api_slo_zero_window_returns_zeroed_report() {
+    let report = calculate_web_api_slo(
+        &[WebApiRequest {
+            timestamp: 1,
+            latency_ms: 10.0,
+            status_code: 200,
+            labels: HashMap::new(),
+        }],
+        &WebApiSloPolicy {
+            availability_target: 0.99,
+            latency_threshold_ms: 100.0,
+            time_window_seconds: 0,
+            outlier_filter: OutlierFilterConfig::default(),
+        },
+        1,
+    );
+
+    assert_eq!(report.total_requests, 0);
+    assert_eq!(report.successful_requests, 0);
+    assert_eq!(report.availability, 0.0);
+    assert_eq!(report.latency_sli, 0.0);
+}
+
+#[test]
+fn composite_global_score_fallback_paths_are_exercised() {
+    // Empty graph exercises empty-service fallback in global score calculation.
+    let empty = evaluate_composite_slo(&CompositeSloGraph::default()).unwrap();
+    assert_eq!(empty.global_slo, 0.0);
+
+    // All non-positive impact weights exercise average-score fallback branch.
+    let negative_weights = CompositeSloGraph {
+        services: vec![
+            CompositeServiceSlo {
+                service: "a".to_string(),
+                local_score: 0.5,
+                min_pass_score: 0.0,
+                impact_weight: -1.0,
+            },
+            CompositeServiceSlo {
+                service: "b".to_string(),
+                local_score: 0.9,
+                min_pass_score: 0.0,
+                impact_weight: 0.0,
+            },
+        ],
+        dependencies: vec![],
+        global_min_pass_score: 0.0,
+    };
+    let eval = evaluate_composite_slo(&negative_weights).unwrap();
+    assert!((eval.global_slo - 0.7).abs() < 1e-12);
+}
+
+#[test]
+fn composite_error_display_variants_are_exercised() {
+    let messages = vec![
+        CompositeSloError::DuplicateService("svc".to_string()).to_string(),
+        CompositeSloError::DuplicateDependencyEdge {
+            dependency: "a".to_string(),
+            dependent: "b".to_string(),
+        }
+        .to_string(),
+        CompositeSloError::UnknownService("ghost".to_string()).to_string(),
+        CompositeSloError::SelfDependency("svc".to_string()).to_string(),
+        CompositeSloError::CycleDetected.to_string(),
+    ];
+
+    assert!(messages[0].contains("duplicate service"));
+    assert!(messages[1].contains("duplicate dependency edge"));
+    assert!(messages[2].contains("unknown service"));
+    assert!(messages[3].contains("cannot depend on itself"));
+    assert!(messages[4].contains("contains a cycle"));
+}
+
+#[test]
+fn semantic_similarity_additional_branches_are_exercised() {
+    assert_eq!(semantic_similarity_placeholder("", "", None), 1.0);
+
+    pyo3::prepare_freethreaded_python();
+    let with_model = semantic_similarity_placeholder("alpha", "beta", Some("missing-model"));
+    assert!((0.0..=1.0).contains(&with_model));
+
+    let genai = GenAiSlo::default();
+    let eval = genai.evaluate_sample(&GenAiSample {
+        timestamp: 1,
+        tokens_generated: 100,
+        generation_duration_ms: 0.0,
+        time_to_first_token_ms: 100.0,
+        reference_text: "alpha".to_string(),
+        generated_text: "alpha".to_string(),
+    });
+    assert_eq!(eval.tokens_per_second, 0.0);
+}
+
+#[test]
+fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| {
+        let cfg = PySloConfig::new(99.9, "30d".to_string());
+        assert_eq!(cfg.target(), 99.9);
+        assert_eq!(cfg.window(), "30d".to_string());
+        let cfg_dict = cfg.to_dict(py).unwrap();
+        let cfg2 = PySloConfig::from_dict(&cfg_dict).unwrap();
+        assert_eq!(cfg2.window(), "30d".to_string());
+        assert!(cfg.to_json().unwrap().contains("target"));
+        assert!(cfg.to_yaml().unwrap().contains("window"));
+
+        let budget = PyErrorBudget::new(0.8, 1.2);
+        assert_eq!(budget.remaining(), 0.8);
+        assert_eq!(budget.velocity(), 1.2);
+        let budget_dict = budget.to_dict(py).unwrap();
+        assert_eq!(PyErrorBudget::from_dict(&budget_dict).unwrap().remaining(), 0.8);
+        assert!(budget.to_json().unwrap().contains("remaining"));
+        assert!(budget.to_yaml().unwrap().contains("velocity"));
+
+        let point = PyMetricPoint::new(10, 2.5, Some(HashMap::from([(String::from("k"), String::from("v"))])));
+        assert_eq!(point.timestamp(), 10);
+        assert_eq!(point.value(), 2.5);
+        assert_eq!(point.labels().get("k").unwrap(), "v");
+        let point_dict = point.to_dict(py).unwrap();
+        assert_eq!(PyMetricPoint::from_dict(&point_dict).unwrap().timestamp(), 10);
+        assert!(point.to_json().unwrap().contains("timestamp"));
+        assert!(point.to_yaml().unwrap().contains("value"));
+
+        let tw = PyTimeWindow::new(300, "rolling", 0).unwrap();
+        assert_eq!(tw.alignment(), "rolling");
+        assert_eq!(tw.window_seconds(), 300);
+        assert_eq!(tw.timezone_offset_seconds(), 0);
+        assert!(tw.contains(100, 120));
+        let tw_dict = tw.to_dict(py).unwrap();
+        let tw2 = PyTimeWindow::from_dict(&tw_dict).unwrap();
+        assert_eq!(tw2.alignment(), "rolling");
+        assert!(tw.to_json().unwrap().contains("window_seconds"));
+        assert!(tw.to_yaml().unwrap().contains("alignment"));
+
+        // Dict fallback for missing timezone offset.
+        let tw_no_tz = PyDict::new_bound(py);
+        tw_no_tz.set_item("alignment", "calendar_aligned").unwrap();
+        tw_no_tz.set_item("window_seconds", 600_u64).unwrap();
+        let parsed_tw: TimeWindow = tw_no_tz.extract().unwrap();
+        assert_eq!(parsed_tw.timezone_offset_seconds, 0);
+
+        let bucket = PyHistogramBucket::new(250.0, 7);
+        assert_eq!(bucket.upper_bound_ms(), 250.0);
+        assert_eq!(bucket.count(), 7);
+        let bucket_dict = bucket.to_dict(py).unwrap();
+        let bucket2 = PyHistogramBucket::from_dict(&bucket_dict).unwrap();
+        assert_eq!(bucket2.count(), 7);
+        assert!(bucket.to_json().unwrap().contains("count"));
+        assert!(bucket.to_yaml().unwrap().contains("upper_bound_ms"));
+
+        let hs = PyHistogramSample::new(1, 95, 100, vec![HistogramBucket { upper_bound_ms: 250.0, count: 95 }], "prometheus_cumulative").unwrap();
+        assert_eq!(hs.timestamp(), 1);
+        assert_eq!(hs.success(), 95);
+        assert_eq!(hs.total(), 100);
+        assert_eq!(hs.buckets().len(), 1);
+        assert_eq!(hs.format(), "prometheus_cumulative");
+        let hs_dict = hs.to_dict(py).unwrap();
+        assert_eq!(PyHistogramSample::from_dict(&hs_dict).unwrap().total(), 100);
+        assert!(hs.to_json().unwrap().contains("buckets"));
+        assert!(hs.to_yaml().unwrap().contains("format"));
+
+        let http_default_dict = PyDict::new_bound(py);
+        let http_defaults: HttpSlo = http_default_dict.extract().unwrap();
+        assert_eq!(http_defaults.latency_threshold_ms, HttpSlo::default().latency_threshold_ms);
+        assert_eq!(http_defaults.latency_percentile, HttpSlo::default().latency_percentile);
+        assert_eq!(http_defaults.availability_threshold, HttpSlo::default().availability_threshold);
+
+        let http = PyHttpSlo::new(200.0, 0.99, 0.999);
+        assert_eq!(http.latency_p99_threshold_ms(), 200.0);
+        let http_eval = http.evaluate_histogram(HistogramSample {
+            timestamp: 1,
+            success: 99,
+            total: 100,
+            buckets: vec![
+                HistogramBucket { upper_bound_ms: 100.0, count: 98 },
+                HistogramBucket { upper_bound_ms: 200.0, count: 100 },
+            ],
+            format: HistogramFormat::PrometheusCumulative,
+        });
+        assert_eq!(http_eval.timestamp(), 1);
+        assert_eq!(http_eval.p99_latency_ms(), http_eval.percentile_latency_ms());
+        assert!(http_eval.to_dict(py).unwrap().contains("pass").unwrap());
+        assert!(http_eval.to_json().unwrap().contains("availability"));
+        assert!(http_eval.to_yaml().unwrap().contains("latency_ok"));
+        let _ = http.evaluate_stream(vec![HistogramSample {
+            timestamp: 2,
+            success: 100,
+            total: 100,
+            buckets: vec![HistogramBucket { upper_bound_ms: 100.0, count: 100 }],
+            format: HistogramFormat::PrometheusCumulative,
+        }]);
+        let _ = http.to_dict(py).unwrap();
+        assert!(http.to_json().unwrap().contains("latency_percentile"));
+        assert!(http.to_yaml().unwrap().contains("availability_threshold"));
+
+        let state_sample = PyStatefulSample::new(1, 50.0, 10, 0.5, 10.0);
+        assert_eq!(state_sample.connection_pool_saturation(), 0.5);
+        let state_sample_dict = state_sample.to_dict(py).unwrap();
+        assert_eq!(PyStatefulSample::from_dict(&state_sample_dict).unwrap().queue_depth(), 10);
+        assert!(state_sample.to_json().unwrap().contains("queue_depth"));
+        assert!(state_sample.to_yaml().unwrap().contains("replication_lag_ms"));
+
+        let state_slo = PyStatefulSlo::new(200.0, 100, 0.8, 20.0, 0.2, 0.9);
+        let state_eval = state_slo.evaluate_sample(StatefulSample {
+            timestamp: 1,
+            replication_lag_ms: 100.0,
+            queue_depth: 20,
+            connection_pool_saturation: 0.6,
+            connection_wait_time_ms: 10.0,
+        });
+        assert!(state_eval.replication_lag_ok());
+        assert!(state_eval.to_dict(py).unwrap().contains("connection_wait_penalized").unwrap());
+        assert!(state_eval.to_json().unwrap().contains("score"));
+        assert!(state_eval.to_yaml().unwrap().contains("pass"));
+        let _ = state_slo.evaluate_stream(vec![StatefulSample {
+            timestamp: 2,
+            replication_lag_ms: 90.0,
+            queue_depth: 10,
+            connection_pool_saturation: 0.4,
+            connection_wait_time_ms: 5.0,
+        }]);
+        let _ = state_slo.to_dict(py).unwrap();
+        assert!(state_slo.to_json().unwrap().contains("queue_depth_threshold"));
+        assert!(state_slo.to_yaml().unwrap().contains("min_pass_score"));
+
+        let ml_default_dict = PyDict::new_bound(py);
+        ml_default_dict.set_item("max_inference_latency_ms", 300.0).unwrap();
+        ml_default_dict.set_item("max_gpu_utilization", 0.9).unwrap();
+        ml_default_dict.set_item("max_feature_drift", 0.3).unwrap();
+        ml_default_dict.set_item("min_prediction_confidence", 0.7).unwrap();
+        let ml_defaults: MlSlo = ml_default_dict.extract().unwrap();
+        assert_eq!(ml_defaults.latency_weight, MlSlo::default().latency_weight);
+        assert_eq!(ml_defaults.drift_weight, MlSlo::default().drift_weight);
+        assert_eq!(ml_defaults.min_pass_score, MlSlo::default().min_pass_score);
+
+        let ml_sample = PyMlSample::new(1, 100.0, 0.7, 0.1, 0.9);
+        assert_eq!(ml_sample.inference_latency_ms(), 100.0);
+        let ml_sample_dict = ml_sample.to_dict(py).unwrap();
+        assert_eq!(PyMlSample::from_dict(&ml_sample_dict).unwrap().timestamp(), 1);
+        assert!(ml_sample.to_json().unwrap().contains("feature_drift"));
+        assert!(ml_sample.to_yaml().unwrap().contains("prediction_confidence"));
+
+        let ml_slo = PyMlSlo::new(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9);
+        let ml_eval = ml_slo.evaluate_sample(MlSample {
+            timestamp: 1,
+            inference_latency_ms: 120.0,
+            gpu_utilization: 0.6,
+            feature_drift: 0.1,
+            prediction_confidence: 0.9,
+        });
+        assert!(ml_eval.system_score() > 0.0);
+        assert!(ml_eval.to_dict(py).unwrap().contains("prediction_confidence_score").unwrap());
+        assert!(ml_eval.to_json().unwrap().contains("hybrid_score"));
+        assert!(ml_eval.to_yaml().unwrap().contains("latency_weight"));
+        let _ = ml_slo.evaluate_stream(vec![MlSample {
+            timestamp: 2,
+            inference_latency_ms: 150.0,
+            gpu_utilization: 0.7,
+            feature_drift: 0.15,
+            prediction_confidence: 0.92,
+        }]);
+        let _ = ml_slo.to_dict(py).unwrap();
+        assert!(ml_slo.to_json().unwrap().contains("max_gpu_utilization"));
+        assert!(ml_slo.to_yaml().unwrap().contains("min_prediction_confidence"));
+
+        let genai_default_dict = PyDict::new_bound(py);
+        genai_default_dict.set_item("min_tokens_per_second", 10.0).unwrap();
+        genai_default_dict.set_item("max_time_to_first_token_ms", 1500.0).unwrap();
+        genai_default_dict.set_item("min_semantic_similarity", 0.6).unwrap();
+        let genai_defaults: GenAiSlo = genai_default_dict.extract().unwrap();
+        assert_eq!(
+            genai_defaults.semantic_model_name,
+            GenAiSlo::default().semantic_model_name
+        );
+
+        let genai_sample = PyGenAiSample::new(
+            1,
+            200,
+            8_000.0,
+            900.0,
+            "hello world".to_string(),
+            "hello world".to_string(),
+        );
+        assert_eq!(genai_sample.tokens_generated(), 200);
+        let genai_sample_dict = genai_sample.to_dict(py).unwrap();
+        assert_eq!(PyGenAiSample::from_dict(&genai_sample_dict).unwrap().timestamp(), 1);
+        assert!(genai_sample.to_json().unwrap().contains("reference_text"));
+        assert!(genai_sample.to_yaml().unwrap().contains("generated_text"));
+
+        let genai_slo = PyGenAiSlo::new(20.0, 1200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2");
+        let genai_eval = genai_slo.evaluate_sample(GenAiSample {
+            timestamp: 1,
+            tokens_generated: 200,
+            generation_duration_ms: 8_000.0,
+            time_to_first_token_ms: 900.0,
+            reference_text: "hello world".to_string(),
+            generated_text: "hello world".to_string(),
+        });
+        assert!(genai_eval.semantic_similarity_ok());
+        assert!(genai_eval.to_dict(py).unwrap().contains("tokens_per_second_ok").unwrap());
+        assert!(genai_eval.to_json().unwrap().contains("semantic_similarity"));
+        assert!(genai_eval.to_yaml().unwrap().contains("time_to_first_token_ok"));
+        let _ = genai_slo.evaluate_stream(vec![GenAiSample {
+            timestamp: 2,
+            tokens_generated: 250,
+            generation_duration_ms: 9_000.0,
+            time_to_first_token_ms: 850.0,
+            reference_text: "a b c".to_string(),
+            generated_text: "a b c".to_string(),
+        }]);
+        let _ = genai_slo.to_dict(py).unwrap();
+        assert!(genai_slo.to_json().unwrap().contains("min_semantic_similarity"));
+        assert!(genai_slo.to_yaml().unwrap().contains("semantic_model_name"));
+
+        let composite_service = PyCompositeServiceSlo::new("api".to_string(), 0.95, 0.9, 1.0);
+        assert_eq!(composite_service.service(), "api");
+        let cs_dict = composite_service.to_dict(py).unwrap();
+        assert_eq!(PyCompositeServiceSlo::from_dict(&cs_dict).unwrap().impact_weight(), 1.0);
+        assert!(composite_service.to_json().unwrap().contains("local_score"));
+        assert!(composite_service.to_yaml().unwrap().contains("min_pass_score"));
+
+        let composite_edge = PyCompositeDependencyEdge::new("db".to_string(), "api".to_string(), 0.3);
+        assert_eq!(composite_edge.dependent(), "api");
+        let ce_dict = composite_edge.to_dict(py).unwrap();
+        assert_eq!(PyCompositeDependencyEdge::from_dict(&ce_dict).unwrap().failure_penalty(), 0.3);
+        assert!(composite_edge.to_json().unwrap().contains("dependency"));
+        assert!(composite_edge.to_yaml().unwrap().contains("failure_penalty"));
+
+        let graph = PyCompositeSloGraph::new(
+            vec![CompositeServiceSlo {
+                service: "api".to_string(),
+                local_score: 0.95,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            },
+            CompositeServiceSlo {
+                service: "db".to_string(),
+                local_score: 0.99,
+                min_pass_score: 0.9,
+                impact_weight: 1.0,
+            }],
+            vec![CompositeDependencyEdge {
+                dependency: "db".to_string(),
+                dependent: "api".to_string(),
+                failure_penalty: 0.2,
+            }],
+            0.9,
+        );
+        let graph_dict = graph.to_dict(py).unwrap();
+        let graph_from = PyCompositeSloGraph::from_dict(&graph_dict).unwrap();
+        assert_eq!(graph_from.global_min_pass_score(), 0.9);
+        assert!(graph.to_json().unwrap().contains("services"));
+        assert!(graph.to_yaml().unwrap().contains("dependencies"));
+
+        // Dict fallback for missing global_min_pass_score.
+        let graph_default_dict = PyDict::new_bound(py);
+        graph_default_dict
+            .set_item("services", Vec::<i32>::new())
+            .unwrap();
+        graph_default_dict
+            .set_item("dependencies", Vec::<i32>::new())
+            .unwrap();
+        let graph_default: CompositeSloGraph = graph_default_dict.extract().unwrap();
+        assert_eq!(
+            graph_default.global_min_pass_score,
+            CompositeSloGraph::default().global_min_pass_score
+        );
+
+        let composite_eval = evaluate_composite_slo_graph(graph.inner.clone()).unwrap();
+        let _ = composite_eval.topological_order();
+        let services = composite_eval.services();
+        if let Some(first) = services.first() {
+            let _ = first.service();
+            let _ = first.local_score();
+            let _ = first.effective_score();
+            let _ = first.min_pass_score();
+            let _ = first.dependency_adjusted();
+            let _ = first.failed_dependencies();
+            let _ = first.pass();
+            let _ = first.to_dict(py).unwrap();
+            assert!(first.to_json().unwrap().contains("effective_score"));
+            assert!(first.to_yaml().unwrap().contains("dependency_adjusted"));
+        }
+        let _ = composite_eval.to_dict(py).unwrap();
+        assert!(composite_eval.to_json().unwrap().contains("global_slo"));
+        assert!(composite_eval.to_yaml().unwrap().contains("global_pass"));
+
+        // Wrapper extraction fast paths for composite wrappers.
+        let service_obj = Py::new(py, composite_service.clone()).unwrap();
+        let _: CompositeServiceSlo = service_obj.bind(py).extract().unwrap();
+        let edge_obj = Py::new(py, composite_edge.clone()).unwrap();
+        let _: CompositeDependencyEdge = edge_obj.bind(py).extract().unwrap();
+        let graph_obj = Py::new(py, graph.clone()).unwrap();
+        let _: CompositeSloGraph = graph_obj.bind(py).extract().unwrap();
+    });
+}
+
+#[test]
+fn pyo3_python_call_paths_cover_wrapper_regions() {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "neuralbudget_pycoverage").unwrap();
+        neuralbudget(py, &module).unwrap();
+
+        let locals = PyDict::new_bound(py);
+        locals.set_item("nb", &module).unwrap();
+
+        py.run_bound(
+            r#"
+cfg = nb.SloConfig(99.9, "7d")
+cfg.to_dict(); cfg.to_json(); cfg.to_yaml()
+nb.coerce_slo_config(cfg)
+
+eb = nb.ErrorBudget(0.8, 1.2)
+eb.to_dict(); eb.to_json(); eb.to_yaml()
+nb.coerce_error_budget(eb)
+
+mp = nb.MetricPoint(1, 0.5, {"k": "v"})
+mp.to_dict(); mp.to_json(); mp.to_yaml()
+nb.coerce_metric_point(mp)
+
+tw = nb.TimeWindow(300, "rolling", 0)
+tw.contains(1, 2); tw.to_dict(); tw.to_json(); tw.to_yaml()
+nb.coerce_time_window(tw)
+
+hb = nb.HistogramBucket(100.0, 10)
+hb.to_dict(); hb.to_json(); hb.to_yaml()
+nb.coerce_histogram_bucket(hb)
+
+hs = nb.HistogramSample(1, 95, 100, [hb], "prometheus_cumulative")
+hs.to_dict(); hs.to_json(); hs.to_yaml()
+nb.coerce_histogram_sample(hs)
+
+http = nb.HttpSlo(200.0, 0.99, 0.999)
+http_eval = http.evaluate_histogram(hs)
+http_eval.to_dict(); http_eval.to_json(); http_eval.to_yaml()
+http.evaluate_stream([hs])
+http.to_dict(); http.to_json(); http.to_yaml()
+nb.evaluate_http_slo_histogram(hs, http)
+nb.evaluate_http_slo_histogram_stream([hs], http)
+nb.coerce_http_slo(http)
+
+ss = nb.StatefulSample(1, 100.0, 10, 0.5, 10.0)
+ss.to_dict(); ss.to_json(); ss.to_yaml()
+nb.coerce_stateful_sample(ss)
+
+sso = nb.StatefulSlo(250.0, 1000, 0.8, 20.0, 0.2, 0.9)
+s_eval = sso.evaluate_sample(ss)
+s_eval.to_dict(); s_eval.to_json(); s_eval.to_yaml()
+sso.evaluate_stream([ss])
+sso.to_dict(); sso.to_json(); sso.to_yaml()
+nb.evaluate_stateful_slo(ss, sso)
+nb.evaluate_stateful_slo_stream([ss], sso)
+nb.coerce_stateful_slo(sso)
+
+mls = nb.MlSample(1, 120.0, 0.7, 0.1, 0.9)
+mls.to_dict(); mls.to_json(); mls.to_yaml()
+nb.coerce_ml_sample(mls)
+
+mlo = nb.MlSlo(200.0, 0.85, 0.2, 0.8, 0.6, 0.4, 0.9)
+ml_eval = mlo.evaluate_sample(mls)
+ml_eval.to_dict(); ml_eval.to_json(); ml_eval.to_yaml()
+mlo.evaluate_stream([mls])
+mlo.to_dict(); mlo.to_json(); mlo.to_yaml()
+nb.evaluate_ml_slo(mls, mlo)
+nb.evaluate_ml_slo_stream([mls], mlo)
+nb.coerce_ml_slo(mlo)
+
+gs = nb.GenAiSample(1, 200, 8000.0, 900.0, "hello world", "hello world")
+gs.to_dict(); gs.to_json(); gs.to_yaml()
+nb.coerce_genai_sample(gs)
+
+go = nb.GenAiSlo(20.0, 1200.0, 0.7, "sentence-transformers/all-MiniLM-L6-v2")
+g_eval = go.evaluate_sample(gs)
+g_eval.to_dict(); g_eval.to_json(); g_eval.to_yaml()
+go.evaluate_stream([gs])
+go.to_dict(); go.to_json(); go.to_yaml()
+nb.evaluate_genai_slo(gs, go)
+nb.evaluate_genai_slo_stream([gs], go)
+nb.coerce_genai_slo(go)
+
+svc_api = nb.CompositeServiceSlo("api", 0.95, 0.9, 1.0)
+svc_db = nb.CompositeServiceSlo("db", 0.98, 0.9, 1.0)
+edge = nb.CompositeDependencyEdge("db", "api", 0.2)
+svc_api.to_dict(); svc_api.to_json(); svc_api.to_yaml()
+edge.to_dict(); edge.to_json(); edge.to_yaml()
+nb.coerce_composite_service_slo(svc_api)
+nb.coerce_composite_dependency_edge(edge)
+
+graph = nb.CompositeSloGraph([svc_api, svc_db], [edge], 0.9)
+graph.to_dict(); graph.to_json(); graph.to_yaml()
+nb.coerce_composite_slo_graph(graph)
+comp_eval = nb.evaluate_composite_slo_graph(graph)
+comp_eval.to_dict(); comp_eval.to_json(); comp_eval.to_yaml()
+for item in comp_eval.services:
+    item.to_dict(); item.to_json(); item.to_yaml()
+
+nb.calculate_availability(99, 100)
+nb.calculate_error_budget(99.9, 86400)
+nb.calculate_burn_rate([mp], 300)
+nb.semantic_similarity_placeholder("hello", "hello", None)
+nb.is_timestamp_in_window(1, 2, tw)
+"#,
+            None,
+            Some(&locals),
+        )
+        .unwrap();
+    });
+}
+
+proptest! {
+    #[test]
+    fn prop_availability_is_bounded(success in 0u64..1_000_000, total in 1u64..1_000_000) {
+        let bounded_success = success % (total + 1);
+        let availability = calculate_availability(bounded_success, total);
+
+        prop_assert!((0.0..=1.0).contains(&availability));
+        prop_assert!((availability - (bounded_success as f64 / total as f64)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn prop_error_budget_stays_within_window(target in -2.0f64..3.0, window in 0u64..100_000) {
+        let budget = calculate_error_budget(target, window);
+        prop_assert!(budget >= 0.0);
+        prop_assert!(budget <= window as f64);
+    }
+
+    #[test]
+    fn prop_burn_rate_is_bounded(
+        values in prop::collection::vec(-5.0f64..5.0, 1..500),
+        start in 0i64..10_000,
+        window in 1u64..500,
+    ) {
+        let stream: Vec<MetricPoint> = values
+            .iter()
+            .enumerate()
+            .map(|(idx, value)| MetricPoint {
+                timestamp: start + idx as i64,
+                value: *value,
+                labels: HashMap::new(),
+            })
+            .collect();
+
+        let burn_rate = calculate_burn_rate(stream, window);
+        prop_assert!((0.0..=1.0).contains(&burn_rate));
+    }
+
+    #[test]
+    fn prop_slo_config_roundtrip_preserves_payload(
+        target in 0.0f64..100.0,
+        window in "[a-zA-Z0-9_]{1,12}",
+    ) {
+        let cfg = SloConfig { target, window };
+        let json = cfg.to_json_string().unwrap();
+        let yaml = cfg.to_yaml_string().unwrap();
+
+        let from_json = SloConfig::from_json_str(&json).unwrap();
+        let from_yaml = SloConfig::from_yaml_str(&yaml).unwrap();
+
+        prop_assert_eq!(from_json.window.as_str(), cfg.window.as_str());
+        prop_assert_eq!(from_yaml.window.as_str(), cfg.window.as_str());
+        prop_assert!((from_json.target - cfg.target).abs() < 1e-9);
+        prop_assert!((from_yaml.target - cfg.target).abs() < 1e-9);
+    }
+
+    #[test]
+    fn prop_semantic_similarity_is_bounded(a in "[a-z ]{0,20}", b in "[a-z ]{0,20}") {
+        let score = semantic_similarity_placeholder(&a, &b, None);
+        prop_assert!((0.0..=1.0).contains(&score));
+    }
 }
 
 #[test]

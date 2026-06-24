@@ -25,6 +25,8 @@ This index groups documentation by audience and workflow.
 - CI workflow: .github/workflows/ci.yml
 - CD workflow: .github/workflows/release.yml (validation + release + distribution)
 - PyPI release process: .github/workflows/release.yml (trusted publishing)
+- Coverage command: cargo llvm-cov --workspace --all-features --lib --tests --summary-only
+- Property tests: src/tests.rs (`proptest` suites)
 - Python convenience tests: tests/python_convenience_tests.py
 - Python client facade tests: tests/python_client_tests.py
 
