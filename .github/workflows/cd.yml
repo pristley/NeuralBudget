@@ -164,7 +164,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: auto
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --interpreter cp39 cp310 cp311 cp312 cp313 cp314
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
