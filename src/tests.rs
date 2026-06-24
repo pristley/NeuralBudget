@@ -2077,6 +2077,117 @@ assert "nb_http_availability" in rendered
     });
 }
 
+fn sample_otlp_payload_json() -> &'static str {
+        r#"{
+    "resourceMetrics": [
+        {
+            "scopeMetrics": [
+                {
+                    "metrics": [
+                        {
+                            "name": "http.server.duration",
+                            "histogram": {
+                                "dataPoints": [
+                                    {
+                                        "timeUnixNano": "1700000000000000000",
+                                        "count": "100",
+                                        "bucketCounts": ["70", "25", "5"],
+                                        "explicitBounds": [100.0, 250.0]
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "name": "service.error_budget.consumed",
+                            "sum": {
+                                "dataPoints": [
+                                    {
+                                        "timeUnixNano": "1700000000000000000",
+                                        "asDouble": 0.25,
+                                        "attributes": [
+                                            {"key": "service", "value": {"stringValue": "api"}},
+                                            {"key": "env", "value": {"stringValue": "prod"}}
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}"#
+}
+
+#[test]
+fn otlp_histogram_ingestion_produces_histogram_samples() {
+        let samples = ingest_otlp_histogram_json(sample_otlp_payload_json(), "http.server.duration")
+                .unwrap();
+        assert_eq!(samples.len(), 1);
+
+        let sample = &samples[0];
+        assert_eq!(sample.timestamp, 1_700_000_000);
+        assert_eq!(sample.total, 100);
+        assert_eq!(sample.success, 100);
+        assert_eq!(sample.format, HistogramFormat::OpenTelemetryDelta);
+        assert_eq!(sample.buckets.len(), 3);
+        assert_eq!(sample.buckets[0].upper_bound_ms, 100.0);
+        assert!(sample.buckets[2].upper_bound_ms.is_infinite());
+}
+
+#[test]
+fn otlp_numeric_ingestion_produces_metric_points_with_labels() {
+        let points = ingest_otlp_numeric_json(
+                sample_otlp_payload_json(),
+                "service.error_budget.consumed",
+        )
+        .unwrap();
+        assert_eq!(points.len(), 1);
+
+        let point = &points[0];
+        assert_eq!(point.timestamp, 1_700_000_000);
+        assert!((point.value - 0.25).abs() < 1e-12);
+        assert_eq!(point.labels.get("service").unwrap(), "api");
+        assert_eq!(point.labels.get("env").unwrap(), "prod");
+}
+
+#[test]
+fn python_otlp_ingestion_and_http_evaluation_work() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+                let module = PyModule::new_bound(py, "neuralbudget_otlp_test").unwrap();
+                neuralbudget(py, &module).unwrap();
+
+                let locals = PyDict::new_bound(py);
+                locals.set_item("nb", &module).unwrap();
+                locals
+                        .set_item("otlp_payload", sample_otlp_payload_json())
+                        .unwrap();
+
+                py.run_bound(
+                        r#"
+hist = nb.ingest_otlp_histogram(otlp_payload, "http.server.duration")
+assert len(hist) == 1
+assert hist[0].format == "open_telemetry_delta"
+
+points = nb.ingest_otlp_numeric(otlp_payload, "service.error_budget.consumed")
+assert len(points) == 1
+assert points[0].labels["service"] == "api"
+
+slo = nb.HttpSlo(200.0, 0.99, 0.95)
+evaluations = nb.evaluate_http_slo_otlp(otlp_payload, "http.server.duration", slo)
+assert len(evaluations) == 1
+assert evaluations[0].availability == 1.0
+"#,
+                        None,
+                        Some(&locals),
+                )
+                .unwrap();
+        });
+}
+
 proptest! {
     #[test]
     fn prop_availability_is_bounded(success in 0u64..1_000_000, total in 1u64..1_000_000) {

@@ -340,6 +340,68 @@ exporter.observe_http_slo("api-gateway", evaluation)
 print(exporter.render())
 ```
 
+## OpenTelemetry (OTLP) Metric Ingestion
+
+NeuralBudget can ingest OTLP metric payloads (JSON encoding) directly.
+
+Available helpers:
+
+- `ingest_otlp_histogram(payload_json, metric_name)`
+- `ingest_otlp_numeric(payload_json, metric_name)`
+- `evaluate_http_slo_otlp(payload_json, metric_name, slo)`
+
+Typical flow:
+
+1. receive OTLP export payload JSON from collector pipeline
+2. extract a metric by name
+3. evaluate via existing SLO models
+
+Example:
+
+```python
+import neuralbudget
+
+payload = """{
+    "resourceMetrics": [{
+        "scopeMetrics": [{
+            "metrics": [
+                {
+                    "name": "http.server.duration",
+                    "histogram": {
+                        "dataPoints": [{
+                            "timeUnixNano": "1700000000000000000",
+                            "count": "100",
+                            "bucketCounts": ["70", "25", "5"],
+                            "explicitBounds": [100.0, 250.0]
+                        }]
+                    }
+                },
+                {
+                    "name": "service.error_budget.consumed",
+                    "sum": {
+                        "dataPoints": [{
+                            "timeUnixNano": "1700000000000000000",
+                            "asDouble": 0.25,
+                            "attributes": [
+                                {"key": "service", "value": {"stringValue": "api"}},
+                                {"key": "env", "value": {"stringValue": "prod"}}
+                            ]
+                        }]
+                    }
+                }
+            ]
+        }]
+    }]
+}"""
+
+hist_samples = neuralbudget.ingest_otlp_histogram(payload, "http.server.duration")
+numeric_points = neuralbudget.ingest_otlp_numeric(payload, "service.error_budget.consumed")
+
+slo = neuralbudget.HttpSlo(200.0, 0.99, 0.95)
+evaluations = neuralbudget.evaluate_http_slo_otlp(payload, "http.server.duration", slo)
+print(evaluations[0].pass, numeric_points[0].labels["service"])
+```
+
 ## Testing and Coverage
 
 Recommended local validation sequence:

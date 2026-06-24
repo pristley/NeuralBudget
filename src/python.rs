@@ -6,6 +6,7 @@ use pyo3::types::PyDict;
 
 use crate::core::*;
 use crate::exporter::PrometheusExporter;
+use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -2391,6 +2392,43 @@ pub fn evaluate_composite_slo_graph(
         .map_err(|err| PyTypeError::new_err(err.to_string()))
 }
 
+#[pyfunction]
+/// Ingest OTLP JSON payload and extract one histogram metric into NeuralBudget histogram samples.
+///
+/// OTLP histogram buckets are imported as `open_telemetry_delta` samples.
+pub fn ingest_otlp_histogram(
+    payload_json: &str,
+    metric_name: &str,
+) -> PyResult<Vec<PyHistogramSample>> {
+    ingest_otlp_histogram_json(payload_json, metric_name)
+        .map(|samples| samples.into_iter().map(Into::into).collect())
+        .map_err(|err| PyTypeError::new_err(err.to_string()))
+}
+
+#[pyfunction]
+/// Ingest OTLP JSON payload and extract one numeric gauge/sum metric into metric points.
+pub fn ingest_otlp_numeric(payload_json: &str, metric_name: &str) -> PyResult<Vec<PyMetricPoint>> {
+    ingest_otlp_numeric_json(payload_json, metric_name)
+        .map(|points| points.into_iter().map(Into::into).collect())
+        .map_err(|err| PyTypeError::new_err(err.to_string()))
+}
+
+#[pyfunction]
+/// Evaluate HTTP SLO directly from OTLP histogram payload.
+pub fn evaluate_http_slo_otlp(
+    payload_json: &str,
+    metric_name: &str,
+    slo: HttpSlo,
+) -> PyResult<Vec<PyHttpSloEvaluation>> {
+    ingest_otlp_histogram_json(payload_json, metric_name)
+        .map(|samples| {
+            HttpSloIterator::new(slo, samples.into_iter())
+                .map(Into::into)
+                .collect()
+        })
+        .map_err(|err| PyTypeError::new_err(err.to_string()))
+}
+
 #[pyclass(name = "PrometheusExporter")]
 #[derive(Clone)]
 pub struct PyPrometheusExporter {
@@ -2552,6 +2590,9 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(evaluate_genai_slo, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_genai_slo_stream, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate_composite_slo_graph, module)?)?;
+    module.add_function(wrap_pyfunction!(ingest_otlp_histogram, module)?)?;
+    module.add_function(wrap_pyfunction!(ingest_otlp_numeric, module)?)?;
+    module.add_function(wrap_pyfunction!(evaluate_http_slo_otlp, module)?)?;
     module.add_function(wrap_pyfunction!(export_http_slo_prometheus, module)?)?;
     module.add_function(wrap_pyfunction!(export_stateful_slo_prometheus, module)?)?;
     module.add_function(wrap_pyfunction!(export_ml_slo_prometheus, module)?)?;

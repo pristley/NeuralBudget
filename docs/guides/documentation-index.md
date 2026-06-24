@@ -7,6 +7,7 @@ This index groups documentation by audience and workflow.
 - README: Project overview, installation, examples, and high-level API surface.
 - docs/guides/user-guide.md: End-to-end installation, usage, examples, applications, and troubleshooting.
 - docs/guides/user-guide.md (Native Prometheus Exporter section): How to expose SLO evaluation results as Prometheus metrics.
+- docs/guides/user-guide.md (OpenTelemetry ingestion section): How to ingest OTLP JSON metrics directly and evaluate SLOs.
 - docs/guides/production-deployment.md: Production rollout patterns, Kubernetes manifests, and Prometheus scraping setup.
 - docs/guides/kubernetes-integration.md: Kubernetes rollout runbook for config updates, canary strategy, and rollback.
 - docs/guides/prometheus-scraping-examples.md: Prometheus Operator and vanilla scrape examples with recording rules and alerts.

@@ -39,6 +39,7 @@ Core capabilities:
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
 - [Production Deployment](#production-deployment)
+- [OpenTelemetry Integration](#opentelemetry-integration)
 - [Native Prometheus Exporter](#native-prometheus-exporter)
 - [Development and CI/CD](#development-and-cicd)
 - [PyPI Publishing](#pypi-publishing)
@@ -472,6 +473,54 @@ see:
 - [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
 - [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
 - [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+
+## OpenTelemetry Integration
+
+NeuralBudget can ingest OTLP metric payloads (JSON form) directly and convert
+them into native samples.
+
+Supported OTLP ingestion paths:
+
+- histogram metrics -> `HistogramSample` (`open_telemetry_delta`)
+- numeric gauge/sum metrics -> `MetricPoint`
+
+Python helpers:
+
+- `ingest_otlp_histogram(payload_json, metric_name)`
+- `ingest_otlp_numeric(payload_json, metric_name)`
+- `evaluate_http_slo_otlp(payload_json, metric_name, slo)`
+
+Example:
+
+```python
+import neuralbudget
+
+payload = """{
+    "resourceMetrics": [{
+        "scopeMetrics": [{
+            "metrics": [{
+                "name": "http.server.duration",
+                "histogram": {
+                    "dataPoints": [{
+                        "timeUnixNano": "1700000000000000000",
+                        "count": "100",
+                        "bucketCounts": ["70", "25", "5"],
+                        "explicitBounds": [100.0, 250.0]
+                    }]
+                }
+            }]
+        }]
+    }]
+}"""
+
+slo = neuralbudget.HttpSlo(200.0, 0.99, 0.95)
+evaluations = neuralbudget.evaluate_http_slo_otlp(
+        payload,
+        "http.server.duration",
+        slo,
+)
+print(evaluations[0].pass)
+```
 
 ## Native Prometheus Exporter
 
