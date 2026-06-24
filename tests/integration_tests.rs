@@ -2,8 +2,9 @@ use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_mad,
     calculate_web_api_slo, filter_statistical_outliers, ErrorBudget, HistogramBucket,
     HistogramFormat, HistogramSample, HttpSlo, HttpSloEvaluation, HttpSloIterator, JsonYamlExt,
-    MetricPoint, OutlierFilterConfig, SloConfig, StatefulSample, StatefulSlo,
-    StatefulSloEvaluation, StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    MetricPoint, OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet, StatefulSample,
+    StatefulSlo, StatefulSloEvaluation, StatefulSloIterator, StatefulTier, TimeWindow,
+    WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -376,4 +377,37 @@ fn stateful_slo_penalty_impacts_pass_fail() {
     assert!(results[1].connection_wait_penalized);
     assert!((results[1].score - 0.75).abs() < 1e-9);
     assert!(!results[1].pass);
+}
+
+#[test]
+fn weighted_stateful_policy_profiles_round_trip_and_diverge_by_tier() {
+    let profiles = StatefulPolicyProfileSet::default();
+    let round_trip =
+        StatefulPolicyProfileSet::from_yaml_str(&profiles.to_yaml_string().unwrap()).unwrap();
+
+    assert_eq!(round_trip, profiles);
+    assert_eq!(
+        profiles.profile_for_tier(StatefulTier::Database).name,
+        "database_primary"
+    );
+    assert_eq!(
+        profiles.profile_for_tier(StatefulTier::Queue).name,
+        "queue_hot_path"
+    );
+
+    let sample = StatefulSample {
+        timestamp: 9,
+        replication_lag_ms: 120.0,
+        queue_depth: 700,
+        connection_pool_saturation: 0.7,
+        connection_wait_time_ms: 30.0,
+    };
+    let slo = StatefulSlo::default();
+
+    let database_eval = slo.evaluate_sample_for_tier(&sample, StatefulTier::Database, &profiles);
+    let queue_eval = slo.evaluate_sample_for_tier(&sample, StatefulTier::Queue, &profiles);
+
+    assert!(database_eval.pass);
+    assert!(!queue_eval.pass);
+    assert!(database_eval.score > queue_eval.score);
 }

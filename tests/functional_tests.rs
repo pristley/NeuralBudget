@@ -1,8 +1,8 @@
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, calculate_web_api_slo,
     is_timestamp_in_window, HistogramBucket, HistogramFormat, HistogramSample, HttpSlo,
-    HttpSloIterator, MetricPoint, OutlierFilterConfig, StatefulSample, StatefulSlo,
-    StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    HttpSloIterator, MetricPoint, OutlierFilterConfig, StatefulPolicyProfileSet, StatefulSample,
+    StatefulSlo, StatefulSloIterator, StatefulTier, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 #[test]
@@ -269,4 +269,24 @@ fn functional_stateful_slo_penalizes_connection_wait_regressions() {
     assert!(!evaluations[2].replication_lag_ok);
     assert!(!evaluations[2].queue_depth_ok);
     assert!(!evaluations[2].connection_pool_ok);
+}
+
+#[test]
+fn functional_weighted_stateful_profiles_choose_the_right_tier() {
+    let profiles = StatefulPolicyProfileSet::default();
+    let slo = StatefulSlo::default();
+    let sample = StatefulSample {
+        timestamp: 4,
+        replication_lag_ms: 120.0,
+        queue_depth: 700,
+        connection_pool_saturation: 0.7,
+        connection_wait_time_ms: 30.0,
+    };
+
+    let database_eval = slo.evaluate_sample_for_tier(&sample, StatefulTier::Database, &profiles);
+    let queue_eval = slo.evaluate_sample_for_tier(&sample, StatefulTier::Queue, &profiles);
+
+    assert!(database_eval.pass);
+    assert!(!queue_eval.pass);
+    assert!(database_eval.score > queue_eval.score);
 }

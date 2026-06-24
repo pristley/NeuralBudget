@@ -292,14 +292,11 @@ This repository is still in an early foundation phase. The current codebase is i
 - Classic availability, error budget, burn-rate, and web API SLO calculations
 - Stateless histogram-based `HttpSlo` iterator for HTTP/gRPC pass-fail evaluation
 - Stateful database/queue `StatefulSlo` iterator with connection-wait penalization
+- Weighted policy profiles for database and queue tiers
 
 ### Near-Term Roadmap
 
-1. Add Python wrappers for `HttpSlo` histogram evaluation.
-2. Add Python wrappers for `StatefulSlo` and stateful telemetry models.
-3. Extend percentile policy controls beyond fixed p99 checks.
-4. Add weighted policy profiles for different database and queue tiers.
-5. Add packaging support for Python distribution.
+1. Add packaging support for Python distribution.
 
 ## Development
 

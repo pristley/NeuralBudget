@@ -157,6 +157,92 @@ pub struct StatefulSample {
     pub connection_wait_time_ms: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+/// Tier selector for stateful policy profiles.
+pub enum StatefulTier {
+    Database,
+    Queue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Weighted stateful SLO profile for a specific database or queue tier.
+pub struct StatefulPolicyProfile {
+    pub name: String,
+    pub tier: StatefulTier,
+    pub replication_lag_weight: f64,
+    pub queue_depth_weight: f64,
+    pub connection_pool_weight: f64,
+    pub connection_wait_penalty_weight: f64,
+    pub min_pass_score: f64,
+}
+
+impl StatefulPolicyProfile {
+    /// Balanced profile for database tiers that prioritize replication lag.
+    pub fn database() -> Self {
+        Self {
+            name: "database_primary".to_string(),
+            tier: StatefulTier::Database,
+            replication_lag_weight: 3.0,
+            queue_depth_weight: 1.0,
+            connection_pool_weight: 2.0,
+            connection_wait_penalty_weight: 1.5,
+            min_pass_score: 0.88,
+        }
+    }
+
+    /// Balanced profile for queue tiers that prioritize queue depth.
+    pub fn queue() -> Self {
+        Self {
+            name: "queue_hot_path".to_string(),
+            tier: StatefulTier::Queue,
+            replication_lag_weight: 0.75,
+            queue_depth_weight: 3.0,
+            connection_pool_weight: 1.5,
+            connection_wait_penalty_weight: 2.0,
+            min_pass_score: 0.9,
+        }
+    }
+
+    fn total_weight(&self) -> f64 {
+        self.replication_lag_weight.max(0.0)
+            + self.queue_depth_weight.max(0.0)
+            + self.connection_pool_weight.max(0.0)
+            + self.connection_wait_penalty_weight.max(0.0)
+    }
+}
+
+impl Default for StatefulPolicyProfile {
+    fn default() -> Self {
+        Self::database()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Tier-specific profile set for database and queue workloads.
+pub struct StatefulPolicyProfileSet {
+    pub database: StatefulPolicyProfile,
+    pub queue: StatefulPolicyProfile,
+}
+
+impl StatefulPolicyProfileSet {
+    pub fn profile_for_tier(&self, tier: StatefulTier) -> &StatefulPolicyProfile {
+        match tier {
+            StatefulTier::Database => &self.database,
+            StatefulTier::Queue => &self.queue,
+        }
+    }
+}
+
+impl Default for StatefulPolicyProfileSet {
+    fn default() -> Self {
+        Self {
+            database: StatefulPolicyProfile::database(),
+            queue: StatefulPolicyProfile::queue(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// SLO policy for stateful systems such as databases and queues.
 pub struct StatefulSlo {
@@ -368,6 +454,9 @@ impl JsonYamlExt for HistogramSample {}
 impl JsonYamlExt for HttpSlo {}
 impl JsonYamlExt for HttpSloEvaluation {}
 impl JsonYamlExt for StatefulSample {}
+impl JsonYamlExt for StatefulTier {}
+impl JsonYamlExt for StatefulPolicyProfile {}
+impl JsonYamlExt for StatefulPolicyProfileSet {}
 impl JsonYamlExt for StatefulSlo {}
 impl JsonYamlExt for StatefulSloEvaluation {}
 impl JsonYamlExt for TimeWindow {}
@@ -758,6 +847,63 @@ impl StatefulSlo {
             score,
             pass,
         }
+    }
+
+    pub fn evaluate_sample_with_profile(
+        &self,
+        sample: &StatefulSample,
+        profile: &StatefulPolicyProfile,
+    ) -> StatefulSloEvaluation {
+        let replication_lag_ok = sample.replication_lag_ms <= self.replication_lag_threshold_ms;
+        let queue_depth_ok = sample.queue_depth <= self.queue_depth_threshold;
+        let connection_pool_ok =
+            sample.connection_pool_saturation <= self.connection_pool_saturation_threshold;
+        let connection_wait_penalized =
+            sample.connection_wait_time_ms > self.connection_wait_time_threshold_ms;
+
+        let mut weighted_penalty = 0.0;
+        if !replication_lag_ok {
+            weighted_penalty += profile.replication_lag_weight.max(0.0);
+        }
+        if !queue_depth_ok {
+            weighted_penalty += profile.queue_depth_weight.max(0.0);
+        }
+        if !connection_pool_ok {
+            weighted_penalty += profile.connection_pool_weight.max(0.0);
+        }
+
+        if connection_wait_penalized {
+            let threshold = self.connection_wait_time_threshold_ms.max(1e-9);
+            let excess_ratio =
+                ((sample.connection_wait_time_ms - threshold) / threshold).clamp(0.0, 1.0);
+            weighted_penalty += profile.connection_wait_penalty_weight.max(0.0) * excess_ratio;
+        }
+
+        let total_weight = profile.total_weight().max(1e-9);
+        let score = (1.0 - weighted_penalty / total_weight).clamp(0.0, 1.0);
+        let pass = replication_lag_ok
+            && queue_depth_ok
+            && connection_pool_ok
+            && score >= profile.min_pass_score.clamp(0.0, 1.0);
+
+        StatefulSloEvaluation {
+            timestamp: sample.timestamp,
+            replication_lag_ok,
+            queue_depth_ok,
+            connection_pool_ok,
+            connection_wait_penalized,
+            score,
+            pass,
+        }
+    }
+
+    pub fn evaluate_sample_for_tier(
+        &self,
+        sample: &StatefulSample,
+        tier: StatefulTier,
+        profiles: &StatefulPolicyProfileSet,
+    ) -> StatefulSloEvaluation {
+        self.evaluate_sample_with_profile(sample, profiles.profile_for_tier(tier))
     }
 }
 
@@ -2751,5 +2897,33 @@ mod tests {
         };
         let report = calculate_web_api_slo(&[], &http_zero, 0);
         assert_eq!(report.total_requests, 0);
+    }
+
+    #[test]
+    fn weighted_stateful_policy_profiles_shift_tier_scores() {
+        let profiles = StatefulPolicyProfileSet::default();
+        assert_eq!(profiles.database.name, "database_primary");
+        assert_eq!(profiles.queue.name, "queue_hot_path");
+
+        let sample = StatefulSample {
+            timestamp: 8,
+            replication_lag_ms: 120.0,
+            queue_depth: 700,
+            connection_pool_saturation: 0.7,
+            connection_wait_time_ms: 30.0,
+        };
+        let slo = StatefulSlo::default();
+
+        let database_eval =
+            slo.evaluate_sample_for_tier(&sample, StatefulTier::Database, &profiles);
+        let queue_eval = slo.evaluate_sample_for_tier(&sample, StatefulTier::Queue, &profiles);
+
+        assert!(database_eval.pass);
+        assert!(!queue_eval.pass);
+        assert!(database_eval.score > queue_eval.score);
+
+        let profile_round_trip =
+            StatefulPolicyProfileSet::from_json_str(&profiles.to_json_string().unwrap()).unwrap();
+        assert_eq!(profile_round_trip, profiles);
     }
 }
