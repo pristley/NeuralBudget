@@ -48,6 +48,21 @@ availability = neuralbudget.calculate_availability(995, 1000)
 print(availability)
 ```
 
+### Python Examples
+
+Run these examples after installing the wheel (for local development, `maturin develop` or `pip install target/wheels/*.whl`):
+
+- [examples/python/availability_budget.py](examples/python/availability_budget.py): availability, error budget, and burn-rate primitives
+- [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py): stateless HTTP/gRPC histogram SLO stream evaluation
+- [examples/python/stateful_slo.py](examples/python/stateful_slo.py): stateful database/queue SLO stream evaluation
+- [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py): tier-oriented stateful policy behavior in Python
+
+Run any example with:
+
+```bash
+python3 examples/python/http_slo_histogram.py
+```
+
 ### Core API
 
 - `SloConfig`: target and evaluation window metadata
@@ -364,6 +379,12 @@ cargo clippy --all-targets --all-features
 │   ├── lib.rs
 │   ├── python.rs
 │   └── tests.rs
+├── examples/
+│   └── python/
+│       ├── availability_budget.py
+│       ├── http_slo_histogram.py
+│       ├── stateful_slo.py
+│       └── tiered_stateful_profiles.py
 ├── tests/
 │   ├── functional_tests.rs
 │   └── integration_tests.rs

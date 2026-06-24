@@ -21,6 +21,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Weighted policy profiles for database and queue tiers through `StatefulPolicyProfile` and `StatefulPolicyProfileSet`.
 - Python wheel packaging support with `pyproject.toml` and `maturin` for the Rust-backed `neuralbudget` module.
 - Modularized the Rust library by splitting `src/lib.rs` into `src/core.rs`, `src/python.rs`, and `src/tests.rs` with a thin re-export facade.
+- Added Python example scripts for availability/budget primitives, stateless HTTP histogram SLOs, and stateful database/queue SLO flows.
 - CI/CD updates to run documentation tests via `cargo test --doc --all-features`.
 - CI/CD updates to enforce a practical 89% line-coverage floor with `cargo llvm-cov` after modular coverage accounting changes.
 
