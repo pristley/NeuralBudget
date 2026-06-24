@@ -23,4 +23,5 @@ classifiers = [
 
 [tool.maturin]
 module-name = "neuralbudget"
+python-source = "python"
 features = ["pyo3/extension-module"]

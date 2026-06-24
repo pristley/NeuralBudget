@@ -23,6 +23,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Modularized the Rust library by splitting `src/lib.rs` into `src/core.rs`, `src/python.rs`, and `src/tests.rs` with a thin re-export facade.
 - Added Python example scripts for availability/budget primitives, stateless HTTP histogram SLOs, and stateful database/queue SLO flows.
 - Added coverage-gate and Rust version badges to the README for clearer project health signaling.
+- Added a small pure-Python convenience layer (`neuralbudget.convenience`) for dictionary-oriented snapshots and one-shot SLO evaluations.
 
 ### Changed
 

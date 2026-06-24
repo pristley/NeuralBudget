@@ -14,6 +14,7 @@ NeuralBudget is a Rust-first SLO foundation for availability, latency, and error
 
 - Rust library with `serde`-based models for config and telemetry data
 - Python-facing wrappers built with `PyO3`
+- Small pure-Python convenience layer for ergonomic workflows
 - Availability, latency, and budget calculations for web APIs and stateful systems
 - JSON and YAML serialization support
 - Iterator-first evaluation models for streaming telemetry
@@ -58,6 +59,7 @@ Run these examples after installing the wheel (for local development, `maturin d
 - [examples/python/http_slo_histogram.py](examples/python/http_slo_histogram.py): stateless HTTP/gRPC histogram SLO stream evaluation
 - [examples/python/stateful_slo.py](examples/python/stateful_slo.py): stateful database/queue SLO stream evaluation
 - [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py): tier-oriented stateful policy behavior in Python
+- [examples/python/convenience_layer.py](examples/python/convenience_layer.py): pure-Python helper layer on top of the Rust extension
 
 Run any example with:
 
@@ -83,6 +85,37 @@ python3 examples/python/http_slo_histogram.py
 - `calculate_mad(values)`: Median Absolute Deviation for robust spike detection
 - `filter_statistical_outliers(metric_stream, mad_threshold, min_samples)`: configurable outlier filtering
 - `calculate_web_api_slo(requests, policy, now)`: end-to-end SLO calculation for web API streams
+
+### Python Convenience Layer
+
+The wheel now includes a small pure-Python layer in `neuralbudget.convenience` for teams that prefer dictionary-oriented and list-oriented call sites.
+
+Convenience helpers include:
+
+- `availability_snapshot(...)`: one-call availability plus error-budget summary
+- `metric_stream(...)` and `burn_rate_from_values(...)`: quick burn-rate inputs from plain numeric sequences
+- `evaluate_http_histogram_once(...)`: evaluate one histogram sample and return a plain dictionary
+- `evaluate_stateful_once(...)`: evaluate one stateful sample and return a plain dictionary
+
+Example:
+
+```python
+from neuralbudget.convenience import availability_snapshot, evaluate_http_histogram_once
+
+snapshot = availability_snapshot(success=9995, total=10000)
+http_eval = evaluate_http_histogram_once(
+	{
+		"timestamp": 1,
+		"success": 9995,
+		"total": 10000,
+		"buckets": [
+			{"upper_bound_ms": 100.0, "count": 9700},
+			{"upper_bound_ms": 220.0, "count": 100},
+		],
+		"format": "open_telemetry_delta",
+	}
+)
+```
 
 ### Serialization
 
@@ -321,7 +354,7 @@ This repository is still in an early foundation phase. The current codebase is i
 
 ### Near-Term Roadmap
 
-1. Add a small pure-Python convenience layer once the Rust wheel packaging has settled.
+1. Expand the convenience layer with optional dataclass return types and profile presets.
 
 ## Development
 
@@ -392,9 +425,14 @@ cargo clippy --all-targets --all-features
 ├── examples/
 │   └── python/
 │       ├── availability_budget.py
+│       ├── convenience_layer.py
 │       ├── http_slo_histogram.py
 │       ├── stateful_slo.py
 │       └── tiered_stateful_profiles.py
+├── python/
+│   ├── neuralbudget/
+│   │   ├── __init__.py
+│   │   └── convenience.py
 ├── tests/
 │   ├── functional_tests.rs
 │   └── integration_tests.rs
