@@ -13,6 +13,16 @@ Use this guide if you are:
 - adding SLO checks to pull-request or release pipelines
 - running exploratory reliability analysis in Jupyter notebooks
 
+## Quick Navigation
+
+- First successful run in minutes: [docs/guides/getting-started.md](getting-started.md)
+- Configuration and schema rules: [Configuration Reference](#configuration-reference)
+- Mode-specific examples: [Mode Examples](#mode-examples)
+- CI/CD gate script pattern: [CI/CD Pipeline Workflow](#cicd-pipeline-workflow)
+- Prometheus output patterns: [Native Prometheus Exporter](#native-prometheus-exporter)
+- OTLP ingestion path: [OpenTelemetry (OTLP) Metric Ingestion](#opentelemetry-otlp-metric-ingestion)
+- Production rollout guide: [docs/guides/production-deployment.md](production-deployment.md)
+
 ## Installation
 
 ## Python (recommended for notebooks and pipelines)
@@ -62,6 +72,16 @@ NeuralBudget exposes three usage layers:
 3. native Rust/PyO3 objects: maximum control and explicit model wiring.
 
 If you are unsure where to start, use `NeuralBudgetClient`.
+
+## Mode Selection Cheat Sheet
+
+Use this mapping when selecting a mode:
+
+- `http`: request/response services with histogram latency plus availability checks.
+- `stateful`: databases, queues, and systems where replication and saturation matter.
+- `ml`: inference systems where serving latency and drift/quality both drive release safety.
+- `genai`: LLM workloads where TTFT, throughput, and semantic quality all matter.
+- `composite`: multi-service dependency graphs where upstream failures propagate.
 
 ## Quick Start: Facade API
 
@@ -562,10 +582,46 @@ Use one of the preset names from:
 - `ML_PROFILE_PRESETS`
 - `GENAI_PROFILE_PRESETS`
 
-## Additional References
+## Common failure matrix
 
-- README: project overview and quick examples
-- docs/guides/production-deployment.md: production rollout, Kubernetes, and Prometheus integration
-- docs/reference/convenience-layer.md: convenience helper details
-- docs/reference/composite-slo-dag.md: composite DAG schema and semantics
-- examples/python/: runnable scripts
+### Symptom: `Invalid config: unknown keys`
+
+Cause:
+
+- unrecognized top-level config fields
+
+Fix:
+
+- keep only `schema_version`, `mode`, `profile`, `return_dataclass`, and `params`
+
+### Symptom: `Unsupported schema_version`
+
+Cause:
+
+- config schema version does not match supported versions
+
+Fix:
+
+- set `schema_version: 1` unless a newer version is documented
+
+### Symptom: histogram evaluation raises key/type errors
+
+Cause:
+
+- malformed sample payload (`timestamp`, `success`, `total`, `buckets`, `format`)
+
+Fix:
+
+- validate payload shape against examples in [Mode Examples](#mode-examples)
+
+### Symptom: canary looks worse than stable after policy update
+
+Cause:
+
+- policy drift, mismatched config revision, or label mismatch in dashboards
+
+Fix:
+
+- confirm mounted config revision across pods
+- verify `policy_version` (or equivalent) metric labels
+- compare stable and canary over at least 3 consecutive windows before promoting

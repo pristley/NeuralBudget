@@ -33,8 +33,7 @@ Core capabilities:
 - [What Is New](#what-is-new)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [User Guide](#user-guide)
-- [Comprehensive User Guide](#comprehensive-user-guide)
+- [Documentation Map](#documentation-map)
 - [Composite SLOs (Dependencies)](#composite-slos-dependencies)
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
@@ -43,7 +42,7 @@ Core capabilities:
 - [Native Prometheus Exporter](#native-prometheus-exporter)
 - [Development and CI/CD](#development-and-cicd)
 - [PyPI Publishing](#pypi-publishing)
-- [Changelog and Documentation](#changelog-and-documentation)
+- [Changelog](#changelog)
 - [License](#license)
 
 ## Why NeuralBudget
@@ -148,18 +147,18 @@ result = client.evaluate(
 print(result)
 ```
 
-## User Guide
+## Documentation Map
 
-This README contains quick-reference usage.
+Use this map to jump directly to the right documentation:
 
-For a full walkthrough with installation paths, mode-by-mode examples,
-Jupyter and CI/CD recipes, and troubleshooting, see:
-
-- [docs/guides/user-guide.md](docs/guides/user-guide.md)
-
-## Comprehensive User Guide
-
-- [NeuralBudget User Guide](docs/guides/user-guide.md)
+- First successful run: [docs/guides/getting-started.md](docs/guides/getting-started.md)
+- Full guide and configuration details: [docs/guides/user-guide.md](docs/guides/user-guide.md)
+- Production deployment patterns: [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
+- Kubernetes runbook: [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
+- Prometheus scrape and alert examples: [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+- Convenience API reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
+- Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
+- Full index by audience and workflow: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
 
 ### Core primitives
 
@@ -660,17 +659,10 @@ Published artifacts include:
 4. Publish a GitHub Release for that tag.
 5. CD builds crate + sdist + multi-platform wheels and publishes to PyPI.
 
-## Changelog and Documentation
+## Changelog
 
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Documentation index: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
-- Comprehensive user guide: [docs/guides/user-guide.md](docs/guides/user-guide.md)
-- Production deployment guide: [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
-- Kubernetes integration guide: [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
-- Prometheus scraping examples: [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
-- Convenience reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
-- Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
-- ML plan: [docs/plans/mlops-model-drift-serving-plan.md](docs/plans/mlops-model-drift-serving-plan.md)
 
 ## License
 

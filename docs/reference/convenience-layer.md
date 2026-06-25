@@ -76,6 +76,19 @@ Fields:
 - hybrid_score: float
 - passed: bool
 
+### GenAiEvaluationResult
+
+Fields:
+
+- timestamp: int
+- tokens_per_second: float
+- time_to_first_token_ms: float
+- semantic_similarity: float
+- tokens_per_second_ok: bool
+- time_to_first_token_ok: bool
+- semantic_similarity_ok: bool
+- passed: bool
+
 ## Profile Models
 
 Profile objects provide named policy defaults while still allowing per-call overrides.
@@ -111,6 +124,15 @@ Fields:
 - drift_weight
 - min_pass_score
 
+### GenAiSloProfile
+
+Fields:
+
+- min_tokens_per_second
+- max_time_to_first_token_ms
+- min_semantic_similarity
+- semantic_model_name
+
 ## Built-in Presets
 
 ### HTTP_PROFILE_PRESETS
@@ -131,11 +153,18 @@ Fields:
 - latency_critical
 - drift_sensitive
 
+### GENAI_PROFILE_PRESETS
+
+- default
+- latency_first
+- quality_first
+
 ## Preset Lookup Helpers
 
 - get_http_profile_preset(name)
 - get_stateful_profile_preset(name)
 - get_ml_profile_preset(name)
+- get_genai_profile_preset(name)
 
 Behavior:
 
@@ -228,6 +257,49 @@ Returns:
 
 - dict by default, MlEvaluationResult if return_dataclass=True.
 
+### evaluate_genai_once
+
+Purpose:
+
+- Evaluate one GenAI serving sample for throughput, TTFT, and semantic similarity.
+
+Key parameters:
+
+- sample
+- min_tokens_per_second
+- max_time_to_first_token_ms
+- min_semantic_similarity
+- semantic_model_name
+- profile
+- return_dataclass
+
+Precedence:
+
+- Explicit parameter values override profile values.
+
+Returns:
+
+- dict by default, GenAiEvaluationResult if return_dataclass=True.
+
+## Client Facade Integration
+
+If you want config-driven execution, use `NeuralBudgetClient` from `neuralbudget`.
+
+Typical flow:
+
+1. `client.load_config("slo.yaml")`
+2. `client.evaluate(metric_data)`
+
+Use convenience functions directly when:
+
+- you want one-shot calls without external config files
+- you are composing custom Python orchestration logic
+
+Use `NeuralBudgetClient` when:
+
+- you want a stable config contract across notebook, CI, and service workflows
+- you want schema validation and mode selection from JSON/YAML
+
 ## Usage Patterns
 
 ### Backward-compatible dictionary flow
@@ -265,3 +337,23 @@ Coverage includes:
 - Dataclass return behavior
 - Preset retrieval and override behavior
 - Unknown preset error paths
+
+## Minimal GenAI Example
+
+```python
+from neuralbudget.convenience import evaluate_genai_once
+
+result = evaluate_genai_once(
+	{
+		"timestamp": 1,
+		"tokens_generated": 420,
+		"generation_duration_ms": 14000,
+		"time_to_first_token_ms": 850,
+		"reference_text": "NeuralBudget is deterministic.",
+		"generated_text": "NeuralBudget provides deterministic reliability checks.",
+	},
+	profile="default",
+)
+
+print(result["tokens_per_second"], result["semantic_similarity"], result["pass"])
+```
