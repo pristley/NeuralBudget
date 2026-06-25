@@ -344,15 +344,15 @@ Coverage includes:
 from neuralbudget.convenience import evaluate_genai_once
 
 result = evaluate_genai_once(
-	{
-		"timestamp": 1,
-		"tokens_generated": 420,
-		"generation_duration_ms": 14000,
-		"time_to_first_token_ms": 850,
-		"reference_text": "NeuralBudget is deterministic.",
-		"generated_text": "NeuralBudget provides deterministic reliability checks.",
-	},
-	profile="default",
+    {
+        "timestamp": 1,
+        "tokens_generated": 420,
+        "generation_duration_ms": 14000,
+        "time_to_first_token_ms": 850,
+        "reference_text": "NeuralBudget is deterministic.",
+        "generated_text": "NeuralBudget provides deterministic reliability checks.",
+    },
+    profile="default",
 )
 
 print(result["tokens_per_second"], result["semantic_similarity"], result["pass"])

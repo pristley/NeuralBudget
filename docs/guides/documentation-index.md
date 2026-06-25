@@ -10,22 +10,16 @@ This index groups documentation by audience and workflow.
 
 ## Read By Goal
 
-- I need a first working example:
-	[docs/guides/getting-started.md](getting-started.md)
-- I need interface and mode selection help:
-	[docs/guides/user-guide.md](user-guide.md)
-- I need production rollout guidance:
-	[docs/guides/production-deployment.md](production-deployment.md)
-- I need Kubernetes runbooks:
-	[docs/guides/kubernetes-integration.md](kubernetes-integration.md)
-- I need Prometheus scrape and alert patterns:
-	[docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
-- I need convenience-layer API details:
-	[docs/reference/convenience-layer.md](../reference/convenience-layer.md)
-- I need composite DAG schema and scoring semantics:
-	[docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
-- I need release changes:
-	[CHANGELOG.md](../../CHANGELOG.md)
+- I need a first working example: [docs/guides/getting-started.md](getting-started.md)
+- I need interface and mode selection help: [docs/guides/user-guide.md](user-guide.md)
+- I need production rollout guidance: [docs/guides/production-deployment.md](production-deployment.md)
+- I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
+- I need Prometheus scrape and alert patterns: [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
+- I need ready-made Grafana dashboards: [examples/grafana/README.md](../../examples/grafana/README.md)
+- I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
+- I need webhook/incident alerting setup: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
+- I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
+- I need release changes: [CHANGELOG.md](../../CHANGELOG.md)
 
 ## Feature Plans
 
@@ -53,6 +47,14 @@ This index groups documentation by audience and workflow.
 - [examples/kubernetes/service.yaml](../../examples/kubernetes/service.yaml)
 - [examples/kubernetes/servicemonitor.yaml](../../examples/kubernetes/servicemonitor.yaml)
 - [examples/kubernetes/prometheus-additional-scrape-config.yaml](../../examples/kubernetes/prometheus-additional-scrape-config.yaml)
+- [examples/grafana/README.md](../../examples/grafana/README.md)
+- [examples/grafana/dashboards/http-slo-dashboard.json](../../examples/grafana/dashboards/http-slo-dashboard.json)
+- [examples/grafana/dashboards/stateful-slo-dashboard.json](../../examples/grafana/dashboards/stateful-slo-dashboard.json)
+- [examples/grafana/dashboards/ml-slo-dashboard.json](../../examples/grafana/dashboards/ml-slo-dashboard.json)
+- [examples/grafana/dashboards/genai-slo-dashboard.json](../../examples/grafana/dashboards/genai-slo-dashboard.json)
+- [examples/grafana/dashboards/composite-slo-dashboard.json](../../examples/grafana/dashboards/composite-slo-dashboard.json)
+- [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
+- [examples/python/webhook_alerting_config.json](../../examples/python/webhook_alerting_config.json)
 
 ## Suggested Reading Order
 

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Release entries are maintained automatically by the CD workflow on tagged releases.
 
+## [0.1.3-r2] - 2026-06-25
+
+### Changed
+
+- release: flatten downloaded dist files for PyPI publish
+Release entries are maintained automatically by the CD workflow on tagged releases.
+
 ## [0.1.3] - 2026-06-24
 
 ### Changed

@@ -15,6 +15,7 @@ from .client import (
     NeuralBudgetClient,
     NeuralBudgetClientConfig,
 )
+from .alerting import AlertDispatchResult, AlertDispatchSummary, AlertDispatcher
 from .convenience import (
     AvailabilitySnapshotResult,
     GENAI_PROFILE_PRESETS,

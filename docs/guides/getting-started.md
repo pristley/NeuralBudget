@@ -13,7 +13,7 @@ Use this decision guide:
 
 ## 2. Install
 
-## Python (recommended first path)
+### Python (recommended first path)
 
 ```bash
 python3 -m pip install --upgrade pip maturin
@@ -26,7 +26,7 @@ Optional for YAML configs:
 python3 -m pip install pyyaml
 ```
 
-## Rust
+### Rust
 
 Add in `Cargo.toml`:
 
@@ -131,8 +131,9 @@ Use a valid profile name from:
 
 ## 7. Where To Go Next
 
-- Full walkthrough: [docs/guides/user-guide.md](docs/guides/user-guide.md)
-- Production rollout: [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
-- Kubernetes operations: [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
-- Convenience API reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
-- Composite DAG semantics: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
+- Full walkthrough: [docs/guides/user-guide.md](user-guide.md)
+- Production rollout: [docs/guides/production-deployment.md](production-deployment.md)
+- Kubernetes operations: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
+- Webhook alerting example: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
+- Convenience API reference: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
+- Composite DAG semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)

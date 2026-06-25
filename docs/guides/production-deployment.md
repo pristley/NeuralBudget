@@ -24,15 +24,15 @@ For Python-backed services, a typical container shape is:
 - mounted SLO config (`slo.yaml` or `slo.json`)
 - `/metrics` endpoint for Prometheus
 
-The Kubernetes examples in [examples/kubernetes](examples/kubernetes) assume this runtime model.
+The Kubernetes examples in [examples/kubernetes](../../examples/kubernetes) assume this runtime model.
 
 ## Kubernetes Integration
 
 Use these baseline manifests:
 
-- [examples/kubernetes/configmap.yaml](examples/kubernetes/configmap.yaml): SLO config injection
-- [examples/kubernetes/deployment.yaml](examples/kubernetes/deployment.yaml): app deployment with probes and scrape annotations
-- [examples/kubernetes/service.yaml](examples/kubernetes/service.yaml): stable service endpoint
+- [examples/kubernetes/configmap.yaml](../../examples/kubernetes/configmap.yaml): SLO config injection
+- [examples/kubernetes/deployment.yaml](../../examples/kubernetes/deployment.yaml): app deployment with probes and scrape annotations
+- [examples/kubernetes/service.yaml](../../examples/kubernetes/service.yaml): stable service endpoint
 
 Apply in order:
 
@@ -44,7 +44,7 @@ kubectl apply -f examples/kubernetes/service.yaml
 
 For a full environment bootstrap and day-2 operations walkthrough, see:
 
-- [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
+- [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
 
 ### Operational Recommendations
 
@@ -64,7 +64,7 @@ NeuralBudget itself does not expose metrics directly; your service should export
 
 ### Option A: Prometheus Operator (recommended)
 
-Use [examples/kubernetes/servicemonitor.yaml](examples/kubernetes/servicemonitor.yaml).
+Use [examples/kubernetes/servicemonitor.yaml](../../examples/kubernetes/servicemonitor.yaml).
 
 ```bash
 kubectl apply -f examples/kubernetes/servicemonitor.yaml
@@ -74,12 +74,12 @@ This integrates with kube-prometheus-stack style installations and targets the `
 
 ### Option B: Vanilla Prometheus additional scrape config
 
-Use [examples/kubernetes/prometheus-additional-scrape-config.yaml](examples/kubernetes/prometheus-additional-scrape-config.yaml)
+Use [examples/kubernetes/prometheus-additional-scrape-config.yaml](../../examples/kubernetes/prometheus-additional-scrape-config.yaml)
 and inject it into your Prometheus config or Helm values.
 
 For detailed scrape, relabel, recording-rule, and alert examples, see:
 
-- [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+- [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
 
 ## Deployment Strategies
 
@@ -149,7 +149,7 @@ For releases, combine runtime observability with build-time gates:
 3. pre-prod: run canary workload and SLO checks
 4. prod promotion: require pass ratio and score thresholds
 
-You can reuse the script pattern in [docs/guides/user-guide.md](docs/guides/user-guide.md)
+You can reuse the script pattern in [docs/guides/user-guide.md](user-guide.md)
 for fail-fast SLO gating.
 
 ## Security and Reliability Notes

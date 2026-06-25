@@ -25,7 +25,7 @@ Use this guide if you are:
 
 ## Installation
 
-## Python (recommended for notebooks and pipelines)
+### Python (recommended for notebooks and pipelines)
 
 Install from a built wheel:
 
@@ -54,7 +54,7 @@ Optional YAML support for config files:
 python3 -m pip install pyyaml
 ```
 
-## Rust crate
+### Rust crate
 
 Add this dependency in Cargo.toml:
 
@@ -134,6 +134,7 @@ Top-level config keys:
 - `profile`: optional preset name (non-composite modes)
 - `return_dataclass`: optional bool for typed convenience returns
 - `params`: optional overrides forwarded to the selected evaluator
+- `alerts`: optional webhook alerting config for SLO violations
 
 YAML example (`slo.yaml`) for an ML gate:
 
@@ -144,9 +145,36 @@ params:
   min_pass_score: 0.92
 ```
 
+Webhook alerting example (`slo-alerts.yaml`):
+
+```yaml
+mode: http
+profile: strict_latency
+alerts:
+    enabled: true
+    on_violation: true
+    fail_open: true
+    slack:
+        webhook_url: https://hooks.slack.com/services/REPLACE/ME
+    pagerduty:
+        routing_key: REPLACE_ME
+        severity: error
+        source: neuralbudget
+    opsgenie:
+        api_key: REPLACE_ME
+        priority: P3
+```
+
+Alerting behavior:
+
+- Alerts are sent only when evaluation fails (`pass=false` or `global_pass=false`) by default.
+- Set `alerts.on_violation: false` to always emit an alert event after evaluate.
+- Set `alerts.fail_open: false` to fail the evaluate call when alert dispatch fails.
+- Supported providers: Slack incoming webhook, PagerDuty Events API v2, Opsgenie Alerts API v2.
+
 ## Mode Examples
 
-## HTTP histogram mode
+### HTTP histogram mode
 
 ```python
 client = NeuralBudgetClient().load_config("http_slo.yaml")
@@ -166,7 +194,7 @@ result = client.evaluate(
 print(result["availability"], result["pass"])
 ```
 
-## Stateful mode
+### Stateful mode
 
 ```python
 client = NeuralBudgetClient().load_config("stateful_slo.json")
@@ -182,7 +210,7 @@ result = client.evaluate(
 print(result["score"], result["pass"])
 ```
 
-## ML mode
+### ML mode
 
 ```python
 client = NeuralBudgetClient().load_config("ml_slo.json")
@@ -198,7 +226,7 @@ result = client.evaluate(
 print(result["hybrid_score"], result["pass"])
 ```
 
-## GenAI mode
+### GenAI mode
 
 ```python
 client = NeuralBudgetClient().load_config("genai_slo.yaml")
@@ -215,7 +243,7 @@ result = client.evaluate(
 print(result["tokens_per_second"], result["semantic_similarity"], result["pass"])
 ```
 
-## Composite dependency DAG mode
+### Composite dependency DAG mode
 
 Composite mode models upstream and downstream service impact.
 

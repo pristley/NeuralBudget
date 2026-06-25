@@ -37,6 +37,7 @@ Core capabilities:
 - [Composite SLOs (Dependencies)](#composite-slos-dependencies)
 - [Convenience Layer Guide](#convenience-layer-guide)
 - [Examples](#examples)
+- [Grafana Dashboards](#grafana-dashboards)
 - [Production Deployment](#production-deployment)
 - [OpenTelemetry Integration](#opentelemetry-integration)
 - [Native Prometheus Exporter](#native-prometheus-exporter)
@@ -70,6 +71,7 @@ Recent additions include:
 - convenience helper for GenAI one-shot evaluations
 - expanded Python convenience tests and CI coverage for convenience workflows
 - Composite SLO DAG runner with cycle detection and weighted global score calculation
+- webhook alerting support for Slack, PagerDuty, and Opsgenie on SLO violations
 - `NeuralBudgetClient` top-level facade for notebook and CI/CD workflows
 - comprehensive user guide in `docs/guides/user-guide.md`
 - cross-platform PyPI publishing integrated into CD for tagged releases
@@ -156,6 +158,7 @@ Use this map to jump directly to the right documentation:
 - Production deployment patterns: [docs/guides/production-deployment.md](docs/guides/production-deployment.md)
 - Kubernetes runbook: [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md)
 - Prometheus scrape and alert examples: [docs/guides/prometheus-scraping-examples.md](docs/guides/prometheus-scraping-examples.md)
+- Grafana dashboard templates: [examples/grafana/README.md](examples/grafana/README.md)
 - Convenience API reference: [docs/reference/convenience-layer.md](docs/reference/convenience-layer.md)
 - Composite DAG reference: [docs/reference/composite-slo-dag.md](docs/reference/composite-slo-dag.md)
 - Full index by audience and workflow: [docs/guides/documentation-index.md](docs/guides/documentation-index.md)
@@ -448,6 +451,8 @@ Runnable Python examples are in:
 - [examples/python/tiered_stateful_profiles.py](examples/python/tiered_stateful_profiles.py)
 - [examples/python/ml_slo_drift_serving.py](examples/python/ml_slo_drift_serving.py)
 - [examples/python/convenience_layer.py](examples/python/convenience_layer.py)
+- [examples/python/webhook_alerting.py](examples/python/webhook_alerting.py)
+- [examples/python/webhook_alerting_config.json](examples/python/webhook_alerting_config.json)
 
 Kubernetes and Prometheus examples are in:
 
@@ -463,6 +468,18 @@ Run examples:
 python3 examples/python/convenience_layer.py
 python3 examples/python/ml_slo_drift_serving.py
 ```
+
+## Grafana Dashboards
+
+Pre-built Grafana templates are available for each SLO type:
+
+- HTTP SLO: [examples/grafana/dashboards/http-slo-dashboard.json](examples/grafana/dashboards/http-slo-dashboard.json)
+- Stateful SLO: [examples/grafana/dashboards/stateful-slo-dashboard.json](examples/grafana/dashboards/stateful-slo-dashboard.json)
+- ML SLO: [examples/grafana/dashboards/ml-slo-dashboard.json](examples/grafana/dashboards/ml-slo-dashboard.json)
+- GenAI SLO: [examples/grafana/dashboards/genai-slo-dashboard.json](examples/grafana/dashboards/genai-slo-dashboard.json)
+- Composite SLO DAG: [examples/grafana/dashboards/composite-slo-dashboard.json](examples/grafana/dashboards/composite-slo-dashboard.json)
+
+Import and variable usage instructions are in [examples/grafana/README.md](examples/grafana/README.md).
 
 ## Production Deployment
 

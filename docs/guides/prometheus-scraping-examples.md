@@ -126,6 +126,16 @@ groups:
 - Evaluation latency p50/p95
 - Per-profile evaluation throughput
 
+NeuralBudget also includes importable Grafana templates for each SLO mode:
+
+- [examples/grafana/dashboards/http-slo-dashboard.json](../../examples/grafana/dashboards/http-slo-dashboard.json)
+- [examples/grafana/dashboards/stateful-slo-dashboard.json](../../examples/grafana/dashboards/stateful-slo-dashboard.json)
+- [examples/grafana/dashboards/ml-slo-dashboard.json](../../examples/grafana/dashboards/ml-slo-dashboard.json)
+- [examples/grafana/dashboards/genai-slo-dashboard.json](../../examples/grafana/dashboards/genai-slo-dashboard.json)
+- [examples/grafana/dashboards/composite-slo-dashboard.json](../../examples/grafana/dashboards/composite-slo-dashboard.json)
+
+Import instructions: [examples/grafana/README.md](../../examples/grafana/README.md)
+
 ## Validation Checklist
 
 1. Target appears as `UP` in Prometheus.
