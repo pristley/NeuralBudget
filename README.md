@@ -7,7 +7,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/pristley/NeuralBudget/main)](https://github.com/pristley/NeuralBudget/commits/main)
 [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-blue)](CHANGELOG.md)
 [![Docs](https://img.shields.io/badge/docs-reference%20index-blue)](docs/guides/documentation-index.md)
-[![Coverage Gate](https://img.shields.io/badge/coverage%20gate-89%25-brightgreen)](https://github.com/pristley/NeuralBudget/blob/main/.github/workflows/ci.yml)
+[![Coverage Gate](https://img.shields.io/badge/coverage%20gate-87%25-brightgreen)](https://github.com/pristley/NeuralBudget/blob/main/.github/workflows/ci.yml)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-DEA584)](https://www.rust-lang.org/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB)](pyproject.toml)
 [![PyO3](https://img.shields.io/badge/pyo3-0.22-orange)](https://pyo3.rs)
@@ -619,7 +619,7 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 - CI validates format, lint, tests, coverage gate, and packaging checks.
 - CD re-validates and publishes artifacts on tagged release workflows.
-- Coverage floor is enforced at 89% line coverage.
+- Coverage floor is enforced at 87% line coverage.
 - Local target for release confidence is 95%+ line coverage.
 - PyO3-heavy wrappers may report lower region coverage than line coverage; use line coverage as the primary merge gate unless workflow policy changes.
 
