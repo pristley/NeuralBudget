@@ -41,3 +41,8 @@ All dashboards include:
 ## Recommended Recording Rules
 
 For large deployments, add recording rules from `docs/guides/prometheus-scraping-examples.md` to reduce dashboard query cost.
+
+## Security Notes
+
+- For webhook/incident integrations, store provider secrets in environment variables and reference them as `env:VARIABLE_NAME` in client config.
+- Use HTTPS webhook URLs. Private-network targets are blocked by default by the alert dispatcher unless explicitly enabled.

@@ -30,7 +30,6 @@ class ClientConfigFile(TypedDict, total=False):
     schema_version: int
     mode: EvaluationMode
     profile: str
-    return_dataclass: bool
     params: dict[str, Any]
     alerts: dict[str, Any]
 
@@ -76,7 +75,6 @@ class NeuralBudgetClientConfig:
     mode: EvaluationMode
     schema_version: int = 1
     profile: str | None = None
-    return_dataclass: bool = False
     params: dict[str, Any] | None = None
     alerts: dict[str, Any] | None = None
 
@@ -114,7 +112,6 @@ class NeuralBudgetClient:
         - `schema_version`: optional int, defaults to `1`
         - `mode`: `http | stateful | ml | genai | composite`
         - `profile`: optional named profile for non-composite modes
-        - `return_dataclass`: optional bool for convenience-layer modes
         - `params`: optional map of keyword overrides
         - `alerts`: optional map configuring Slack/PagerDuty/Opsgenie providers
         """
@@ -131,7 +128,6 @@ class NeuralBudgetClient:
 
         params = dict(raw.get("params", {}))
         profile = raw.get("profile")
-        return_dataclass = bool(raw.get("return_dataclass", False))
         alerts = raw.get("alerts")
         schema_version = int(raw["schema_version"])
 
@@ -139,7 +135,6 @@ class NeuralBudgetClient:
             schema_version=schema_version,
             mode=mode,
             profile=str(profile) if profile is not None else None,
-            return_dataclass=return_dataclass,
             params=params,
             alerts=dict(alerts or {}),
         )
@@ -167,7 +162,6 @@ class NeuralBudgetClient:
             result = convenience.evaluate_http_histogram_once(
                 cast(dict[str, Any], metric_data),
                 profile=config.profile,
-                return_dataclass=config.return_dataclass,
                 **params,
             )
             self._send_violation_alert_if_needed(
@@ -183,7 +177,6 @@ class NeuralBudgetClient:
             result = convenience.evaluate_stateful_once(
                 cast(dict[str, Any], metric_data),
                 profile=config.profile,
-                return_dataclass=config.return_dataclass,
                 **params,
             )
             self._send_violation_alert_if_needed(
@@ -199,7 +192,6 @@ class NeuralBudgetClient:
             result = convenience.evaluate_ml_once(
                 cast(dict[str, Any], metric_data),
                 profile=config.profile,
-                return_dataclass=config.return_dataclass,
                 **params,
             )
             self._send_violation_alert_if_needed(
@@ -215,7 +207,6 @@ class NeuralBudgetClient:
             result = convenience.evaluate_genai_once(
                 cast(dict[str, Any], metric_data),
                 profile=config.profile,
-                return_dataclass=config.return_dataclass,
                 **params,
             )
             self._send_violation_alert_if_needed(
@@ -249,10 +240,10 @@ class NeuralBudgetClient:
         if not isinstance(alerts, dict) or not alerts:
             return
 
-        if bool(alerts.get("enabled", True)) is False:
+        if self._coerce_bool(alerts.get("enabled"), default=True) is False:
             return
 
-        only_on_violation = bool(alerts.get("on_violation", True))
+        only_on_violation = self._coerce_bool(alerts.get("on_violation"), default=True)
         is_violation = self._is_violation_result(result)
         if only_on_violation and not is_violation:
             return
@@ -265,7 +256,7 @@ class NeuralBudgetClient:
             alerts_config=alerts,
         )
 
-        fail_open = bool(alerts.get("fail_open", True))
+        fail_open = self._coerce_bool(alerts.get("fail_open"), default=True)
         if summary.failed > 0 and not fail_open:
             raise RuntimeError(
                 "SLO violation alert dispatch failed for one or more providers"
@@ -305,6 +296,27 @@ class NeuralBudgetClient:
             if isinstance(value, dict):
                 return dict(value)
         return {"value": str(result)}
+
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off"}:
+                return False
+            return default
+        if isinstance(value, (int, float)):
+            if value == 1:
+                return True
+            if value == 0:
+                return False
+            return default
+        return default
 
     def _evaluate_composite(self, metric_data: dict[str, Any], params: dict[str, Any]) -> Any:
         """Map dict payload into native composite graph objects and evaluate."""
@@ -378,7 +390,6 @@ class NeuralBudgetClient:
             "schema_version",
             "mode",
             "profile",
-            "return_dataclass",
             "params",
             "alerts",
         }
@@ -408,10 +419,6 @@ class NeuralBudgetClient:
         if profile is not None and not isinstance(profile, str):
             raise ValueError("Invalid config: profile must be a string when provided")
 
-        return_dataclass = raw.get("return_dataclass", False)
-        if not isinstance(return_dataclass, bool):
-            raise ValueError("Invalid config: return_dataclass must be a boolean")
-
         params = raw.get("params", {})
         if params is None:
             params = {}
@@ -427,7 +434,6 @@ class NeuralBudgetClient:
         normalized: ClientConfigFile = {
             "schema_version": schema_version,
             "mode": cast(EvaluationMode, mode),
-            "return_dataclass": return_dataclass,
             "params": cast(dict[str, Any], params),
             "alerts": cast(dict[str, Any], alerts),
         }

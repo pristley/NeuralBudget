@@ -1603,7 +1603,7 @@ pub fn semantic_similarity_placeholder(
     }
 
     let score = Python::with_gil(|py| -> PyResult<f64> {
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("reference_text", reference_text)?;
         locals.set_item("generated_text", generated_text)?;
         locals.set_item(

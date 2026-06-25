@@ -44,7 +44,6 @@ Create `slo.json`:
   "schema_version": 1,
   "mode": "http",
   "profile": "strict_latency",
-  "return_dataclass": false,
   "params": {
     "latency_threshold_ms": 200.0
   }

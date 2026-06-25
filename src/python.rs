@@ -381,7 +381,7 @@ impl PySloConfig {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("target", self.inner.target)?;
         dict.set_item("window", self.inner.window.clone())?;
         Ok(dict)
@@ -436,7 +436,7 @@ impl PyErrorBudget {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("remaining", self.inner.remaining)?;
         dict.set_item("velocity", self.inner.velocity)?;
         Ok(dict)
@@ -498,7 +498,7 @@ impl PyMetricPoint {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("value", self.inner.value)?;
         dict.set_item("labels", self.inner.labels.clone())?;
@@ -579,7 +579,7 @@ impl PyTimeWindow {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("alignment", self.alignment())?;
         dict.set_item("window_seconds", self.inner.window_seconds)?;
         dict.set_item(
@@ -638,7 +638,7 @@ impl PyHistogramBucket {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("upper_bound_ms", self.inner.upper_bound_ms)?;
         dict.set_item("count", self.inner.count)?;
         Ok(dict)
@@ -718,7 +718,7 @@ impl PyHistogramSample {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         let buckets: Vec<Bound<'_, PyDict>> = self
             .buckets()
             .iter()
@@ -796,7 +796,7 @@ impl PyHttpSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("availability", self.inner.availability)?;
         dict.set_item("evaluated_percentile", self.inner.evaluated_percentile)?;
@@ -884,7 +884,7 @@ impl PyHttpSlo {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("latency_threshold_ms", self.inner.latency_threshold_ms)?;
         dict.set_item("latency_p99_threshold_ms", self.inner.latency_threshold_ms)?;
         dict.set_item("latency_percentile", self.inner.latency_percentile)?;
@@ -965,7 +965,7 @@ impl PyStatefulSample {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("replication_lag_ms", self.inner.replication_lag_ms)?;
         dict.set_item("queue_depth", self.inner.queue_depth)?;
@@ -1037,7 +1037,7 @@ impl PyStatefulSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("replication_lag_ok", self.inner.replication_lag_ok)?;
         dict.set_item("queue_depth_ok", self.inner.queue_depth_ok)?;
@@ -1149,7 +1149,7 @@ impl PyStatefulSlo {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item(
             "replication_lag_threshold_ms",
             self.inner.replication_lag_threshold_ms,
@@ -1244,7 +1244,7 @@ impl PyMlSample {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("inference_latency_ms", self.inner.inference_latency_ms)?;
         dict.set_item("gpu_utilization", self.inner.gpu_utilization)?;
@@ -1335,7 +1335,7 @@ impl PyMlSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item(
             "inference_latency_score",
@@ -1463,7 +1463,7 @@ impl PyMlSlo {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item(
             "max_inference_latency_ms",
             self.inner.max_inference_latency_ms,
@@ -1560,7 +1560,7 @@ impl PyGenAiSample {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("tokens_generated", self.inner.tokens_generated)?;
         dict.set_item("generation_duration_ms", self.inner.generation_duration_ms)?;
@@ -1632,7 +1632,7 @@ impl PyGenAiSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("tokens_per_second", self.inner.tokens_per_second)?;
         dict.set_item("time_to_first_token_ms", self.inner.time_to_first_token_ms)?;
@@ -1726,7 +1726,7 @@ impl PyGenAiSlo {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("min_tokens_per_second", self.inner.min_tokens_per_second)?;
         dict.set_item(
             "max_time_to_first_token_ms",
@@ -1804,7 +1804,7 @@ impl PyCompositeServiceSlo {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("service", self.inner.service.clone())?;
         dict.set_item("local_score", self.inner.local_score)?;
         dict.set_item("min_pass_score", self.inner.min_pass_score)?;
@@ -1867,7 +1867,7 @@ impl PyCompositeDependencyEdge {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("dependency", self.inner.dependency.clone())?;
         dict.set_item("dependent", self.inner.dependent.clone())?;
         dict.set_item("failure_penalty", self.inner.failure_penalty)?;
@@ -1931,7 +1931,7 @@ impl PyCompositeServiceSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("service", self.inner.service.clone())?;
         dict.set_item("local_score", self.inner.local_score)?;
         dict.set_item("effective_score", self.inner.effective_score)?;
@@ -1992,7 +1992,7 @@ impl PyCompositeSloEvaluation {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         let services: Vec<Bound<'_, PyDict>> = self
             .services()
             .iter()
@@ -2082,7 +2082,7 @@ impl PyCompositeSloGraph {
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         let services: Vec<Bound<'_, PyDict>> = self
             .services()
             .iter()

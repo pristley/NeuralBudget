@@ -96,7 +96,6 @@ Minimal JSON configuration (`slo.json`):
 {
   "mode": "http",
   "profile": "strict_latency",
-  "return_dataclass": false,
   "params": {
     "latency_threshold_ms": 180.0
   }
@@ -132,7 +131,6 @@ Top-level config keys:
 
 - `mode`: one of `http`, `stateful`, `ml`, `genai`, `composite`
 - `profile`: optional preset name (non-composite modes)
-- `return_dataclass`: optional bool for typed convenience returns
 - `params`: optional overrides forwarded to the selected evaluator
 - `alerts`: optional webhook alerting config for SLO violations
 
@@ -157,11 +155,11 @@ alerts:
     slack:
         webhook_url: https://hooks.slack.com/services/REPLACE/ME
     pagerduty:
-        routing_key: REPLACE_ME
+        routing_key: env:NEURALBUDGET_PAGERDUTY_ROUTING_KEY
         severity: error
         source: neuralbudget
     opsgenie:
-        api_key: REPLACE_ME
+        api_key: env:NEURALBUDGET_OPSGENIE_API_KEY
         priority: P3
 ```
 
@@ -171,6 +169,13 @@ Alerting behavior:
 - Set `alerts.on_violation: false` to always emit an alert event after evaluate.
 - Set `alerts.fail_open: false` to fail the evaluate call when alert dispatch fails.
 - Supported providers: Slack incoming webhook, PagerDuty Events API v2, Opsgenie Alerts API v2.
+
+Alerting security defaults (OWASP-oriented):
+
+- HTTPS endpoints are required by default (`http` is rejected unless `allow_insecure_http: true`).
+- Local/private webhook targets are blocked by default to reduce SSRF risk (`allow_private_network: true` overrides this).
+- Request timeout is bounded (defaults to 5 seconds, max 30 seconds).
+- Provider secrets can be loaded from environment variables using `env:VARIABLE_NAME`.
 
 ## Mode Examples
 
@@ -490,7 +495,6 @@ Top-level fields:
 - `schema_version` (optional, integer): defaults to `1`
 - `mode` (required): `http | stateful | ml | genai | composite`
 - `profile` (optional, string)
-- `return_dataclass` (optional, boolean)
 - `params` (optional, object/map)
 
 Validation behavior:
@@ -507,7 +511,6 @@ Example JSON config:
     "schema_version": 1,
     "mode": "http",
     "profile": "strict_latency",
-    "return_dataclass": false,
     "params": {
         "latency_threshold_ms": 220.0
     }
@@ -520,7 +523,6 @@ Example YAML config:
 schema_version: 1
 mode: stateful
 profile: database_primary
-return_dataclass: false
 params:
     min_pass_score: 0.9
 ```
@@ -620,7 +622,7 @@ Cause:
 
 Fix:
 
-- keep only `schema_version`, `mode`, `profile`, `return_dataclass`, and `params`
+- keep only `schema_version`, `mode`, `profile`, and `params`
 
 ### Symptom: `Unsupported schema_version`
 

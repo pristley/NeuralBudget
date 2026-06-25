@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from urllib import error
 import unittest
@@ -280,7 +281,89 @@ class AlertingPayloadTests(unittest.TestCase):
         self.assertEqual(result.provider, "pagerduty")
         self.assertFalse(result.ok)
         self.assertEqual(result.status_code, 429)
-        self.assertIn("Too Many Requests", str(result.error))
+        self.assertEqual(result.error, "http error: 429")
+
+    def test_http_scheme_rejected_by_default(self):
+        dispatcher = self.alerting_module.AlertDispatcher()
+        summary = dispatcher.send_violation(
+            mode="http",
+            profile="strict_latency",
+            metric_data={"timestamp": 1},
+            result={"pass": False},
+            alerts_config={
+                "slack": {
+                    "webhook_url": "http://hooks.slack.com/services/T000/B000/XXX"
+                }
+            },
+        )
+
+        self.assertEqual(summary.failed, 1)
+        self.assertEqual(summary.results[0].provider, "slack")
+        self.assertIn("https is required", str(summary.results[0].error))
+
+    def test_localhost_blocked_by_default(self):
+        dispatcher = self.alerting_module.AlertDispatcher()
+        summary = dispatcher.send_violation(
+            mode="http",
+            profile="strict_latency",
+            metric_data={"timestamp": 1},
+            result={"pass": False},
+            alerts_config={
+                "slack": {
+                    "webhook_url": "https://localhost/webhook"
+                }
+            },
+        )
+
+        self.assertEqual(summary.failed, 1)
+        self.assertIn("local/private hosts are blocked", str(summary.results[0].error))
+
+    def test_private_ip_blocked_by_default(self):
+        dispatcher = self.alerting_module.AlertDispatcher()
+        summary = dispatcher.send_violation(
+            mode="http",
+            profile="strict_latency",
+            metric_data={"timestamp": 1},
+            result={"pass": False},
+            alerts_config={
+                "slack": {
+                    "webhook_url": "https://127.0.0.1/webhook"
+                }
+            },
+        )
+
+        self.assertEqual(summary.failed, 1)
+        self.assertIn("local/private hosts are blocked", str(summary.results[0].error))
+
+    def test_env_secret_resolution_for_opsgenie_key(self):
+        dispatcher = self.alerting_module.AlertDispatcher()
+        captured: dict[str, object] = {}
+
+        def _fake_urlopen(req, timeout=0):
+            captured["auth"] = req.headers.get("Authorization")
+            return _FakeResponse(status=202)
+
+        with mock.patch.dict(os.environ, {"NB_OG_KEY": "secure-key"}, clear=False):
+            with mock.patch.object(
+                self.alerting_module.request,
+                "urlopen",
+                side_effect=_fake_urlopen,
+            ):
+                summary = dispatcher.send_violation(
+                    mode="genai",
+                    profile="quality_first",
+                    metric_data={"timestamp": 1},
+                    result={"pass": False},
+                    alerts_config={
+                        "opsgenie": {
+                            "api_key": "env:NB_OG_KEY",
+                            "api_url": "https://api.opsgenie.com/v2/alerts",
+                        }
+                    },
+                )
+
+        self.assertEqual(summary.succeeded, 1)
+        self.assertEqual(captured["auth"], "GenieKey secure-key")
 
 
 if __name__ == "__main__":

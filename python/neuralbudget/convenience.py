@@ -199,16 +199,12 @@ def availability_snapshot(
     total: int,
     slo_target: float = 0.999,
     window_secs: int = 3_600,
-    return_dataclass: bool = False,
-) -> dict[str, Any] | AvailabilitySnapshotResult:
-    """Return an availability and error-budget summary.
-
-    Set return_dataclass=True to receive AvailabilitySnapshotResult.
-    """
+) -> dict[str, Any]:
+    """Return an availability and error-budget summary."""
     availability = float(_native.calculate_availability(int(success), int(total)))
     error_budget_seconds = float(_native.calculate_error_budget(float(slo_target), int(window_secs)))
 
-    result = {
+    return {
         "success": int(success),
         "total": int(total),
         "availability": availability,
@@ -217,9 +213,6 @@ def availability_snapshot(
         "error_budget_seconds": error_budget_seconds,
         "target_met": availability >= float(slo_target),
     }
-    if return_dataclass:
-        return AvailabilitySnapshotResult(**result)
-    return result
 
 
 def _build_histogram_sample(sample: Mapping[str, Any]) -> Any:
@@ -247,12 +240,10 @@ def evaluate_http_histogram_once(
     latency_percentile: float | None = None,
     availability_threshold: float | None = None,
     profile: str | HttpSloProfile | None = None,
-    return_dataclass: bool = False,
-) -> dict[str, Any] | HttpHistogramEvaluationResult:
+) -> dict[str, Any]:
     """Evaluate one histogram sample.
 
-    Use profile to apply preset thresholds and return_dataclass=True
-    to receive HttpHistogramEvaluationResult.
+    Use profile to apply preset thresholds.
     """
     selected_profile = _profile_from_preset(
         profile,
@@ -277,7 +268,7 @@ def evaluate_http_histogram_once(
     evaluations = slo.evaluate_stream([_build_histogram_sample(sample)])
     evaluation = evaluations[0]
 
-    result = {
+    return {
         "timestamp": int(evaluation.timestamp),
         "availability": float(evaluation.availability),
         "percentile_latency_ms": float(evaluation.percentile_latency_ms),
@@ -288,17 +279,6 @@ def evaluate_http_histogram_once(
         ),
         "pass": bool(getattr(evaluation, "pass")),
     }
-    if return_dataclass:
-        return HttpHistogramEvaluationResult(
-            timestamp=result["timestamp"],
-            availability=result["availability"],
-            percentile_latency_ms=result["percentile_latency_ms"],
-            evaluated_percentile=result["evaluated_percentile"],
-            latency_pass=result["latency_pass"],
-            availability_pass=result["availability_pass"],
-            passed=result["pass"],
-        )
-    return result
 
 
 def evaluate_stateful_once(
@@ -310,12 +290,10 @@ def evaluate_stateful_once(
     connection_wait_penalty_weight: float | None = None,
     min_pass_score: float | None = None,
     profile: str | StatefulSloProfile | None = None,
-    return_dataclass: bool = False,
-) -> dict[str, Any] | StatefulEvaluationResult:
+) -> dict[str, Any]:
     """Evaluate one stateful sample.
 
-    Use profile to apply preset thresholds and return_dataclass=True
-    to receive StatefulEvaluationResult.
+    Use profile to apply preset thresholds.
     """
     selected_profile = _profile_from_preset(
         profile,
@@ -357,7 +335,7 @@ def evaluate_stateful_once(
 
     evaluation = slo.evaluate_sample(stateful_sample)
 
-    result = {
+    return {
         "timestamp": int(evaluation.timestamp),
         "score": float(evaluation.score),
         "replication_lag_ok": bool(evaluation.replication_lag_ok),
@@ -366,17 +344,6 @@ def evaluate_stateful_once(
         "connection_wait_penalized": bool(evaluation.connection_wait_penalized),
         "pass": bool(getattr(evaluation, "pass")),
     }
-    if return_dataclass:
-        return StatefulEvaluationResult(
-            timestamp=result["timestamp"],
-            score=result["score"],
-            replication_lag_ok=result["replication_lag_ok"],
-            queue_depth_ok=result["queue_depth_ok"],
-            connection_pool_ok=result["connection_pool_ok"],
-            connection_wait_penalized=result["connection_wait_penalized"],
-            passed=result["pass"],
-        )
-    return result
 
 
 def evaluate_ml_once(
@@ -389,12 +356,10 @@ def evaluate_ml_once(
     drift_weight: float | None = None,
     min_pass_score: float | None = None,
     profile: str | MlSloProfile | None = None,
-    return_dataclass: bool = False,
-) -> dict[str, Any] | MlEvaluationResult:
+) -> dict[str, Any]:
     """Evaluate one ML-serving sample with hybrid latency and drift weighting.
 
-    Use profile to apply preset thresholds/weights and return_dataclass=True
-    to receive MlEvaluationResult.
+    Use profile to apply preset thresholds/weights.
     """
     selected_profile = _profile_from_preset(
         profile,
@@ -434,7 +399,7 @@ def evaluate_ml_once(
 
     evaluation = slo.evaluate_sample(ml_sample)
 
-    result = {
+    return {
         "timestamp": int(evaluation.timestamp),
         "inference_latency_score": float(evaluation.inference_latency_score),
         "gpu_utilization_score": float(evaluation.gpu_utilization_score),
@@ -448,22 +413,6 @@ def evaluate_ml_once(
         "hybrid_score": float(evaluation.hybrid_score),
         "pass": bool(getattr(evaluation, "pass")),
     }
-    if return_dataclass:
-        return MlEvaluationResult(
-            timestamp=result["timestamp"],
-            inference_latency_score=result["inference_latency_score"],
-            gpu_utilization_score=result["gpu_utilization_score"],
-            system_score=result["system_score"],
-            latency_score=result["latency_score"],
-            feature_drift_score=result["feature_drift_score"],
-            prediction_confidence_score=result["prediction_confidence_score"],
-            drift_score=result["drift_score"],
-            latency_weight=result["latency_weight"],
-            drift_weight=result["drift_weight"],
-            hybrid_score=result["hybrid_score"],
-            passed=result["pass"],
-        )
-    return result
 
 
 def evaluate_genai_once(
@@ -473,12 +422,10 @@ def evaluate_genai_once(
     min_semantic_similarity: float | None = None,
     semantic_model_name: str | None = None,
     profile: str | GenAiSloProfile | None = None,
-    return_dataclass: bool = False,
-) -> dict[str, Any] | GenAiEvaluationResult:
+) -> dict[str, Any]:
     """Evaluate one GenAI sample using TPS, TTFT, and semantic similarity gates.
 
-    Use profile to apply preset thresholds and return_dataclass=True
-    to receive GenAiEvaluationResult.
+    Use profile to apply preset thresholds.
     """
     selected_profile = _profile_from_preset(
         profile,
@@ -517,7 +464,7 @@ def evaluate_genai_once(
 
     evaluation = slo.evaluate_sample(genai_sample)
 
-    result = {
+    return {
         "timestamp": int(evaluation.timestamp),
         "tokens_per_second": float(evaluation.tokens_per_second),
         "time_to_first_token_ms": float(evaluation.time_to_first_token_ms),
@@ -527,18 +474,6 @@ def evaluate_genai_once(
         "semantic_similarity_ok": bool(evaluation.semantic_similarity_ok),
         "pass": bool(getattr(evaluation, "pass")),
     }
-    if return_dataclass:
-        return GenAiEvaluationResult(
-            timestamp=result["timestamp"],
-            tokens_per_second=result["tokens_per_second"],
-            time_to_first_token_ms=result["time_to_first_token_ms"],
-            semantic_similarity=result["semantic_similarity"],
-            tokens_per_second_ok=result["tokens_per_second_ok"],
-            time_to_first_token_ok=result["time_to_first_token_ok"],
-            semantic_similarity_ok=result["semantic_similarity_ok"],
-            passed=result["pass"],
-        )
-    return result
 
 
 def get_http_profile_preset(name: str) -> HttpSloProfile:

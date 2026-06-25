@@ -15,7 +15,7 @@
       "timeout_seconds": 5
     },
     "pagerduty": {
-      "routing_key": "REPLACE_ME",
+      "routing_key": "env:NEURALBUDGET_PAGERDUTY_ROUTING_KEY",
       "severity": "error",
       "source": "neuralbudget",
       "component": "api-gateway",
@@ -24,7 +24,7 @@
       "timeout_seconds": 5
     },
     "opsgenie": {
-      "api_key": "REPLACE_ME",
+      "api_key": "env:NEURALBUDGET_OPSGENIE_API_KEY",
       "priority": "P3",
       "source": "neuralbudget",
       "tags": ["neuralbudget", "http", "slo-violation"],

@@ -8,10 +8,13 @@ Supported providers:
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
 from dataclasses import dataclass
 from typing import Any, Mapping
 from urllib import error, request
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,13 @@ class AlertDispatchSummary:
 
 class AlertDispatcher:
     """Dispatch violation notifications to configured webhook providers."""
+
+    MAX_PAYLOAD_BYTES = 64 * 1024
+
+    _LOCAL_HOSTNAMES = {
+        "localhost",
+        "localhost.localdomain",
+    }
 
     def send_violation(
         self,
@@ -105,6 +115,18 @@ class AlertDispatcher:
                 error="missing slack.webhook_url",
             )
 
+        url_error = self._validate_url(
+            provider="slack",
+            url=webhook_url,
+            allow_insecure_http=self._coerce_bool(config.get("allow_insecure_http"), False),
+            allow_private_network=self._coerce_bool(
+                config.get("allow_private_network"),
+                False,
+            ),
+        )
+        if url_error is not None:
+            return AlertDispatchResult(provider="slack", ok=False, error=url_error)
+
         profile_label = profile if profile else "default"
         text = (
             f"NeuralBudget SLO violation detected: mode={mode}, "
@@ -128,7 +150,7 @@ class AlertDispatcher:
         metric_data: Mapping[str, Any],
         result: Mapping[str, Any],
     ) -> AlertDispatchResult:
-        routing_key = str(config.get("routing_key", "")).strip()
+        routing_key = self._resolve_secret(config.get("routing_key", ""))
         if not routing_key:
             return AlertDispatchResult(
                 provider="pagerduty",
@@ -169,14 +191,27 @@ class AlertDispatcher:
         if dedup_key is not None:
             payload["dedup_key"] = dedup_key
 
+        events_url = str(
+            config.get(
+                "events_url",
+                "https://events.pagerduty.com/v2/enqueue",
+            )
+        )
+        url_error = self._validate_url(
+            provider="pagerduty",
+            url=events_url,
+            allow_insecure_http=self._coerce_bool(config.get("allow_insecure_http"), False),
+            allow_private_network=self._coerce_bool(
+                config.get("allow_private_network"),
+                False,
+            ),
+        )
+        if url_error is not None:
+            return AlertDispatchResult(provider="pagerduty", ok=False, error=url_error)
+
         return self._post_json(
             provider="pagerduty",
-            url=str(
-                config.get(
-                    "events_url",
-                    "https://events.pagerduty.com/v2/enqueue",
-                )
-            ),
+            url=events_url,
             payload=payload,
             timeout_seconds=self._timeout_seconds(config),
             headers={},
@@ -191,7 +226,7 @@ class AlertDispatcher:
         metric_data: Mapping[str, Any],
         result: Mapping[str, Any],
     ) -> AlertDispatchResult:
-        api_key = str(config.get("api_key", "")).strip()
+        api_key = self._resolve_secret(config.get("api_key", ""))
         if not api_key:
             return AlertDispatchResult(
                 provider="opsgenie",
@@ -200,6 +235,18 @@ class AlertDispatcher:
             )
 
         api_url = str(config.get("api_url", "https://api.opsgenie.com/v2/alerts"))
+        url_error = self._validate_url(
+            provider="opsgenie",
+            url=api_url,
+            allow_insecure_http=self._coerce_bool(config.get("allow_insecure_http"), False),
+            allow_private_network=self._coerce_bool(
+                config.get("allow_private_network"),
+                False,
+            ),
+        )
+        if url_error is not None:
+            return AlertDispatchResult(provider="opsgenie", ok=False, error=url_error)
+
         priority = str(config.get("priority", "P3"))
         source = str(config.get("source", "neuralbudget"))
         tags = config.get("tags", ["neuralbudget", mode, "slo-violation"])
@@ -244,7 +291,85 @@ class AlertDispatcher:
             return 5.0
         if timeout <= 0:
             return 5.0
+        # Keep requests bounded by default to reduce DoS blast radius.
+        if timeout > 30.0:
+            return 30.0
         return timeout
+
+    @classmethod
+    def _validate_url(
+        cls,
+        *,
+        provider: str,
+        url: str,
+        allow_insecure_http: bool,
+        allow_private_network: bool,
+    ) -> str | None:
+        parsed = urlparse(url)
+        scheme = parsed.scheme.lower()
+        host = parsed.hostname
+
+        if scheme not in {"https", "http"}:
+            return f"invalid {provider} url: unsupported scheme"
+        if scheme != "https" and not allow_insecure_http:
+            return f"invalid {provider} url: https is required"
+        if host is None:
+            return f"invalid {provider} url: missing host"
+
+        lowered_host = host.lower()
+        if not allow_private_network:
+            if lowered_host in cls._LOCAL_HOSTNAMES or lowered_host.endswith(".local"):
+                return f"invalid {provider} url: local/private hosts are blocked"
+
+            try:
+                ip = ipaddress.ip_address(host)
+                if (
+                    ip.is_private
+                    or ip.is_loopback
+                    or ip.is_link_local
+                    or ip.is_reserved
+                    or ip.is_multicast
+                    or ip.is_unspecified
+                ):
+                    return f"invalid {provider} url: local/private hosts are blocked"
+            except ValueError:
+                # Non-IP hostnames are allowed.
+                pass
+
+        return None
+
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off"}:
+                return False
+            return default
+        if isinstance(value, (int, float)):
+            if value == 1:
+                return True
+            if value == 0:
+                return False
+            return default
+        return default
+
+    @staticmethod
+    def _resolve_secret(raw: Any) -> str:
+        value = str(raw).strip()
+        if not value:
+            return ""
+        if value.startswith("env:"):
+            env_key = value[4:].strip()
+            if not env_key:
+                return ""
+            return str(os.getenv(env_key, "")).strip()
+        return value
 
     @staticmethod
     def _post_json(
@@ -256,6 +381,13 @@ class AlertDispatcher:
         headers: Mapping[str, str],
     ) -> AlertDispatchResult:
         body = json.dumps(payload).encode("utf-8")
+        if len(body) > AlertDispatcher.MAX_PAYLOAD_BYTES:
+            return AlertDispatchResult(
+                provider=provider,
+                ok=False,
+                error="payload too large",
+            )
+
         req_headers = {
             "Content-Type": "application/json",
             "User-Agent": "neuralbudget-alerting/1",
@@ -279,7 +411,11 @@ class AlertDispatcher:
                 provider=provider,
                 ok=False,
                 status_code=int(exc.code),
-                error=str(exc),
+                error=f"http error: {int(exc.code)}",
             )
         except Exception as exc:  # pragma: no cover - defensive catch-all
-            return AlertDispatchResult(provider=provider, ok=False, error=str(exc))
+            return AlertDispatchResult(
+                provider=provider,
+                ok=False,
+                error=f"transport error: {type(exc).__name__}",
+            )

@@ -301,17 +301,6 @@ class ConvenienceLayerTests(unittest.TestCase):
     def setUpClass(cls):
         cls.convenience = _load_convenience_module()
 
-    def test_availability_snapshot_dataclass(self):
-        result = self.convenience.availability_snapshot(
-            success=99,
-            total=100,
-            return_dataclass=True,
-        )
-
-        self.assertIsInstance(result, self.convenience.AvailabilitySnapshotResult)
-        self.assertEqual(result.success, 99)
-        self.assertFalse(result.target_met)
-
     def test_http_profile_preset_and_override(self):
         preset = self.convenience.get_http_profile_preset("strict_latency")
         self.assertEqual(preset.latency_threshold_ms, 150.0)
@@ -329,68 +318,18 @@ class ConvenienceLayerTests(unittest.TestCase):
             },
             profile="strict_latency",
             latency_threshold_ms=220.0,
-            return_dataclass=True,
         )
 
-        self.assertIsInstance(result, self.convenience.HttpHistogramEvaluationResult)
-        self.assertTrue(result.passed)
-
-    def test_stateful_profile_returns_dataclass(self):
-        result = self.convenience.evaluate_stateful_once(
-            {
-                "timestamp": 2,
-                "replication_lag_ms": 120.0,
-                "queue_depth": 300,
-                "connection_pool_saturation": 0.6,
-                "connection_wait_time_ms": 10.0,
-            },
-            profile="database_primary",
-            return_dataclass=True,
-        )
-
-        self.assertIsInstance(result, self.convenience.StatefulEvaluationResult)
-        self.assertTrue(result.passed)
-
-    def test_ml_profile_returns_dataclass(self):
-        result = self.convenience.evaluate_ml_once(
-            {
-                "timestamp": 3,
-                "inference_latency_ms": 190.0,
-                "gpu_utilization": 0.75,
-                "feature_drift": 0.08,
-                "prediction_confidence": 0.91,
-            },
-            profile="drift_sensitive",
-            return_dataclass=True,
-        )
-
-        self.assertIsInstance(result, self.convenience.MlEvaluationResult)
-        self.assertGreater(result.hybrid_score, 0.0)
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result["pass"])
 
     def test_unknown_profile_raises(self):
         with self.assertRaises(ValueError):
             self.convenience.get_ml_profile_preset("not_a_real_profile")
 
-    def test_genai_profile_and_dataclass_return(self):
+    def test_genai_profile_preset(self):
         preset = self.convenience.get_genai_profile_preset("quality_first")
         self.assertGreater(preset.min_semantic_similarity, 0.7)
-
-        result = self.convenience.evaluate_genai_once(
-            {
-                "timestamp": 4,
-                "tokens_generated": 240,
-                "generation_duration_ms": 6_000.0,
-                "time_to_first_token_ms": 900.0,
-                "reference_text": "the cat sat on the mat",
-                "generated_text": "the cat sat on the mat",
-            },
-            profile="quality_first",
-            return_dataclass=True,
-        )
-
-        self.assertIsInstance(result, self.convenience.GenAiEvaluationResult)
-        self.assertGreater(result.tokens_per_second, 0.0)
-        self.assertTrue(result.passed)
 
 
 if __name__ == "__main__":

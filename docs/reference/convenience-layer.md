@@ -1,13 +1,12 @@
 # Convenience Layer Reference
 
-This document describes the Python convenience API in detail, including typed dataclass results and profile presets.
+This document describes the Python convenience API in detail, including result dictionary schemas and profile presets.
 
 ## Design Goals
 
 - Keep call sites ergonomic for notebooks and pipelines.
 - Delegate numerical logic to the Rust-backed native module.
-- Preserve backward compatibility by returning dictionaries by default.
-- Offer optional typed return values for stronger editor and runtime ergonomics.
+- Return dictionaries with consistent field names across all modes.
 
 ## Import Surface
 
@@ -21,11 +20,9 @@ Re-exported through package root:
 
 ## Result Models
 
-Set return_dataclass=True to receive these dataclasses.
+All convenience functions return dictionaries with the following keys:
 
-### AvailabilitySnapshotResult
-
-Fields:
+### AvailabilitySnapshotResult keys
 
 - success: int
 - total: int
@@ -185,11 +182,10 @@ Key parameters:
 - total
 - slo_target
 - window_secs
-- return_dataclass
 
 Returns:
 
-- dict by default, AvailabilitySnapshotResult if return_dataclass=True.
+- dict
 
 ### evaluate_http_histogram_once
 
@@ -204,7 +200,6 @@ Key parameters:
 - latency_percentile
 - availability_threshold
 - profile
-- return_dataclass
 
 Precedence:
 
@@ -213,7 +208,7 @@ Precedence:
 
 Returns:
 
-- dict by default, HttpHistogramEvaluationResult if return_dataclass=True.
+- dict
 
 ### evaluate_stateful_once
 
@@ -226,7 +221,6 @@ Key parameters:
 - sample
 - threshold and penalty arguments
 - profile
-- return_dataclass
 
 Precedence:
 
@@ -234,7 +228,7 @@ Precedence:
 
 Returns:
 
-- dict by default, StatefulEvaluationResult if return_dataclass=True.
+- dict
 
 ### evaluate_ml_once
 
@@ -247,7 +241,6 @@ Key parameters:
 - sample
 - threshold and hybrid weight arguments
 - profile
-- return_dataclass
 
 Precedence:
 
@@ -255,7 +248,7 @@ Precedence:
 
 Returns:
 
-- dict by default, MlEvaluationResult if return_dataclass=True.
+- dict
 
 ### evaluate_genai_once
 
@@ -271,7 +264,6 @@ Key parameters:
 - min_semantic_similarity
 - semantic_model_name
 - profile
-- return_dataclass
 
 Precedence:
 
@@ -279,7 +271,7 @@ Precedence:
 
 Returns:
 
-- dict by default, GenAiEvaluationResult if return_dataclass=True.
+- dict
 
 ## Client Facade Integration
 
@@ -302,16 +294,9 @@ Use `NeuralBudgetClient` when:
 
 ## Usage Patterns
 
-### Backward-compatible dictionary flow
+### Dictionary-based workflow
 
-Use defaults and dictionary output for quick scripts.
-
-### Typed workflow flow
-
-Use return_dataclass=True when:
-
-- You want attribute access instead of dictionary keys.
-- You want clearer type hints and safer refactors.
+Use defaults and dictionary output for quick scripts and integration into existing tools.
 
 ### Profile-driven operations flow
 

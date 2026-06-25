@@ -177,7 +177,6 @@ class NeuralBudgetClientTests(unittest.TestCase):
                         "schema_version": 1,
                         "mode": "http",
                         "profile": "strict_latency",
-                        "return_dataclass": False,
                         "params": {"latency_threshold_ms": 240.0},
                     }
                 ),
@@ -488,6 +487,119 @@ class NeuralBudgetClientTests(unittest.TestCase):
                 )
 
             self.assertFalse(result["pass"])
+
+    def test_alert_enabled_string_false_disables_dispatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "http",
+                        "alerts": {
+                            "enabled": "false",
+                            "on_violation": True,
+                            "slack": {"webhook_url": "https://example.invalid/webhook"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def _failing_http(sample, **kwargs):
+                return {"pass": False, "timestamp": sample["timestamp"]}
+
+            sys.modules["neuralbudget.convenience"].evaluate_http_histogram_once = _failing_http
+
+            client = self.client_module.NeuralBudgetClient().load_config(path)
+            client.evaluate(
+                {
+                    "timestamp": 1,
+                    "success": 900,
+                    "total": 1000,
+                    "buckets": [(100.0, 900), (200.0, 1000)],
+                    "format": "prometheus_cumulative",
+                }
+            )
+
+            dispatcher = self.alerting_module.AlertDispatcher.instances[-1]
+            self.assertEqual(len(dispatcher.calls), 0)
+
+    def test_alert_on_violation_string_false_forces_dispatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "http",
+                        "alerts": {
+                            "enabled": True,
+                            "on_violation": "false",
+                            "slack": {"webhook_url": "https://example.invalid/webhook"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def _passing_http(sample, **kwargs):
+                return {"pass": True, "timestamp": sample["timestamp"]}
+
+            sys.modules["neuralbudget.convenience"].evaluate_http_histogram_once = _passing_http
+
+            client = self.client_module.NeuralBudgetClient().load_config(path)
+            client.evaluate(
+                {
+                    "timestamp": 1,
+                    "success": 999,
+                    "total": 1000,
+                    "buckets": [(100.0, 999), (200.0, 1000)],
+                    "format": "prometheus_cumulative",
+                }
+            )
+
+            dispatcher = self.alerting_module.AlertDispatcher.instances[-1]
+            self.assertEqual(len(dispatcher.calls), 1)
+
+    def test_alert_fail_open_string_false_raises_on_dispatch_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slo.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "http",
+                        "alerts": {
+                            "enabled": True,
+                            "on_violation": True,
+                            "fail_open": "false",
+                            "slack": {"webhook_url": "https://example.invalid/webhook"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def _failing_http(sample, **kwargs):
+                return {"pass": False, "timestamp": sample["timestamp"]}
+
+            sys.modules["neuralbudget.convenience"].evaluate_http_histogram_once = _failing_http
+
+            client = self.client_module.NeuralBudgetClient().load_config(path)
+            dispatcher = self.alerting_module.AlertDispatcher.instances[-1]
+            dispatcher.raise_error = True
+
+            with self.assertRaisesRegex(RuntimeError, "alert dispatch failed"):
+                client.evaluate(
+                    {
+                        "timestamp": 1,
+                        "success": 900,
+                        "total": 1000,
+                        "buckets": [(100.0, 900), (200.0, 1000)],
+                        "format": "prometheus_cumulative",
+                    }
+                )
 
 
 if __name__ == "__main__":

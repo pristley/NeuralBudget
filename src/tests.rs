@@ -26,9 +26,9 @@ fn calculate_availability_matches_pure_python_ratio() {
         let expected: f64 = {
             let builtins = py.import_bound("builtins").unwrap();
             let eval_fn = builtins.getattr("eval").unwrap();
-            let globals = PyDict::new_bound(py);
+            let globals = PyDict::new(py);
             globals.set_item("__builtins__", &builtins).unwrap();
-            let locals = PyDict::new_bound(py);
+            let locals = PyDict::new(py);
             locals.set_item("success", success).unwrap();
             locals.set_item("total", total).unwrap();
 
@@ -192,13 +192,13 @@ fn python_http_slo_histogram_wrapper_evaluates_sample() {
             .add_function(wrap_pyfunction!(evaluate_http_slo_histogram, &module).unwrap())
             .unwrap();
 
-        let sample = PyDict::new_bound(py);
+        let sample = PyDict::new(py);
         sample.set_item("timestamp", 1_i64).unwrap();
         sample.set_item("success", 9_995_u64).unwrap();
         sample.set_item("total", 10_000_u64).unwrap();
         let buckets = PyList::empty_bound(py);
         for (upper_bound_ms, count) in [(100.0, 9_700_u64), (150.0, 200_u64), (220.0, 100_u64)] {
-            let bucket = PyDict::new_bound(py);
+            let bucket = PyDict::new(py);
             bucket.set_item("upper_bound_ms", upper_bound_ms).unwrap();
             bucket.set_item("count", count).unwrap();
             buckets.append(bucket).unwrap();
@@ -206,7 +206,7 @@ fn python_http_slo_histogram_wrapper_evaluates_sample() {
         sample.set_item("buckets", buckets).unwrap();
         sample.set_item("format", "open_telemetry_delta").unwrap();
 
-        let slo = PyDict::new_bound(py);
+        let slo = PyDict::new(py);
         slo.set_item("latency_threshold_ms", 200.0).unwrap();
         slo.set_item("latency_percentile", 0.99).unwrap();
         slo.set_item("availability_threshold", 0.999).unwrap();
@@ -232,14 +232,14 @@ fn python_stateful_slo_wrapper_penalizes_wait_time() {
             .add_function(wrap_pyfunction!(evaluate_stateful_slo, &module).unwrap())
             .unwrap();
 
-        let sample = PyDict::new_bound(py);
+        let sample = PyDict::new(py);
         sample.set_item("timestamp", 2_i64).unwrap();
         sample.set_item("replication_lag_ms", 200.0).unwrap();
         sample.set_item("queue_depth", 800_u64).unwrap();
         sample.set_item("connection_pool_saturation", 0.75).unwrap();
         sample.set_item("connection_wait_time_ms", 60.0).unwrap();
 
-        let slo = PyDict::new_bound(py);
+        let slo = PyDict::new(py);
         slo.set_item("replication_lag_threshold_ms", 250.0).unwrap();
         slo.set_item("queue_depth_threshold", 1_000_u64).unwrap();
         slo.set_item("connection_pool_saturation_threshold", 0.8)
@@ -1244,7 +1244,7 @@ fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
         let genai_slo: GenAiSlo = genai_slo_obj.bind(py).extract().unwrap();
         assert_eq!(genai_slo.min_tokens_per_second, 20.0);
 
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         dict.set_item("latency_p99_threshold_ms", 175.0).unwrap();
         let fallback_http: HttpSlo = dict.extract().unwrap();
         assert_eq!(fallback_http.latency_threshold_ms, 175.0);
@@ -1257,7 +1257,7 @@ fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
             HttpSlo::default().availability_threshold
         );
 
-        let empty = PyDict::new_bound(py);
+        let empty = PyDict::new(py);
         assert!(extract_labels(&empty).unwrap().is_empty());
 
         let err = extract_required::<i64>(&empty, "missing").unwrap_err();
@@ -1604,7 +1604,7 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         assert!(tw.to_yaml().unwrap().contains("alignment"));
 
         // Dict fallback for missing timezone offset.
-        let tw_no_tz = PyDict::new_bound(py);
+        let tw_no_tz = PyDict::new(py);
         tw_no_tz.set_item("alignment", "calendar_aligned").unwrap();
         tw_no_tz.set_item("window_seconds", 600_u64).unwrap();
         let parsed_tw: TimeWindow = tw_no_tz.extract().unwrap();
@@ -1640,7 +1640,7 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         assert!(hs.to_json().unwrap().contains("buckets"));
         assert!(hs.to_yaml().unwrap().contains("format"));
 
-        let http_default_dict = PyDict::new_bound(py);
+        let http_default_dict = PyDict::new(py);
         let http_defaults: HttpSlo = http_default_dict.extract().unwrap();
         assert_eq!(
             http_defaults.latency_threshold_ms,
@@ -1740,7 +1740,7 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             .contains("queue_depth_threshold"));
         assert!(state_slo.to_yaml().unwrap().contains("min_pass_score"));
 
-        let ml_default_dict = PyDict::new_bound(py);
+        let ml_default_dict = PyDict::new(py);
         ml_default_dict
             .set_item("max_inference_latency_ms", 300.0)
             .unwrap();
@@ -1799,7 +1799,7 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
             .unwrap()
             .contains("min_prediction_confidence"));
 
-        let genai_default_dict = PyDict::new_bound(py);
+        let genai_default_dict = PyDict::new(py);
         genai_default_dict
             .set_item("min_tokens_per_second", 10.0)
             .unwrap();
@@ -1933,7 +1933,7 @@ fn pyo3_wrapper_coverage_sweep_for_remaining_branches() {
         assert!(graph.to_yaml().unwrap().contains("dependencies"));
 
         // Dict fallback for missing global_min_pass_score.
-        let graph_default_dict = PyDict::new_bound(py);
+        let graph_default_dict = PyDict::new(py);
         graph_default_dict
             .set_item("services", Vec::<i32>::new())
             .unwrap();
@@ -1983,7 +1983,7 @@ fn pyo3_python_call_paths_cover_wrapper_regions() {
         let module = PyModule::new_bound(py, "neuralbudget_pycoverage").unwrap();
         neuralbudget(py, &module).unwrap();
 
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("nb", &module).unwrap();
 
         py.run_bound(
@@ -2163,7 +2163,7 @@ fn python_prometheus_export_helpers_and_class_work() {
         let module = PyModule::new_bound(py, "neuralbudget_prometheus_test").unwrap();
         neuralbudget(py, &module).unwrap();
 
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("nb", &module).unwrap();
 
         py.run_bound(
@@ -2277,7 +2277,7 @@ fn python_otlp_ingestion_and_http_evaluation_work() {
         let module = PyModule::new_bound(py, "neuralbudget_otlp_test").unwrap();
         neuralbudget(py, &module).unwrap();
 
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("nb", &module).unwrap();
         locals
             .set_item("otlp_payload", sample_otlp_payload_json())
