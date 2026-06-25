@@ -168,16 +168,23 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Collect Python distribution files
+        run: |
+          mkdir -p dist/pypi
+          find dist -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp -f {} dist/pypi/ \;
+          ls -1 dist/pypi
+
       - name: Install twine
         run: python3 -m pip install --upgrade twine
 
       - name: Validate distributions
-        run: python3 -m twine check dist/*.whl dist/*.tar.gz
+        run: python3 -m twine check dist/pypi/*.whl dist/pypi/*.tar.gz
 
       - name: Publish to PyPI (API token)
         if: env.HAS_PYPI_TOKEN == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          packages-dir: dist/pypi
           password: ${{ env.PYPI_API_TOKEN }}
           skip-existing: true
 
@@ -185,4 +192,5 @@ jobs:
         if: env.HAS_PYPI_TOKEN != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          packages-dir: dist/pypi
           skip-existing: true
