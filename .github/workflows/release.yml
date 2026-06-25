@@ -86,12 +86,6 @@ jobs:
           - os: ubuntu-latest
             target: x86_64
             maturin_args: --release --out dist --interpreter /opt/python/cp39-cp39/bin/python /opt/python/cp310-cp310/bin/python /opt/python/cp311-cp311/bin/python /opt/python/cp312-cp312/bin/python /opt/python/cp313-cp313/bin/python /opt/python/cp314-cp314/bin/python
-          - os: windows-latest
-            target: x86_64
-            maturin_args: --release --out dist --find-interpreter
-          - os: macos-14
-            target: aarch64
-            maturin_args: --release --out dist --find-interpreter
 
     steps:
       - name: Check out repository
