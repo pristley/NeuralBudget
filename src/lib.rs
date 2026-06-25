@@ -1,4 +1,4 @@
-#![allow(clippy::useless_conversion)]
+// Re-exports of all public API types and functions from submodules
 
 mod core;
 mod exporter;
@@ -9,3 +9,4 @@ pub use core::*;
 pub use exporter::*;
 pub use otlp::*;
 pub use python::*;
+
