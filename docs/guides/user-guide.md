@@ -499,7 +499,7 @@ params:
 
 ## Release and Distribution Automation
 
-Release packaging and publishing are integrated in `.github/workflows/release.yml`.
+Release packaging and publishing are integrated in `.github/workflows/release.yml`, while the main-branch validation/package workflow lives in `.github/workflows/cd.yml`.
 
 For tagged releases (`v*`), CD performs:
 

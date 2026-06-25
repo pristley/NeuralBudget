@@ -39,7 +39,8 @@ This index groups documentation by audience and workflow.
 ## Testing and Quality Gates
 
 - CI workflow: [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
-- CD workflow: [.github/workflows/release.yml](../../.github/workflows/release.yml)
+- CD workflow: [.github/workflows/cd.yml](../../.github/workflows/cd.yml)
+- Release workflow: [.github/workflows/release.yml](../../.github/workflows/release.yml)
 - Coverage command: `cargo llvm-cov --workspace --all-features --lib --tests --summary-only`
 - Property tests: [src/tests.rs](../../src/tests.rs) (`proptest` suites)
 - Python convenience tests: [tests/python_convenience_tests.py](../../tests/python_convenience_tests.py)

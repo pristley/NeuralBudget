@@ -1,108 +1,196 @@
-name: CD
+name: Release Publish
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - CHANGELOG.md
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (for example: v0.1.4)"
+        required: true
+        type: string
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
-  package:
+  prepare-release-artifacts:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.resolve_tag.outputs.release_tag }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Resolve release tag
+        id: resolve_tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ -z "$tag" || "$tag" != v* ]]; then
+            echo "Expected a v* tag, got: $tag" >&2
+            exit 1
+          fi
+
+          echo "release_tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Cache Cargo artifacts
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install LLVM coverage tools
-        run: rustup component add llvm-tools-preview --toolchain stable
-
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
-
       - name: Install maturin
         run: python3 -m pip install --upgrade pip maturin
 
-      - name: Fetch dependencies
-        run: cargo fetch
+      - name: Generate changelog and release notes
+        run: python3 scripts/update_changelog.py "${{ steps.resolve_tag.outputs.release_tag }}" release-notes.md
 
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Run unit tests (library)
-        run: cargo test --lib --all-features
-
-      - name: Run unit tests (all targets)
-        run: cargo test --all-targets --all-features
-
-      - name: Run documentation tests
-        run: cargo test --doc --all-features
-
-      - name: Run integration test suites
-        run: cargo test --tests --all-features
-
-      - name: Run MLOps model-drift serving tests
-        run: cargo test --all-features ml_slo -- --nocapture
-
-      - name: Run Python convenience layer tests
-        run: |
-          python3 tests/python_convenience_tests.py
-          python3 tests/python_client_tests.py
-
-      - name: Run coverage gate
-        run: cargo llvm-cov --workspace --all-features --lib --tests --summary-only --fail-under-lines 87
-
-      - name: Build Python wheel
-        run: maturin build --release --manifest-path Cargo.toml
+      - name: Build source distribution
+        run: maturin sdist --manifest-path Cargo.toml --out dist
 
       - name: Package crate
         run: cargo package --allow-dirty --no-verify
 
-      - name: Build source distribution
-        run: maturin sdist --manifest-path Cargo.toml --out target/wheels
-
-      - name: Upload packaged crate metadata
+      - name: Upload release core artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-crate
-          path: target/package/*.crate
+          name: release-core
+          path: |
+            dist/*.tar.gz
+            target/package/*.crate
+            release-notes.md
           if-no-files-found: error
 
-      - name: Upload Python wheel artifact
-        uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+  build-release-wheels:
+    if: github.actor != 'github-actions[bot]'
+    needs: prepare-release-artifacts
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+            maturin_args: --release --out dist --interpreter /opt/python/cp39-cp39/bin/python /opt/python/cp310-cp310/bin/python /opt/python/cp311-cp311/bin/python /opt/python/cp312-cp312/bin/python /opt/python/cp313-cp313/bin/python /opt/python/cp314-cp314/bin/python
+          - os: windows-latest
+            target: x86_64
+            maturin_args: --release --out dist --find-interpreter
+          - os: macos-14
+            target: aarch64
+            maturin_args: --release --out dist --find-interpreter
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
-          name: neuralbudget-wheel-linux
-          path: target/wheels/*.whl
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Build wheels with maturin
+        uses: PyO3/maturin-action@v1
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+        with:
+          target: ${{ matrix.target }}
+          manylinux: auto
+          args: ${{ matrix.maturin_args }}
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/*.whl
           if-no-files-found: error
 
-      - name: Upload source distribution artifact
-        uses: actions/upload-artifact@v4
+  github-release:
+    if: github.actor != 'github-actions[bot]'
+    needs:
+      - prepare-release-artifacts
+      - build-release-wheels
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
         with:
-          name: release-sdist
-          path: target/wheels/*.tar.gz
-          if-no-files-found: error
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-release-artifacts.outputs.release_tag }}
+          name: ${{ needs.prepare-release-artifacts.outputs.release_tag }}
+          files: |
+            dist/**/*.crate
+            dist/**/*.whl
+            dist/**/*.tar.gz
+          body_path: dist/release-notes.md
+
+  publish-pypi:
+    if: github.actor != 'github-actions[bot]'
+    needs:
+      - prepare-release-artifacts
+      - build-release-wheels
+    runs-on: ubuntu-latest
+    env:
+      HAS_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN != '' }}
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/neuralbudget/
+
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Download source distribution artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-core
+          path: dist
+          merge-multiple: true
+
+      - name: Collect Python distribution files
+        run: |
+          mkdir -p dist/pypi
+          find dist -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp -f {} dist/pypi/ \;
+          ls -1 dist/pypi
+
+      - name: Install twine
+        run: python3 -m pip install --upgrade twine
+
+      - name: Validate distributions
+        run: python3 -m twine check dist/pypi/*.whl dist/pypi/*.tar.gz
+
+      - name: Publish to PyPI (API token)
+        if: env.HAS_PYPI_TOKEN == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pypi
+          password: ${{ env.PYPI_API_TOKEN }}
+          skip-existing: true
+
+      - name: Publish to PyPI (trusted publishing)
+        if: env.HAS_PYPI_TOKEN != 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pypi
+          skip-existing: true

@@ -1,7 +1,7 @@
 # NeuralBudget
 
 [![CI](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/ci.yml)
-[![CD](https://github.com/pristley/NeuralBudget/actions/workflows/release.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/release.yml)
+[![CD](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml/badge.svg)](https://github.com/pristley/NeuralBudget/actions/workflows/cd.yml)
 [![Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![Tag](https://img.shields.io/github/v/tag/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/tags)
 [![Last Commit](https://img.shields.io/github/last-commit/pristley/NeuralBudget/main)](https://github.com/pristley/NeuralBudget/commits/main)
@@ -625,9 +625,10 @@ The benchmark target includes representative chain-graph sizes (`100`, `1_000`, 
 
 ## PyPI Publishing
 
-NeuralBudget publishes pre-built artifacts from the CD workflow:
+NeuralBudget publishes pre-built artifacts from the release workflow:
 
 - [`.github/workflows/release.yml`](.github/workflows/release.yml)
+- [`.github/workflows/cd.yml`](.github/workflows/cd.yml)
 
 On tagged releases (`v*`), CD now performs:
 
@@ -657,7 +658,7 @@ Published artifacts include:
 2. Push the version bump commit to `main`.
 3. Create and push a tag like `v0.1.3`.
 4. Publish a GitHub Release for that tag.
-5. CD builds crate + sdist + multi-platform wheels and publishes to PyPI.
+5. The release workflow builds crate + sdist + multi-platform wheels and publishes to PyPI.
 
 ## Changelog
 
