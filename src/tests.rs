@@ -24,7 +24,7 @@ fn calculate_availability_matches_pure_python_ratio() {
         let total = 50_u64;
 
         let expected: f64 = {
-            let builtins = py.import_bound("builtins").unwrap();
+            let builtins = py.import("builtins").unwrap();
             let eval_fn = builtins.getattr("eval").unwrap();
             let globals = PyDict::new(py);
             globals.set_item("__builtins__", &builtins).unwrap();
@@ -162,7 +162,7 @@ fn python_window_function_matches_rust_logic() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_test").unwrap();
         module
             .add_function(wrap_pyfunction!(is_timestamp_in_window, &module).unwrap())
             .unwrap();
@@ -187,7 +187,7 @@ fn python_http_slo_histogram_wrapper_evaluates_sample() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_http_slo_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_http_slo_test").unwrap();
         module
             .add_function(wrap_pyfunction!(evaluate_http_slo_histogram, &module).unwrap())
             .unwrap();
@@ -196,7 +196,7 @@ fn python_http_slo_histogram_wrapper_evaluates_sample() {
         sample.set_item("timestamp", 1_i64).unwrap();
         sample.set_item("success", 9_995_u64).unwrap();
         sample.set_item("total", 10_000_u64).unwrap();
-        let buckets = PyList::empty_bound(py);
+        let buckets = PyList::empty(py);
         for (upper_bound_ms, count) in [(100.0, 9_700_u64), (150.0, 200_u64), (220.0, 100_u64)] {
             let bucket = PyDict::new(py);
             bucket.set_item("upper_bound_ms", upper_bound_ms).unwrap();
@@ -227,7 +227,7 @@ fn python_stateful_slo_wrapper_penalizes_wait_time() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_stateful_slo_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_stateful_slo_test").unwrap();
         module
             .add_function(wrap_pyfunction!(evaluate_stateful_slo, &module).unwrap())
             .unwrap();
@@ -1100,7 +1100,7 @@ fn python_module_registration_exports_expected_symbols() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_module_init_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_module_init_test").unwrap();
         neuralbudget(py, &module).unwrap();
 
         for name in [
@@ -1263,7 +1263,12 @@ fn wrapper_extract_fast_paths_and_dict_fallbacks_work() {
         let err = extract_required::<i64>(&empty, "missing").unwrap_err();
         assert!(err.to_string().contains("missing required key 'missing'"));
 
-        let py_int = 123_i64.into_py(py);
+        let py_int = {
+            #[allow(deprecated)]
+            {
+                123_i64.into_py(py)
+            }
+        };
         let bad_extract = py_int.bind(py).extract::<SloConfig>();
         assert!(bad_extract.is_err());
         assert!(bad_extract
@@ -1980,12 +1985,13 @@ fn pyo3_python_call_paths_cover_wrapper_regions() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_pycoverage").unwrap();
+        let module = PyModule::new(py, "neuralbudget_pycoverage").unwrap();
         neuralbudget(py, &module).unwrap();
 
         let locals = PyDict::new(py);
         locals.set_item("nb", &module).unwrap();
 
+        #[allow(deprecated)]
         py.run_bound(
             r#"
 cfg = nb.SloConfig(99.9, "7d")
@@ -2160,12 +2166,13 @@ fn python_prometheus_export_helpers_and_class_work() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_prometheus_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_prometheus_test").unwrap();
         neuralbudget(py, &module).unwrap();
 
         let locals = PyDict::new(py);
         locals.set_item("nb", &module).unwrap();
 
+        #[allow(deprecated)]
         py.run_bound(
             r#"
 sample = nb.HistogramSample(
@@ -2274,7 +2281,7 @@ fn python_otlp_ingestion_and_http_evaluation_work() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new_bound(py, "neuralbudget_otlp_test").unwrap();
+        let module = PyModule::new(py, "neuralbudget_otlp_test").unwrap();
         neuralbudget(py, &module).unwrap();
 
         let locals = PyDict::new(py);
@@ -2283,6 +2290,7 @@ fn python_otlp_ingestion_and_http_evaluation_work() {
             .set_item("otlp_payload", sample_otlp_payload_json())
             .unwrap();
 
+        #[allow(deprecated)]
         py.run_bound(
             r#"
 hist = nb.ingest_otlp_histogram(otlp_payload, "http.server.duration")

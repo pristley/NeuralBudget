@@ -1611,6 +1611,7 @@ pub fn semantic_similarity_placeholder(
             model_name.unwrap_or("sentence-transformers/all-MiniLM-L6-v2"),
         )?;
 
+        #[allow(deprecated)]
         py.run_bound(
             r#"
 from sentence_transformers import SentenceTransformer
