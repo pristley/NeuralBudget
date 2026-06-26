@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import json
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, cast
 
 from .alerting import AlertDispatcher
 from . import convenience
@@ -24,17 +24,8 @@ from . import neuralbudget as _native
 EvaluationMode = Literal["http", "stateful", "ml", "genai", "composite"]
 
 
-class ClientConfigFile(TypedDict, total=False):
-    """Serialized config schema accepted by NeuralBudgetClient.load_config."""
-
-    schema_version: int
-    mode: EvaluationMode
-    profile: str
-    params: dict[str, Any]
-    alerts: dict[str, Any]
-
-
-class CompositeServiceInput(TypedDict):
+@dataclass(frozen=True)
+class CompositeServiceInput:
     """Service node payload for composite DAG evaluation."""
 
     service: str
@@ -43,7 +34,8 @@ class CompositeServiceInput(TypedDict):
     impact_weight: float
 
 
-class CompositeDependencyInput(TypedDict):
+@dataclass(frozen=True)
+class CompositeDependencyInput:
     """Edge payload describing dependency impact in a composite DAG."""
 
     dependency: str
@@ -51,12 +43,24 @@ class CompositeDependencyInput(TypedDict):
     failure_penalty: float
 
 
-class CompositeMetricData(TypedDict):
+@dataclass(frozen=True)
+class CompositeMetricData:
     """Input payload for composite mode evaluate calls."""
 
     services: list[CompositeServiceInput]
     dependencies: list[CompositeDependencyInput]
     global_min_pass_score: float
+
+
+@dataclass(frozen=True)
+class ClientConfigFile:
+    """Serialized config schema accepted by NeuralBudgetClient.load_config."""
+
+    mode: EvaluationMode
+    schema_version: int = 1
+    profile: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
+    alerts: dict[str, Any] = field(default_factory=dict)
 
 
 MetricData = dict[str, Any] | CompositeMetricData
@@ -358,13 +362,13 @@ class NeuralBudgetClient:
         return evaluation
 
     @staticmethod
-    def _read_config_file(path: Path) -> ClientConfigFile:
-        """Load JSON or YAML config and normalize to a ClientConfigFile dict."""
+    def _read_config_file(path: Path) -> dict[str, Any]:
+        """Load JSON or YAML config and return as dict."""
         suffix = path.suffix.lower()
         if suffix == ".json":
             with path.open("r", encoding="utf-8") as handle:
                 data = json.load(handle)
-                return cast(ClientConfigFile, data)
+                return data if isinstance(data, dict) else {}
 
         if suffix in {".yaml", ".yml"}:
             try:
@@ -376,12 +380,12 @@ class NeuralBudgetClient:
                 ) from exc
             with path.open("r", encoding="utf-8") as handle:
                 data = yaml.safe_load(handle)  # type: ignore[attr-defined]
-                return cast(ClientConfigFile, data or {})
+                return data if isinstance(data, dict) else {}
 
         raise ValueError("Unsupported config extension. Use .json, .yaml, or .yml")
 
     @classmethod
-    def _validate_config_schema(cls, raw: ClientConfigFile) -> ClientConfigFile:
+    def _validate_config_schema(cls, raw: dict[str, Any]) -> dict[str, Any]:
         """Validate top-level client config schema and version compatibility."""
         if not isinstance(raw, dict):
             raise ValueError("Invalid config: expected a JSON/YAML object at the top level")

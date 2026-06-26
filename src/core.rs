@@ -10,6 +10,58 @@ use pyo3::types::PyDict;
 use serde::de::{DeserializeOwned, Error as DeError};
 use serde::{Deserialize, Serialize};
 
+/// Comprehensive error type for NeuralBudget library operations.
+///
+/// This enum covers all error conditions that may occur during:
+/// - Configuration deserialization
+/// - SLO evaluation
+/// - Composite DAG processing
+/// - Format conversions (OTLP, Prometheus)
+#[derive(Debug, Clone)]
+pub enum NeuralBudgetError {
+    /// Configuration deserialization or validation failed
+    ConfigError(String),
+    /// Composite dependency DAG operation failed
+    CompositeError(String),
+    /// Format conversion (OTLP, Prometheus, etc.) failed
+    FormatError(String),
+    /// SLO evaluation logic encountered an invariant violation
+    EvaluationError(String),
+    /// Schema version is unsupported
+    SchemaVersionError { found: u32, supported: String },
+}
+
+impl std::fmt::Display for NeuralBudgetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ConfigError(msg) => write!(f, "Configuration error: {msg}"),
+            Self::CompositeError(msg) => write!(f, "Composite DAG error: {msg}"),
+            Self::FormatError(msg) => write!(f, "Format conversion error: {msg}"),
+            Self::EvaluationError(msg) => write!(f, "Evaluation error: {msg}"),
+            Self::SchemaVersionError { found, supported } => {
+                write!(f, "Unsupported schema version {found}; supported: {supported}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for NeuralBudgetError {}
+
+impl From<serde_json::Error> for NeuralBudgetError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::FormatError(format!("JSON error: {err}"))
+    }
+}
+
+impl From<serde_yaml::Error> for NeuralBudgetError {
+    fn from(err: serde_yaml::Error) -> Self {
+        Self::FormatError(format!("YAML error: {err}"))
+    }
+}
+
+/// Result type alias using NeuralBudgetError as the error type.
+pub type Result<T> = std::result::Result<T, NeuralBudgetError>;
+
 const SLO_CONFIG_SCHEMA_VERSION: u32 = 1;
 
 fn deserialize_slo_config_schema_version<'de, D>(deserializer: D) -> Result<u32, D::Error>

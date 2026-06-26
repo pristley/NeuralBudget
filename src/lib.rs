@@ -7,6 +7,8 @@ mod python;
 mod streaming;
 mod slo_graph;
 
+// Export error types and result alias first
+pub use core::{NeuralBudgetError, Result};
 pub use core::*;
 pub use exporter::*;
 pub use otlp::*;

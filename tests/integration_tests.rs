@@ -41,7 +41,7 @@ fn burn_rate_compares_five_minutes_against_one_hour() {
 #[test]
 fn mad_and_outlier_filter_handle_latency_spike() {
     let values = vec![120.0, 130.0, 110.0, 125.0, 4_000.0];
-    let mad = calculate_mad(&values).unwrap();
+    let mad = calculate_mad(&values).expect("MAD calculation should succeed for valid input");
     assert!(mad > 0.0);
 
     let stream: Vec<MetricPoint> = values
@@ -182,31 +182,31 @@ fn serialization_round_trips_across_models() {
     };
 
     assert_eq!(
-        SloConfig::from_json_str(&config.to_json_string().unwrap()).unwrap(),
+        SloConfig::from_json_str(&config.to_json_string().expect("SloConfig serialization should succeed")).expect("SloConfig deserialization should succeed"),
         config
     );
     assert_eq!(
-        ErrorBudget::from_yaml_str(&budget.to_yaml_string().unwrap()).unwrap(),
+        ErrorBudget::from_yaml_str(&budget.to_yaml_string().expect("ErrorBudget serialization should succeed")).expect("ErrorBudget deserialization should succeed"),
         budget
     );
     assert_eq!(
-        MetricPoint::from_json_str(&point.to_json_string().unwrap()).unwrap(),
+        MetricPoint::from_json_str(&point.to_json_string().expect("MetricPoint serialization should succeed")).expect("MetricPoint deserialization should succeed"),
         point
     );
     assert_eq!(
-        TimeWindow::from_yaml_str(&window.to_yaml_string().unwrap()).unwrap(),
+        TimeWindow::from_yaml_str(&window.to_yaml_string().expect("TimeWindow serialization should succeed")).expect("TimeWindow deserialization should succeed"),
         window
     );
     assert_eq!(
-        HistogramSample::from_json_str(&histogram.to_json_string().unwrap()).unwrap(),
+        HistogramSample::from_json_str(&histogram.to_json_string().expect("HistogramSample serialization should succeed")).expect("HistogramSample deserialization should succeed"),
         histogram
     );
     assert_eq!(
-        HttpSlo::from_yaml_str(&http_slo.to_yaml_string().unwrap()).unwrap(),
+        HttpSlo::from_yaml_str(&http_slo.to_yaml_string().expect("HttpSlo serialization should succeed")).expect("HttpSlo deserialization should succeed"),
         http_slo
     );
     assert_eq!(
-        StatefulSlo::from_json_str(&stateful_slo.to_json_string().unwrap()).unwrap(),
+        StatefulSlo::from_json_str(&stateful_slo.to_json_string().expect("StatefulSlo serialization should succeed")).expect("StatefulSlo deserialization should succeed"),
         stateful_slo
     );
     assert_eq!(
