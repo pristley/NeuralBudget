@@ -7,6 +7,7 @@ use pyo3::types::PyDict;
 use crate::core::*;
 use crate::exporter::PrometheusExporter;
 use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
+use crate::streaming::StreamingAggregator;
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -2573,6 +2574,7 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCompositeServiceSloEvaluation>()?;
     module.add_class::<PyCompositeSloEvaluation>()?;
     module.add_class::<PyCompositeSloGraph>()?;
+    module.add_class::<StreamingAggregator>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;
