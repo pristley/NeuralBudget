@@ -15,6 +15,9 @@ This index groups documentation by audience and workflow.
 - I need production rollout guidance: [docs/guides/production-deployment.md](production-deployment.md)
 - I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
 - I need Prometheus scrape and alert patterns: [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
+- I need high-frequency metric collection: [../../PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md)
+- I need adaptive windowing details: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md)
+- I need streaming & performance implementation details: [../../PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md)
 - I need ready-made Grafana dashboards: [examples/grafana/README.md](../../examples/grafana/README.md)
 - I need the complete Python API reference: [docs/reference/api.md](../reference/api.md)
 - I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
@@ -26,9 +29,17 @@ This index groups documentation by audience and workflow.
 
 - [docs/plans/mlops-model-drift-serving-plan.md](../plans/mlops-model-drift-serving-plan.md): Detailed implementation plan for MlSlo hybrid scoring.
 
+## Phase 3: Streaming & Performance (Live)
+
+- **Overview**: [../../PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md) — Streaming aggregators and parallel evaluation walkthrough
+- **Streaming Implementation**: [../../PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md) — Architecture and design decisions
+- **Adaptive Windowing**: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md) — Memory-bounded high-frequency ingestion
+- **Deployment Guide**: [../../DEPLOYMENT_GUIDE.md](../../DEPLOYMENT_GUIDE.md) — Production rollout patterns for Phase 3 features
+
 ## API References
 
 - [docs/reference/api.md](../reference/api.md): Complete reference for NeuralBudget Python API, including native extension classes, NeuralBudgetClient, convenience functions, alert dispatching, data models, type hints, and examples.
+- [docs/reference/streaming-aggregator.md](../reference/streaming-aggregator.md): StreamingAggregator API, usage patterns, performance characteristics, and adaptive windowing behavior.
 - [docs/reference/convenience-layer.md](../reference/convenience-layer.md): Detailed reference for the Python convenience layer, typed dataclass returns, and profile presets.
 - [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md): Reference for Composite SLO DAG schemas, dependency propagation, global score semantics, and errors.
 

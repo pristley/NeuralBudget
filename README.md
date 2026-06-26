@@ -25,6 +25,7 @@
 - **ML Serving SLOs** — Hybrid scoring combining latency, GPU utilization, drift, and prediction confidence
 - **GenAI Workload SLOs** — Track throughput (TPS), responsiveness (TTFT), and semantic quality
 - **Composite Dependency DAGs** — Service graph evaluation with failure propagation and global SLO calculation
+- **Streaming Aggregation** — Windowed metric collection with automatic adaptive memory management for high-frequency ingestion
 - **Prometheus & OpenTelemetry** — Native exporters and ingestion for observability integration
 
 ### Why NeuralBudget?

@@ -1,5 +1,82 @@
 # Phase 3: Streaming & Performance — Implementation Summary
 
+## Feature: Adaptive Windowing for High-Frequency Ingestion
+
+**Status:** ✅ Implemented and Active (Phase 3.1)  
+**Design:** [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md)  
+**Date:** 2026-06-26
+
+### Overview
+
+When metric ingestion exceeds 15,000 samples/second (high-frequency burst), the `StreamingAggregator` automatically prunes data older than 5 seconds to **prevent unbounded memory growth**. This logic is:
+
+- ✅ **Automatic** — No Python-side configuration or API changes
+- ✅ **Internal** — Entirely within Rust; not exposed to users
+- ✅ **Opt-free** — Activates whenever velocity threshold is exceeded
+- ✅ **Memory-bounded** — Max buffer ≈ 100,000 entries (~4 MB) at 20k samples/sec
+
+### How It Works
+
+**Velocity Tracking:**
+```
+Track last 1000 timestamps separately from main buffer
+Every 100 samples: Compute velocity = 1000 / (newest_ts - oldest_ts in milliseconds) * 1000
+If velocity > 15,000 samples/sec: Trigger auto-prune
+Auto-prune: Remove all data older than (current_ts - 5000 ms)
+```
+
+**Memory Bounds Example:**
+- Ingestion rate: 20,000 samples/sec
+- Auto-prune window: 5 seconds  
+- Max buffer: 20,000 × 5 = 100,000 entries
+- Memory per entry: 40 bytes (i64 + f64)
+- Total memory: ~4 MB (fixed upper bound)
+
+### Behavior by Ingestion Rate
+
+**Normal Rate (< 15k samples/sec):**
+```
+✓ Full historical data retained
+✓ No automatic pruning
+✓ Application controls cleanup via prune() calls
+```
+
+**High Frequency (> 15k samples/sec):**
+```
+✓ Automatic pruning triggered
+✓ Data older than 5 seconds removed
+✓ Memory bounded to ~4 MB maximum
+✓ Recent window fully retained
+```
+
+### Python API (Unchanged)
+
+The Python interface is **identical**. Adaptive windowing requires no user action:
+
+```python
+from neuralbudget import StreamingAggregator
+
+agg = StreamingAggregator()
+agg.push(1000, 50.0)  # Automatic adaptation happens inside
+agg.push(1050, 52.0)
+avg = agg.get_moving_average(1050, 100)
+```
+
+### Testing & Validation
+
+Tests in `src/streaming.rs`:
+- `test_adaptive_windowing_high_velocity()` — Simulates 20k samples/sec
+- `test_velocity_window_tracks_last_1000()` — Velocity window integrity
+- `test_push_and_moving_average()` — Baseline functionality
+- `test_prune()` — Manual pruning still works
+
+Run:
+```bash
+cargo test streaming::tests::test_adaptive_windowing_high_velocity --lib
+```
+
+---
+
 ## Feature: Windowed Metric Aggregator
 
 **Status:** ✅ Implemented (Minimal, Production-Ready)  
