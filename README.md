@@ -371,6 +371,8 @@ print(f"Global SLO: {evaluation.global_slo:.3f}, System Pass: {evaluation.global
 
 Complete documentation organized by use case:
 
+### Core SLO Framework
+
 | Document | Audience | Purpose |
 |----------|----------|---------|
 | [Getting Started](docs/guides/getting-started.md) | New users | First successful run walkthrough |
@@ -382,6 +384,14 @@ Complete documentation organized by use case:
 | [Convenience Layer API](docs/reference/convenience-layer.md) | Python users | Helper functions and profile presets |
 | [Composite DAG Reference](docs/reference/composite-slo-dag.md) | Advanced users | Dependency graph evaluation semantics |
 | [Grafana Dashboards](examples/grafana/README.md) | Operators | Pre-built visualization templates |
+
+### Phase 3: High-Performance Streaming and Parallel Evaluation
+
+| Document | Audience | Purpose |
+|----------|----------|---------|
+| [Getting Started](PHASE3_GETTING_STARTED.md) | Python developers | Task-based walkthrough with code examples |
+| [API Reference](PARALLEL_SLO_API_REFERENCE.md) | API users | Complete method signatures and performance characteristics |
+| [Deployment Guide](DEPLOYMENT_GUIDE.md) | Operations/DevOps | Production configuration, monitoring, and troubleshooting |
 
 ### Runnable Examples
 
