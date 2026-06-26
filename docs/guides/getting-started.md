@@ -1,45 +1,52 @@
 # NeuralBudget Getting Started
 
-This guide is the fastest path to your first successful NeuralBudget evaluation.
-It is designed for engineers who want a practical result in under 10 minutes.
+Use this guide to run your first NeuralBudget evaluation in about 10 minutes.
 
-## 1. Choose Your Interface
+## What You Do
 
-Use this decision guide:
+1. Install NeuralBudget.
+2. Create a minimal SLO config file.
+3. Run one evaluation.
+4. Confirm that the evaluation passes.
+5. Run local quality checks.
 
-- Use Python + `NeuralBudgetClient` if you are working in notebooks, CI jobs, or data pipelines.
-- Use Python convenience helpers if you want one-shot evaluations with minimal setup.
-- Use Rust APIs if you need strict typing and native integration in Rust services.
+## Prerequisites
 
-## 2. Install
+- Python 3.9 or later
+- Rust toolchain (only if you build from source)
+- A shell environment on Linux, macOS, or Windows
 
-### Python (recommended first path)
+## 1. Install NeuralBudget
 
-```bash
+Choose one path.
+
+### Path A: Install from PyPI (fastest)
+
+~~~bash
+python3 -m pip install --upgrade pip
+python3 -m pip install neuralbudget
+~~~
+
+### Path B: Build from source (development path)
+
+~~~bash
+git clone https://github.com/pristley/NeuralBudget.git
+cd NeuralBudget
 python3 -m pip install --upgrade pip maturin
 maturin develop --release --manifest-path Cargo.toml
-```
+~~~
 
-Optional for YAML configs:
+Optional: install YAML support if you use YAML configs.
 
-```bash
+~~~bash
 python3 -m pip install pyyaml
-```
+~~~
 
-### Rust
+## 2. Create a Minimal Config
 
-Add in `Cargo.toml`:
+Create a file named slo.json.
 
-```toml
-[dependencies]
-neuralbudget = "0.1.2"
-```
-
-## 3. Create a Minimal Config
-
-Create `slo.json`:
-
-```json
+~~~json
 {
   "schema_version": 1,
   "mode": "http",
@@ -48,13 +55,13 @@ Create `slo.json`:
     "latency_threshold_ms": 200.0
   }
 }
-```
+~~~
 
-## 4. Run Your First Evaluation
+## 3. Run Your First Evaluation
 
-Create `quick_eval.py`:
+Create a file named quick_eval.py.
 
-```python
+~~~python
 from neuralbudget import NeuralBudgetClient
 
 client = NeuralBudgetClient().load_config("slo.json")
@@ -67,72 +74,77 @@ result = client.evaluate(
         "buckets": [
             {"upper_bound_ms": 100.0, "count": 9700},
             {"upper_bound_ms": 200.0, "count": 9950},
-            {"upper_bound_ms": 300.0, "count": 10000},
+            {"upper_bound_ms": 300.0, "count": 10000}
         ],
-        "format": "prometheus_cumulative",
+        "format": "prometheus_cumulative"
     }
 )
 
-print(result)
-print("pass:", result.get("pass", result.get("global_pass")))
-```
+is_pass = result.get("pass", result.get("global_pass"))
+print("result:", result)
+print("pass:", bool(is_pass))
+~~~
 
-Run:
+Run it:
 
-```bash
+~~~bash
 python3 quick_eval.py
-```
+~~~
 
-## 5. Validate Local Quality Gates
+Expected outcome:
+- The script prints an evaluation object.
+- The pass line prints True for this sample input.
 
-Run the baseline checks:
+## 4. Validate Local Quality Gates
 
-```bash
+Run baseline checks:
+
+~~~bash
 cargo test --all-targets --all-features
 python3 tests/python_convenience_tests.py
 python3 tests/python_client_tests.py
-```
+~~~
 
-For full release-grade validation:
+Run release-grade checks:
 
-```bash
+~~~bash
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo llvm-cov --workspace --all-features --lib --tests --summary-only
-```
+~~~
 
-## 6. Common First-Run Errors
+Expected outcome:
+- All commands exit successfully.
+- No formatting, lint, or test failures remain.
 
-### `No config loaded. Call load_config(path) first.`
+## 5. Fix Common First-Run Errors
 
-Call `load_config(...)` before `evaluate(...)`.
+### Error: No config loaded. Call load_config(path) first.
+Fix:
+Call load_config before evaluate.
 
-### `Unsupported config extension`
+### Error: Unsupported config extension
+Fix:
+Use one of these config file extensions:
+- .json
+- .yaml
+- .yml
 
-Use `.json`, `.yaml`, or `.yml`.
+### Error: PyYAML is required to load YAML config files
+Fix:
 
-### `PyYAML is required to load YAML config files`
-
-Install:
-
-```bash
+~~~bash
 python3 -m pip install pyyaml
-```
+~~~
 
-### `unknown ... preset`
+### Error: unknown preset
+Fix:
+Use a valid preset name for your selected mode.
 
-Use a valid profile name from:
+## 6. Next Documentation
 
-- `HTTP_PROFILE_PRESETS`
-- `STATEFUL_PROFILE_PRESETS`
-- `ML_PROFILE_PRESETS`
-- `GENAI_PROFILE_PRESETS`
-
-## 7. Where To Go Next
-
-- Full walkthrough: [docs/guides/user-guide.md](user-guide.md)
+- Full workflow and mode guidance: [docs/guides/user-guide.md](user-guide.md)
 - Production rollout: [docs/guides/production-deployment.md](production-deployment.md)
-- Kubernetes operations: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
-- Webhook alerting example: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
+- Kubernetes deployment: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
 - Convenience API reference: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
-- Composite DAG semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
+- Composite DAG behavior: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
