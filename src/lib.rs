@@ -5,10 +5,13 @@ mod exporter;
 mod otlp;
 mod python;
 mod streaming;
+mod slo_graph;
 
 pub use core::*;
 pub use exporter::*;
 pub use otlp::*;
 pub use python::*;
 pub use streaming::*;
+pub use slo_graph::*;
+
 
