@@ -1,5 +1,5 @@
 # NeuralBudget Codebase Audit Report
-**Date:** 2026-06-25 | **Version:** 0.1.3 | **Coverage:** 87%
+**Date:** 2026-06-26 | **Version:** 0.1.4 | **Coverage:** 87%
 
 ---
 

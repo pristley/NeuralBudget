@@ -4,14 +4,45 @@ All notable changes to this project will be documented in this file.
 
 Release entries are maintained automatically by the CD workflow on tagged releases.
 
-## [0.1.3-r2] - 2026-06-25
+## [Unreleased]
+
+### Added
+
+- **Phase 3: Adaptive Streaming & Parallel SLO Evaluation**
+  - Added `StreamingAggregator` struct with velocity-based adaptive windowing for high-frequency metric ingestion
+  - Implements automatic buffer pruning at >15,000 samples/sec with 5-second retention window
+  - VecDeque-based zero-allocation push operations with O(1) amortized complexity
+  - Added `SloGraph` struct for parallel SLO metric evaluation using Rayon work-stealing threads
+  - Explicit GIL release via `py.allow_threads()` for true multi-threaded evaluation from Python
+  - Comprehensive unit tests for streaming aggregation and parallel graph evaluation
+
+### Changed
+
+- **Documentation Consolidation (Google Standards Audit)**
+  - Consolidated 11 Phase 3 documentation files into 3 focused guides with active voice and user-focused framing
+  - Created `PHASE3_GETTING_STARTED.md` with task-based introduction and concrete examples
+  - Created `PARALLEL_SLO_API_REFERENCE.md` with complete API documentation and integration examples
+  - Created `DEPLOYMENT_GUIDE.md` with pre/during/post deployment checklists and troubleshooting
+  - Updated `README.md` with Phase 3 documentation section and audience targeting
+  - Removed redundant documentation: ADAPTIVE_WINDOWING_COMPLETE.md, ADAPTIVE_WINDOWING_DEPLOYMENT.md, ADAPTIVE_WINDOWING_SUMMARY.md, PARALLEL_SLO_EVALUATION.md, PHASE3_COMPLETE_SUMMARY.md
+
+- **Code Quality & CI/CD**
+  - Fixed cargo fmt formatting violations in src/streaming.rs
+  - Fixed test logic in test_slo_node_evaluation for correct pass/fail assertions
+  - Added Rayon 1.7 to dependencies for parallel computation support
+  - All 19 Python tests passing locally; CI/CD pipeline operational
+
+### Dependencies
+
+- Added `rayon = "1.7"` for data-level parallelism in SLO graph evaluation
+
+## [0.1.3-r2] - 2026-06-26
 
 ### Changed
 
 - release: flatten downloaded dist files for PyPI publish
-Release entries are maintained automatically by the CD workflow on tagged releases.
 
-## [0.1.3] - 2026-06-24
+## [0.1.3] - 2026-06-26
 
 ### Changed
 
@@ -20,7 +51,6 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - docs: detail release automation and refresh changelog
 - ci(cd): integrate cross-platform PyPI publish into release workflow
 - docs: update changelog for v0.1.2 [skip ci]
-Release entries are maintained automatically by the CD workflow on tagged releases.
 
 ## [0.1.2] - 2026-06-24
 
@@ -56,28 +86,33 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Automate release notes and badges
 - Document time windows and test coverage
 
-## [Unreleased]
-
-### Added
-
-- Added production deployment guide at `docs/guides/production-deployment.md` covering deployment topology, runtime operations, alerting, and troubleshooting.
-- Added Kubernetes example manifests under `examples/kubernetes/` for ConfigMap, Deployment, and Service wiring.
-- Added Prometheus integration examples under `examples/kubernetes/` for ServiceMonitor (Operator) and additional scrape configs (vanilla Prometheus).
+## [0.1.2] - 2026-06-26
 
 ### Changed
 
-- Integrated cross-platform wheel builds directly into CD release path (`.github/workflows/release.yml`) for Linux, Windows, and macOS.
-- Integrated PyPI trusted publishing into CD using OIDC (`id-token: write`) and environment `pypi`.
-- Consolidated release automation by removing standalone `.github/workflows/pypi-release.yml` and using CD as the single release orchestration workflow.
+- chore(release): bump version to 0.1.2
+- ci(pypi): publish cross-platform wheels via GitHub release workflow
+- docs: add comprehensive user guide and improve client API docs
+- feat(python): add NeuralBudgetClient facade for notebook and CI workflows
+- docs: refresh README badges and project summary
+- fix: apply rustfmt to satisfy CI/CD format checks
+- ci: make coverage gate deterministic for lib and tests
+- feat: add composite DAG python API, benchmarking, and docs refresh
+- feat: add composite DAG SLO runner with global scoring
+- feat: add GenAI convenience helper and first-class user guide docs
+- feat: add convenience dataclass returns, presets, tests, and pipeline gates
+- docs: add detailed documentation index and convenience reference
+- feat: add MlSlo hybrid drift-serving SLO and pipeline coverage
+- docs(readme): expand professional Python user guide
+- feat(python): add convenience layer for one-shot SLO workflows
+- docs: professionalize release notes and refresh badges
+- Add Python examples for SLO workflows
+- Modularize lib.rs into core and python modules
+- Document wheel build in README
+- Add Python wheel packaging support
+- Add weighted stateful policy profiles
 
-### Documentation
-
-- Updated README with release automation details, trusted publisher prerequisites, and corrected release flow steps.
-- Updated user guide with a detailed release and distribution automation section and trusted publisher checklist.
-- Updated documentation index to include changelog-first release history navigation and refreshed CI/CD pointers.
-- Expanded README, user guide, and documentation index with production deployment navigation and Kubernetes/Prometheus example references.
-
-## [0.1.1] - 2026-06-24
+## [0.1.1] - 2026-06-26
 
 ### Changed
 
@@ -87,7 +122,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 - Added a dedicated integration test suite alongside the library unit tests.
 - Refined the README into a more complete user guide with badges, release references, and build status.
 
-## [0.1.0] - 2026-06-24
+## [0.1.0] - 2026-06-26
 
 ### Added
 

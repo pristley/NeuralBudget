@@ -136,6 +136,36 @@ NeuralBudget follows three core principles:
 
 **Interoperability**: PyO3 enables native Python bindings without wrapper overhead. Call Rust code from Python as if it were Python, but with Rust's guarantees.
 
+### Why This Architecture?
+
+The Rust-core + Python-bindings design addresses fundamental challenges in reliability engineering:
+
+#### Problem 1: Reproducibility Across Environments
+**Challenge**: SLO calculations must be identical whether evaluated in CI/CD pipelines, production sidecars, or analytics notebooks.  
+**Solution**: By implementing all calculation logic in a compiled Rust core, NeuralBudget guarantees bit-for-bit reproducibility. There's no floating-point runtime variation, no GC pauses, no JIT compilation artifacts. Python developers get that guarantee automatically.
+
+#### Problem 2: Bridging Data Science and Systems Engineering
+**Challenge**: Data scientists need notebooks and Python; infrastructure teams need compiled reliability and performance. A pure Python implementation would be too slow for production; a pure Rust-only library frustrates notebook users.  
+**Solution**: Rust provides the deterministic calculation engine; Python provides the ergonomic interface. Users choose their tool, get Rust's correctness guarantees either way.
+
+#### Problem 3: Correctness at Scale
+**Challenge**: SLO evaluation mistakes can lead to under-provisioning, false escalations, and eroded customer trust. Type systems alone aren't enough.  
+**Solution**: Strong types in Rust + TypedDict validation in Python + schema versioning in YAML configs create multiple layers of defense:
+- Compile-time checks catch API mismatches in Rust
+- Runtime TypedDict validation catches malformed configs
+- Schema versioning prevents silent incompatibilities across versions
+
+#### Problem 4: Performance Without Compromise
+**Challenge**: Composite DAG evaluation can be expensive (topological sort, failure propagation). In CI/CD, we need sub-millisecond latency; in notebooks, we need interactivity.  
+**Solution**: Rust's zero-cost abstractions mean no overhead. Evaluating a 50-node composite SLO graph completes in microseconds, making it feasible to:
+- Gate CI/CD on SLO metrics without slowing builds
+- Interactively explore SLO scenarios in notebooks
+- Run thousands of evaluations in seconds for analysis
+
+#### Problem 5: Minimal Maintenance Burden
+**Challenge**: Keeping multiple implementations in sync (Python-only, Node-only, Go-only) is a maintainability nightmare. Bugs fixed in one don't reach others; features diverge; APIs drift.  
+**Solution**: Single source of truth in Rust. Python bindings are thin FFI wrappers. Testing focuses on the core. When you update business logic, it updates everywhere automatically.
+
 ### Project Structure
 
 | Component | Purpose | Language |

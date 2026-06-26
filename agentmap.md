@@ -320,4 +320,7 @@ NeuralBudget/
 - **User Guide**: `docs/guides/user-guide.md`
 - **Getting Started**: `docs/guides/getting-started.md`
 - **Production Deployment**: `docs/guides/production-deployment.md`
-- **API Reference**: `docs/reference/composite-slo-dag.md`, `docs/reference/convenience-layer.md`
+- **API References**:
+  - **Python API**: `docs/reference/api.md` — Complete Python extension and convenience layer reference
+  - **Composite SLO DAG**: `docs/reference/composite-slo-dag.md` — Dependency graph schemas and scoring
+  - **Convenience Layer**: `docs/reference/convenience-layer.md` — Helper functions and profile presets
