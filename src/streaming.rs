@@ -143,7 +143,6 @@ impl StreamingAggregator {
         if ts_delta_ms <= 0 {
             return; // No time passage; velocity is undefined or infinite
         }
-        
         // Calculate velocity: samples per second
         let velocity_samples_per_sec = (1000 * 1000) / ts_delta_ms;
         
@@ -228,10 +227,12 @@ mod tests {
         // every 100 pushes should trigger velocity check.
         // Velocity = 1000 samples / (newest_ts - oldest_ts in window in ms) in samples/sec
         // With our compact timestamps, this simulates high-frequency ingestion.
-        
         // The buffer may be auto-pruned if velocity exceeds 15,000 samples/sec.
         // Just verify the buffer exists and hasn't exploded in size.
-        assert!(agg.len() < 2000, "Adaptive windowing should bound buffer size during high velocity");
+        assert!(
+            agg.len() < 2000,
+            "Adaptive windowing should bound buffer size during high velocity"
+        );
     }
 
     #[test]
