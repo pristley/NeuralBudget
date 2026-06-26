@@ -181,17 +181,19 @@ mod tests {
 
     #[test]
     fn test_slo_node_evaluation() {
-        let node = SloNode {
+        let pass_node = SloNode {
+            id: "api_latency".to_string(),
+            value: 250.0,
+            threshold: 200.0,
+        };
+        assert!(pass_node.evaluate()); // 250 >= 200 is true
+
+        let fail_node = SloNode {
             id: "api_latency".to_string(),
             value: 150.0,
             threshold: 200.0,
         };
-
-        assert!(node.evaluate()); // 150 >= 200 is false, but node.evaluate checks value >= threshold
-                                  // Wait, that should be false. Let me reconsider.
-                                  // Actually, let me check: value >= threshold means 150 >= 200 = false.
-                                  // So node.evaluate() should return false.
-                                  // This test is wrong. Let me fix the test.
+        assert!(!fail_node.evaluate()); // 150 >= 200 is false
     }
 
     #[test]
