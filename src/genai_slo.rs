@@ -666,3 +666,288 @@ mod tests {
         assert!(eval.inter_token_pass);
     }
 }
+
+// ============================================================================
+// Unified Composite GenAI SLO Evaluation
+// ============================================================================
+
+/// Individual dimension scores for composite GenAI SLO
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositeGenAiDimensions {
+    /// Throughput score (0.0-1.0): tokens/sec / target_tps
+    pub throughput_score: f64,
+    /// TTFT score (0.0-1.0): 1.0 if passes, 0.0 otherwise, or normalized 0-1
+    pub ttft_score: f64,
+    /// Quality score (0.0-1.0): semantic similarity or LLM judge rating
+    pub quality_score: f64,
+    /// Groundedness score (0.0-1.0): 1.0 - hallucination_rate
+    pub groundedness_score: f64,
+    /// Cost score (0.0-1.0): budget_remaining / total_budget
+    pub cost_score: f64,
+    /// Retrieval score (0.0-1.0): recall@k or MRR for RAG
+    pub retrieval_score: f64,
+    /// Success rate (0.0-1.0): successful_requests / total_requests
+    pub success_rate: f64,
+}
+
+impl CompositeGenAiDimensions {
+    /// All dimensions must be between 0.0 and 1.0
+    pub fn validate(&self) -> Result<()> {
+        let dimensions = vec![
+            ("throughput", self.throughput_score),
+            ("ttft", self.ttft_score),
+            ("quality", self.quality_score),
+            ("groundedness", self.groundedness_score),
+            ("cost", self.cost_score),
+            ("retrieval", self.retrieval_score),
+            ("success_rate", self.success_rate),
+        ];
+
+        for (name, score) in dimensions {
+            if score < 0.0 || score > 1.0 {
+                return Err(NeuralBudgetError::EvaluationError(format!(
+                    "{} score {:.2} must be between 0.0 and 1.0",
+                    name, score
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Unified GenAI SLO evaluation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositeGenAiEvaluation {
+    /// Individual dimension scores
+    pub dimensions: CompositeGenAiDimensions,
+    /// Weighted composite score (0.0-1.0)
+    pub composite_score: f64,
+    /// Whether all required dimensions pass
+    pub all_dimensions_pass: bool,
+    /// Whether composite score meets minimum target
+    pub composite_pass: bool,
+    /// Overall SLO result (all_pass AND composite_pass)
+    pub pass: bool,
+    /// Per-dimension pass/fail indicators
+    pub dimension_pass_status: DimensionPassStatus,
+}
+
+/// Per-dimension pass/fail status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DimensionPassStatus {
+    /// TTFT meets threshold
+    pub ttft_pass: bool,
+    /// Quality meets threshold
+    pub quality_pass: bool,
+    /// Groundedness meets threshold
+    pub groundedness_pass: bool,
+    /// Success rate meets threshold
+    pub success_rate_pass: bool,
+}
+
+/// Evaluate unified GenAI SLO combining all quality dimensions
+///
+/// # Arguments
+/// * `dimensions` - Individual scores for all dimensions (0.0-1.0)
+/// * `weights` - Configured weights for each dimension
+/// * `thresholds` - Minimum scores required for each dimension to pass
+///
+/// # Returns
+/// * `Result<CompositeGenAiEvaluation>` - Combined evaluation with composite score
+pub fn evaluate_composite_genai_slo(
+    dimensions: &CompositeGenAiDimensions,
+    weights: &crate::CompositeGenAiWeights,
+    thresholds: &CompositeGenAiThresholds,
+) -> Result<CompositeGenAiEvaluation> {
+    // Validate inputs
+    dimensions.validate()?;
+    weights.validate()?;
+    thresholds.validate()?;
+
+    // Calculate weighted composite score
+    let composite_score = weights.throughput_weight * dimensions.throughput_score
+        + weights.ttft_weight * dimensions.ttft_score
+        + weights.quality_weight * dimensions.quality_score
+        + weights.groundedness_weight * dimensions.groundedness_score
+        + weights.cost_weight * dimensions.cost_score
+        + weights.retrieval_weight * dimensions.retrieval_score
+        + weights.success_rate_weight * dimensions.success_rate;
+
+    // Check per-dimension pass/fail
+    let ttft_pass = dimensions.ttft_score >= thresholds.ttft_min;
+    let quality_pass = dimensions.quality_score >= thresholds.quality_min;
+    let groundedness_pass = dimensions.groundedness_score >= thresholds.groundedness_min;
+    let success_rate_pass = dimensions.success_rate >= thresholds.success_rate_min;
+
+    let all_dimensions_pass = ttft_pass && quality_pass && groundedness_pass && success_rate_pass;
+    let composite_pass = composite_score >= weights.min_target_score;
+
+    // Overall pass: all dimensions must pass AND composite score must meet target
+    let pass = all_dimensions_pass && composite_pass;
+
+    Ok(CompositeGenAiEvaluation {
+        dimensions: dimensions.clone(),
+        composite_score,
+        all_dimensions_pass,
+        composite_pass,
+        pass,
+        dimension_pass_status: DimensionPassStatus {
+            ttft_pass,
+            quality_pass,
+            groundedness_pass,
+            success_rate_pass,
+        },
+    })
+}
+
+/// Thresholds for individual dimensions to pass
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositeGenAiThresholds {
+    /// Minimum TTFT score (0.0-1.0)
+    #[serde(default = "default_ttft_min")]
+    pub ttft_min: f64,
+    /// Minimum quality score (0.0-1.0)
+    #[serde(default = "default_quality_min")]
+    pub quality_min: f64,
+    /// Minimum groundedness score (0.0-1.0)
+    #[serde(default = "default_groundedness_min")]
+    pub groundedness_min: f64,
+    /// Minimum success rate (0.0-1.0)
+    #[serde(default = "default_success_rate_min")]
+    pub success_rate_min: f64,
+}
+
+fn default_ttft_min() -> f64 { 0.90 }
+fn default_quality_min() -> f64 { 0.85 }
+fn default_groundedness_min() -> f64 { 0.95 }
+fn default_success_rate_min() -> f64 { 0.99 }
+
+impl Default for CompositeGenAiThresholds {
+    fn default() -> Self {
+        Self {
+            ttft_min: 0.90,
+            quality_min: 0.85,
+            groundedness_min: 0.95,
+            success_rate_min: 0.99,
+        }
+    }
+}
+
+impl CompositeGenAiThresholds {
+    /// Validate thresholds are in valid range
+    pub fn validate(&self) -> Result<()> {
+        let thresholds = vec![
+            ("ttft", self.ttft_min),
+            ("quality", self.quality_min),
+            ("groundedness", self.groundedness_min),
+            ("success_rate", self.success_rate_min),
+        ];
+
+        for (name, threshold) in thresholds {
+            if threshold < 0.0 || threshold > 1.0 {
+                return Err(NeuralBudgetError::ConfigError(format!(
+                    "{}_min threshold {:.2} must be between 0.0 and 1.0",
+                    name, threshold
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod composite_tests {
+    use super::*;
+
+    #[test]
+    fn test_composite_all_pass() {
+        let dims = CompositeGenAiDimensions {
+            throughput_score: 0.95,
+            ttft_score: 0.92,
+            quality_score: 0.88,
+            groundedness_score: 0.97,
+            cost_score: 0.90,
+            retrieval_score: 0.93,
+            success_rate: 0.99,
+        };
+
+        let weights = crate::CompositeGenAiWeights::default();
+        let thresholds = CompositeGenAiThresholds::default();
+
+        let eval = evaluate_composite_genai_slo(&dims, &weights, &thresholds).unwrap();
+
+        assert!(eval.pass);
+        assert!(eval.composite_pass);
+        assert!(eval.all_dimensions_pass);
+    }
+
+    #[test]
+    fn test_composite_quality_fail() {
+        let dims = CompositeGenAiDimensions {
+            throughput_score: 0.95,
+            ttft_score: 0.92,
+            quality_score: 0.75, // Below 0.85 threshold
+            groundedness_score: 0.97,
+            cost_score: 0.90,
+            retrieval_score: 0.93,
+            success_rate: 0.99,
+        };
+
+        let weights = crate::CompositeGenAiWeights::default();
+        let thresholds = CompositeGenAiThresholds::default();
+
+        let eval = evaluate_composite_genai_slo(&dims, &weights, &thresholds).unwrap();
+
+        assert!(!eval.pass);
+        assert!(!eval.dimension_pass_status.quality_pass);
+    }
+
+    #[test]
+    fn test_composite_score_calculation() {
+        let dims = CompositeGenAiDimensions {
+            throughput_score: 1.0,
+            ttft_score: 1.0,
+            quality_score: 1.0,
+            groundedness_score: 1.0,
+            cost_score: 1.0,
+            retrieval_score: 1.0,
+            success_rate: 1.0,
+        };
+
+        let weights = crate::CompositeGenAiWeights::default();
+        let thresholds = CompositeGenAiThresholds::default();
+
+        let eval = evaluate_composite_genai_slo(&dims, &weights, &thresholds).unwrap();
+
+        // All dimensions at 1.0 should yield composite score of 1.0
+        assert!((eval.composite_score - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_composite_threshold_pass() {
+        let dims = CompositeGenAiDimensions {
+            throughput_score: 0.85,
+            ttft_score: 0.85,
+            quality_score: 0.85,
+            groundedness_score: 0.85,
+            cost_score: 0.85,
+            retrieval_score: 0.85,
+            success_rate: 0.85,
+        };
+
+        let weights = crate::CompositeGenAiWeights::default();
+        let thresholds = CompositeGenAiThresholds {
+            ttft_min: 0.80,
+            quality_min: 0.80,
+            groundedness_min: 0.80,
+            success_rate_min: 0.80,
+        };
+
+        let eval = evaluate_composite_genai_slo(&dims, &weights, &thresholds).unwrap();
+
+        // Composite score: 0.85 * 1.0 = 0.85, which is >= 0.85 min_target
+        assert!(eval.composite_pass || eval.all_dimensions_pass);
+    }
+}

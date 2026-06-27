@@ -979,6 +979,89 @@ pub struct TtftEvaluationResult {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Weights for unified GenAI SLO evaluation combining all quality dimensions
+pub struct CompositeGenAiWeights {
+    /// Weight for throughput (TPS) — serving speed (0.0-1.0)
+    #[serde(default = "default_throughput_weight")]
+    pub throughput_weight: f64,
+    /// Weight for TTFT (Time to First Token) — perceived responsiveness (0.0-1.0)
+    #[serde(default = "default_ttft_weight")]
+    pub ttft_weight: f64,
+    /// Weight for quality (semantic similarity or LLM judge) (0.0-1.0)
+    #[serde(default = "default_quality_weight")]
+    pub quality_weight: f64,
+    /// Weight for groundedness (hallucination rate) — factual accuracy (0.0-1.0)
+    #[serde(default = "default_groundedness_weight")]
+    pub groundedness_weight: f64,
+    /// Weight for cost (token budget) — cost efficiency (0.0-1.0)
+    #[serde(default = "default_cost_weight")]
+    pub cost_weight: f64,
+    /// Weight for retrieval quality (recall@k, MRR for RAG) (0.0-1.0)
+    #[serde(default = "default_retrieval_weight")]
+    pub retrieval_weight: f64,
+    /// Weight for success rate (request completion) (0.0-1.0)
+    #[serde(default = "default_success_rate_weight")]
+    pub success_rate_weight: f64,
+    /// Minimum target score for overall SLO pass (0.0-1.0)
+    #[serde(default = "default_min_target")]
+    pub min_target_score: f64,
+}
+
+// Default weight functions
+fn default_throughput_weight() -> f64 { 0.15 }
+fn default_ttft_weight() -> f64 { 0.15 }
+fn default_quality_weight() -> f64 { 0.30 }
+fn default_groundedness_weight() -> f64 { 0.15 }
+fn default_cost_weight() -> f64 { 0.10 }
+fn default_retrieval_weight() -> f64 { 0.10 }
+fn default_success_rate_weight() -> f64 { 0.05 }
+fn default_min_target() -> f64 { 0.85 }
+
+impl Default for CompositeGenAiWeights {
+    fn default() -> Self {
+        Self {
+            throughput_weight: 0.15,
+            ttft_weight: 0.15,
+            quality_weight: 0.30,
+            groundedness_weight: 0.15,
+            cost_weight: 0.10,
+            retrieval_weight: 0.10,
+            success_rate_weight: 0.05,
+            min_target_score: 0.85,
+        }
+    }
+}
+
+impl CompositeGenAiWeights {
+    /// Validate that weights sum to approximately 1.0 (allowing small floating-point error)
+    pub fn validate(&self) -> crate::Result<()> {
+        let sum = self.throughput_weight
+            + self.ttft_weight
+            + self.quality_weight
+            + self.groundedness_weight
+            + self.cost_weight
+            + self.retrieval_weight
+            + self.success_rate_weight;
+        
+        // Allow 1% tolerance for floating-point math
+        if (sum - 1.0).abs() > 0.01 {
+            return Err(NeuralBudgetError::ConfigError(format!(
+                "Composite GenAI weights must sum to 1.0 (got {:.4})",
+                sum
+            )));
+        }
+        
+        if self.min_target_score < 0.0 || self.min_target_score > 1.0 {
+            return Err(NeuralBudgetError::ConfigError(
+                "min_target_score must be between 0.0 and 1.0".to_string(),
+            ));
+        }
+        
+        Ok(())
+    }
+}
+
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,0 +1,112 @@
+# NeuralBudget Composite GenAI SLO Example
+# 
+# Unified SLO combining all quality dimensions for streaming LLM endpoints.
+# Balances throughput, responsiveness, quality, grounding, cost, retrieval, and success rate.
+
+mode: genai
+
+# Composite weights for unified scoring (must sum to 1.0)
+composite_weights:
+  # Throughput: Are we serving fast enough? (default 15%)
+  throughput_weight: 0.15
+  
+  # TTFT (Time to First Token): Is first token prompt? (default 15%)
+  ttft_weight: 0.15
+  
+  # Quality: Is output good? Semantic similarity or LLM judge rating (default 30%)
+  quality_weight: 0.30
+  
+  # Groundedness: Are claims factual? 1.0 - hallucination_rate (default 15%)
+  groundedness_weight: 0.15
+  
+  # Cost: Are we within budget? (default 10%)
+  cost_weight: 0.10
+  
+  # Retrieval: Did we get right context? Recall@k or MRR for RAG (default 10%)
+  retrieval_weight: 0.10
+  
+  # Success Rate: Did request complete? (default 5%)
+  success_rate_weight: 0.05
+  
+  # Minimum composite score for SLO pass (0.0-1.0)
+  min_target_score: 0.85
+
+# Per-dimension thresholds (scores must meet these minimums)
+composite_thresholds:
+  # TTFT score (1.0 = passes TTFT threshold, 0.0 = fails)
+  ttft_min: 0.90
+  
+  # Quality score (0.0-1.0, where 1.0 is perfect)
+  quality_min: 0.85
+  
+  # Groundedness score (1.0 = no hallucinations, 0.0 = all hallucinated)
+  groundedness_min: 0.95
+  
+  # Success rate (1.0 = all succeed, 0.0 = all fail)
+  success_rate_min: 0.99
+
+---
+# Alternative: Cost-Optimized Profile
+# Use when cost is the primary constraint but quality still required
+mode: genai
+
+composite_weights:
+  throughput_weight: 0.20      # Higher: prioritize serving speed
+  ttft_weight: 0.10            # Lower: acceptable wait time
+  quality_weight: 0.25         # Moderate quality target
+  groundedness_weight: 0.10    # Lower: some hallucinations acceptable
+  cost_weight: 0.25            # Higher: strict cost control
+  retrieval_weight: 0.05       # Lower: for non-RAG or loose matching
+  success_rate_weight: 0.05    # Standard
+
+  min_target_score: 0.80       # Slightly looser target
+
+composite_thresholds:
+  ttft_min: 0.75              # More lenient on TTFT
+  quality_min: 0.80
+  groundedness_min: 0.85      # More tolerant of hallucinations
+  success_rate_min: 0.95      # Still high success expectation
+
+---
+# Alternative: Quality-First Profile
+# Use for mission-critical applications where quality > cost
+mode: genai
+
+composite_weights:
+  throughput_weight: 0.10      # Lower: speed not primary
+  ttft_weight: 0.10            # Lower: wait time acceptable
+  quality_weight: 0.40         # Higher: quality priority
+  groundedness_weight: 0.25    # Higher: factuality critical
+  cost_weight: 0.05            # Very low: cost not primary
+  retrieval_weight: 0.05       # Low: or not applicable
+  success_rate_weight: 0.05    # Standard
+
+  min_target_score: 0.90       # Strict target
+
+composite_thresholds:
+  ttft_min: 0.80              # More lenient on TTFT
+  quality_min: 0.95           # Strict quality
+  groundedness_min: 0.98      # Strict factuality
+  success_rate_min: 0.99      # Very high success rate
+
+---
+# Alternative: Balanced Production Profile
+# Default profile suitable for most production services
+mode: genai
+
+composite_weights:
+  throughput_weight: 0.15
+  ttft_weight: 0.15
+  quality_weight: 0.30
+  groundedness_weight: 0.15
+  cost_weight: 0.10
+  retrieval_weight: 0.10
+  success_rate_weight: 0.05
+
+  min_target_score: 0.85
+
+composite_thresholds:
+  ttft_min: 0.90
+  quality_min: 0.85
+  groundedness_min: 0.95
+  success_rate_min: 0.99
