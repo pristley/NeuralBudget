@@ -229,5 +229,4 @@ assert report['passed'] == previous_report['passed']  # Always true
 
 **Version:** 0.1.3 | **License:** [Apache 2.0](LICENSE) | **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
-**Enterprise Support:** [LICENSING.md](LICENSING.md) — Contact sales@neuralbudget.io for commercial options, SLAs, and priority support.
-
+**Enterprise Support:** [LICENSING.md](LICENSING.md) — Contact user
