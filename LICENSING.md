@@ -1,13 +1,12 @@
 # NeuralBudget Licensing
 
-NeuralBudget is available under **dual licensing** to serve both open-source and commercial use cases.
+NeuralBudget is licensed under **Apache 2.0** — a permissive, industry-standard open-source license.
 
 ## Quick Summary
 
 | License | Cost | Use Case | Commercial Use | Modifications | Distribution |
 |---------|------|----------|-----------------|---------------|---------------|
-| **Apache 2.0** | Free ✓ | Open source & commercial | ✓ Unlimited | ✓ Yes | ✓ Yes (with attribution) |
-| **Commercial** | Paid | Enterprise with support | ✓ Yes | ✓ Yes | ✗ No resale | 
+| **Apache 2.0** | Free ✓ | Open source, SaaS, enterprise | ✓ Unlimited | ✓ Yes | ✓ Yes (with attribution) | 
 
 ## Apache 2.0 License (Open Source)
 
@@ -50,33 +49,16 @@ NeuralBudget is available under **dual licensing** to serve both open-source and
    → Yes! Apache 2.0 allows this (unlike GPL)
 ```
 
-## Commercial License (Optional)
+## Why Apache 2.0?
 
-**Choose Commercial if you need enterprise support.** The Commercial License provides:
+Apache 2.0 provides the perfect balance:
+- **Permissive** — Use commercially without restrictions
+- **Business-friendly** — Clear terms for enterprise adoption
+- **Patent protection** — Explicit patent grants included
+- **Derivative-friendly** — Modify freely for your needs
+- **Attribution-light** — Only requires license notice in distribution
 
-### ✓ Commercial License Adds
-
-- **Priority support** — 24-hour response time
-- **Custom SLAs** — Guaranteed uptime and reliability guarantees
-- **Direct collaboration** — Work directly with the development team
-- **Custom features** — Request features prioritized in roadmap
-- **Indemnification** — Legal protection for IP infringement claims
-- **Dedicated liaison** — Technical account manager for large deployments
-
-### When to Choose Commercial
-
-- You need guaranteed response times
-- You want contractual indemnification
-- You're deploying at scale (millions of requests)
-- You need custom modifications and ongoing support
-- You want direct access to the engineering team
-
-### Commercial Pricing
-
-Contact `sales@neuralbudget.io` for pricing:
-- **Single Deployment** — Single SLO evaluation system
-- **Site License** — Unlimited internal use across organization
-- **OEM/Reseller** — Embedding in products (custom terms)
+No GPL restrictions. No commercial licensing fees. Just open source the way it should be.
 
 ---
 
@@ -86,29 +68,29 @@ NeuralBudget has **zero GPL dependencies**, allowing you to use NeuralBudget in 
 
 ### Rust Dependencies (Cargo.toml)
 
-| Dependency | License | Commercial Compatible |
-|-----------|---------|----------------------|
-| `pyo3` | Apache 2.0 | ✓ Yes |
-| `serde` | Apache 2.0 / MIT | ✓ Yes |
-| `serde_json` | Apache 2.0 / MIT | ✓ Yes |
-| `serde_yaml` | Apache 2.0 / MIT | ✓ Yes |
-| `rayon` | Apache 2.0 / MIT | ✓ Yes |
-| `criterion` | Apache 2.0 / MIT | ✓ Yes (dev only) |
-| `proptest` | Apache 2.0 / MIT | ✓ Yes (dev only) |
+| Dependency | License |
+|-----------|---------|
+| `pyo3` | Apache 2.0 |
+| `serde` | Apache 2.0 / MIT |
+| `serde_json` | Apache 2.0 / MIT |
+| `serde_yaml` | Apache 2.0 / MIT |
+| `rayon` | Apache 2.0 / MIT |
+| `criterion` | Apache 2.0 / MIT (dev only) |
+| `proptest` | Apache 2.0 / MIT (dev only) |
 
 ### Python Dependencies (pyproject.toml)
 
 NeuralBudget requires Python 3.9+ with optional dependencies:
 
-| Dependency | License | Commercial Compatible |
-|-----------|---------|----------------------|
-| `pyyaml` | MIT | ✓ Yes (optional) |
+| Dependency | License |
+|-----------|---------|
+| `pyyaml` | MIT (optional) |
 
 **No GPL, AGPL, or Affero licenses.** You're free to use NeuralBudget in proprietary projects.
 
 ---
 
-## FAQ: Licensing
+## FAQ: Apache 2.0 Licensing
 
 **Q: Can I use NeuralBudget in my commercial product?**
 > A: Yes! Apache 2.0 explicitly allows commercial use. Just include attribution.
@@ -128,9 +110,6 @@ NeuralBudget requires Python 3.9+ with optional dependencies:
 **Q: Is Apache 2.0 GPL-compatible?**
 > A: No. Apache 2.0 is incompatible with GPL v2 but compatible with GPL v3.
 
-**Q: When should I buy a Commercial License?**
-> A: When you need 24-hour support, SLAs, or want contractual indemnification.
-
 **Q: Can I use NeuralBudget in a closed-source proprietary product?**
 > A: Yes! Apache 2.0 allows this (it's permissive). GPL would prohibit it.
 
@@ -141,10 +120,10 @@ NeuralBudget requires Python 3.9+ with optional dependencies:
 
 ## Contributing
 
-We welcome contributions under both licenses:
+We welcome contributions under Apache 2.0!
 
 1. **Open Source Contributors** — Submit PRs licensed under Apache 2.0
-2. **Commercial Contributors** — Work directly with the team on priorities
+2. All contributions must be compatible with Apache 2.0
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -152,7 +131,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License History
 
-- **June 2026** — Switched from Source-Available to Apache 2.0 + Commercial dual licensing
+- **June 2026** — Switched to Apache 2.0 open-source license
 - **Prior** — Source-Available License (restrictive organizational use)
 
 ---
