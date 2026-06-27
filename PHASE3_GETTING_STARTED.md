@@ -1,6 +1,6 @@
-# Phase 3: Streaming Aggregators and Parallel SLO Evaluation
+# Phase 3: Streaming Aggregators and Parallel Metric Batch Evaluation
 
-Use the `StreamingAggregator` and `SloGraph` classes to handle high-frequency metric collection and multi-core SLO evaluation in NeuralBudget.
+Use the `StreamingAggregator` and `ParallelMetricBatch` classes to handle high-frequency metric collection and multi-core SLO evaluation in NeuralBudget.
 
 **What you'll learn:**
 - Collect metrics at 20,000+ samples per second
@@ -13,7 +13,7 @@ Use the `StreamingAggregator` and `SloGraph` classes to handle high-frequency me
 
 **StreamingAggregator** receives individual metric measurements and computes windowed averages (such as latency or error rates over the past 5 seconds).
 
-**SloGraph** takes a list of current metrics and checks whether each one meets its threshold (for example, latency < 200 ms). It uses all available CPU cores to evaluate metrics in parallel.
+**ParallelMetricBatch** takes a list of current metrics and checks whether each one meets its threshold (for example, latency < 200 ms). Unlike `CompositeSloGraph`, it does not model dependencies — each metric is evaluated independently. It uses all available CPU cores to evaluate metrics in parallel.
 
 Together, these components enable you to evaluate service-level objectives at scale in real time.
 
@@ -81,16 +81,16 @@ When metrics arrive faster than 15,000 per second for a sustained period, the ag
 
 ## Task 2: Evaluate SLO Metrics in Parallel
 
-Use `SloGraph` to check whether a set of metrics pass their respective thresholds, using all available CPU cores.
+Use `ParallelMetricBatch` to check whether a set of metrics pass their respective thresholds, using all available CPU cores.
 
-### Create a Graph
+### Create a Batch
 
 Provide a list of (metric ID, current value, threshold) tuples:
 
 ```python
-from neuralbudget import SloGraph
+from neuralbudget import ParallelMetricBatch
 
-graph = SloGraph([
+batch = ParallelMetricBatch([
     ("latency_p99", 150.0, 200.0),      # 150 ms < 200 ms threshold: PASS
     ("availability", 99.95, 99.9),      # 99.95% > 99.9% threshold: PASS
     ("error_rate", 0.1, 0.5),           # 0.1% < 0.5% threshold: PASS
@@ -102,7 +102,7 @@ graph = SloGraph([
 Call `evaluate()` to check all metrics against their thresholds. This releases Python's Global Interpreter Lock, allowing evaluation to use multiple CPU cores:
 
 ```python
-results = graph.evaluate()
+results = batch.evaluate()
 # Returns a list: [
 #   ("latency_p99", 150.0, 200.0, True, 0.75),
 #   ("availability", 99.95, 99.9, True, 1.0),
@@ -122,19 +122,28 @@ results = graph.evaluate()
 Get aggregate statistics without re-evaluating:
 
 ```python
-all_pass = graph.all_pass()          # True if every metric passed
-score = graph.aggregate_score()      # Mean score across all metrics
-pass_count = graph.pass_count()      # Number of passing metrics
-total = graph.node_count             # Total metrics in graph
-```
+### Aggregate Results
 
-### Update Metrics Between Evaluations
-
-Change a metric's value and re-evaluate the graph:
+Compute overall health from the results:
 
 ```python
-graph.update_node("latency_p99", 180.0)
-results = graph.evaluate()
+all_pass = all(passed for _, _, _, passed, _ in results)       # True if every metric passed
+avg_score = sum(score for _, _, _, _, score in results) / len(results)  # Mean score
+pass_count = sum(1 for _, _, _, passed, _ in results if passed)  # Number of passing metrics
+total = batch.node_count                                         # Total metrics in batch
+```
+
+### Re-evaluate with New Values
+
+Create a new batch with updated metric values:
+
+```python
+batch = ParallelMetricBatch([
+    ("latency_p99", 180.0, 200.0),  # Updated value
+    ("availability", 99.98, 99.9),  # Updated value
+    ("error_rate", 0.05, 0.5),      # Updated value
+])
+results = batch.evaluate()
 ```
 
 ---
@@ -146,7 +155,7 @@ Build a real-time health check loop.
 ### Example: Monitor Service Latency
 
 ```python
-from neuralbudget import StreamingAggregator, SloGraph
+from neuralbudget import StreamingAggregator, ParallelMetricBatch
 
 # Step 1: Collect latency measurements into an aggregator
 latency_agg = StreamingAggregator()
@@ -159,14 +168,14 @@ current_time_ms = timestamp_ms
 window_ms = 5000
 avg_latency = latency_agg.get_moving_average(current_time_ms, window_ms)
 
-# Step 3: Build a graph with current metrics
-graph = SloGraph([
+# Step 3: Build a batch with current metrics
+batch = ParallelMetricBatch([
     ("latency_p99", avg_latency, 200.0),
     ("availability", 99.95, 99.9),
 ])
 
 # Step 4: Evaluate all metrics in parallel
-results = graph.evaluate()
+results = batch.evaluate()
 
 # Step 5: Alert if any metric failed
 if not graph.all_pass():

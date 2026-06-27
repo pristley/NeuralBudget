@@ -8,7 +8,7 @@ use crate::core::*;
 use crate::exporter::PrometheusExporter;
 use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
 use crate::streaming::StreamingAggregator;
-use crate::slo_graph::SloGraph;
+use crate::slo_graph::ParallelMetricBatch;
 use crate::forecasting::{
     BurnRateAlertResult, BurnRateAlertRule, BurnRateSeverity, BudgetExhaustionForecast,
     MultiWindowBurnRate, calculate_burn_rate_for_window, calculate_multi_window_burn_rate,
@@ -3000,7 +3000,7 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCompositeSloEvaluation>()?;
     module.add_class::<PyCompositeSloGraph>()?;
     module.add_class::<StreamingAggregator>()?;
-    module.add_class::<SloGraph>()?;
+    module.add_class::<ParallelMetricBatch>()?;
     module.add_function(wrap_pyfunction!(calculate_availability, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_error_budget, module)?)?;
     module.add_function(wrap_pyfunction!(calculate_burn_rate, module)?)?;

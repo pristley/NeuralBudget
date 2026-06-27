@@ -41,11 +41,11 @@ pub struct SloNodeEvaluation {
     pub score: f64,
 }
 
-/// A directed acyclic graph of SLO nodes.
-/// Nodes are independent and can be evaluated in parallel.
-/// The graph assumes nodes are already topologically sorted or easily resolvable.
+/// A batch of independent SLO metrics evaluated in parallel.
+/// Unlike CompositeSloGraph, this does NOT model dependencies.
+/// Nodes are evaluated independently and concurrently for maximum throughput.
 #[pyclass]
-pub struct SloGraph {
+pub struct ParallelMetricBatch {
     /// List of metric nodes to evaluate
     nodes: Vec<SloNode>,
     /// Optional adjacency info for dependency tracking (not used for ordering)
@@ -54,10 +54,10 @@ pub struct SloGraph {
 }
 
 #[pymethods]
-impl SloGraph {
-    /// Create a new SLO graph from a list of nodes.
+impl ParallelMetricBatch {
+    /// Create a new batch of independent metrics.
     ///
-    /// Assumes nodes are independent or pre-sorted for evaluation.
+    /// Metrics are evaluated in parallel with no dependency modeling.
     /// No validation of node IDs (assume unique).
     #[new]
     pub fn new(node_data: Vec<(String, f64, f64)>) -> Self {
@@ -72,7 +72,7 @@ impl SloGraph {
 
         let node_count = nodes.len();
 
-        SloGraph { nodes, node_count }
+        ParallelMetricBatch { nodes, node_count }
     }
 
     /// Evaluate all nodes in parallel using Rayon, with explicit GIL release.
@@ -166,9 +166,9 @@ impl SloGraph {
     }
 }
 
-impl Default for SloGraph {
+impl Default for ParallelMetricBatch {
     fn default() -> Self {
-        SloGraph {
+        ParallelMetricBatch {
             nodes: Vec::new(),
             node_count: 0,
         }
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_creation() {
-        let graph = SloGraph::new(vec![
+        let graph = ParallelMetricBatch::new(vec![
             ("latency".to_string(), 150.0, 200.0),
             ("availability".to_string(), 99.9, 99.0),
             ("error_rate".to_string(), 0.1, 0.5),
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_all_pass() {
-        let graph = SloGraph::new(vec![
+        let graph = ParallelMetricBatch::new(vec![
             ("latency".to_string(), 250.0, 200.0),    // Pass: 250 >= 200
             ("availability".to_string(), 99.9, 99.0), // Pass: 99.9 >= 99.0
             ("error_rate".to_string(), 0.1, 0.5),     // Fail: 0.1 >= 0.5 is false
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_aggregate_score() {
-        let graph = SloGraph::new(vec![
+        let graph = ParallelMetricBatch::new(vec![
             ("latency".to_string(), 100.0, 100.0), // Score: 1.0
             ("availability".to_string(), 50.0, 100.0), // Score: 0.5
         ]);
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_update_node() {
-        let mut graph = SloGraph::new(vec![("latency".to_string(), 150.0, 200.0)]);
+        let mut graph = ParallelMetricBatch::new(vec![("latency".to_string(), 150.0, 200.0)]);
 
         assert!(graph.update_node("latency", 250.0));
         assert!(!graph.update_node("nonexistent", 100.0));
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_pass_count() {
-        let graph = SloGraph::new(vec![
+        let graph = ParallelMetricBatch::new(vec![
             ("latency".to_string(), 250.0, 200.0),    // Pass
             ("availability".to_string(), 99.9, 99.0), // Pass
             ("error_rate".to_string(), 0.1, 0.5),     // Fail
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_parallel_evaluation() {
-        let graph = SloGraph::new(vec![
+        let graph = ParallelMetricBatch::new(vec![
             ("node_1".to_string(), 100.0, 50.0),
             ("node_2".to_string(), 75.0, 100.0),
             ("node_3".to_string(), 200.0, 150.0),
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_empty() {
-        let graph = SloGraph::new(vec![]);
+        let graph = ParallelMetricBatch::new(vec![]);
         assert_eq!(graph.node_count, 0);
         assert!(graph.all_pass()); // Empty graph passes
         assert_eq!(graph.aggregate_score(), 1.0);
@@ -311,7 +311,7 @@ mod tests {
 
     #[test]
     fn test_slo_graph_zero_threshold() {
-        let graph = SloGraph::new(vec![("test".to_string(), 100.0, 0.0)]);
+        let graph = ParallelMetricBatch::new(vec![("test".to_string(), 100.0, 0.0)]);
         let score = graph.nodes[0].score();
         assert_eq!(score, 1.0); // Division by zero avoided; returns 1.0
     }

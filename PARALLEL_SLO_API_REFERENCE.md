@@ -1,6 +1,6 @@
 # Parallel SLO Evaluation: Complete API Reference
 
-**Class:** `SloGraph` and `StreamingAggregator`  
+**Class:** `ParallelMetricBatch` and `StreamingAggregator`  
 **Module:** `neuralbudget`  
 **Python 3.9+, Rust 2021 Edition**
 
@@ -124,14 +124,14 @@ if agg.is_empty():
 
 ---
 
-## SloGraph
+## ParallelMetricBatch
 
-The `SloGraph` class evaluates whether a set of metrics meet their thresholds in parallel using all available CPU cores. It trades topological ordering (complex DAG logic) for simple independent evaluation: each metric is checked against its own threshold simultaneously.
+The `ParallelMetricBatch` class evaluates whether a set of metrics meet their thresholds in parallel using all available CPU cores. Unlike `CompositeSloGraph`, this does **not** model dependencies. Each metric is checked against its own threshold independently and concurrently.
 
 ### Constructor
 
 ```python
-SloGraph(nodes: List[Tuple[str, float, float]])
+ParallelMetricBatch(nodes: List[Tuple[str, float, float]])
 ```
 
 Create a new graph from a list of metric definitions.
@@ -152,15 +152,15 @@ Create a new graph from a list of metric definitions.
 
 **Example:**
 ```python
-from neuralbudget import SloGraph
+from neuralbudget import ParallelMetricBatch
 
-graph = SloGraph([
+batch = ParallelMetricBatch([
     ("latency_p99", 150.0, 200.0),
     ("availability", 99.95, 99.9),
     ("error_rate", 0.1, 0.5),
 ])
 
-print(graph.node_count)  # Prints: 3
+print(batch.node_count)  # Prints: 3
 ```
 
 ### Methods
@@ -338,13 +338,13 @@ for node_id, value, threshold, passed, score in all_nodes:
 |-----------|-----------|-----------|---------|
 | `StreamingAggregator.push()` | 1 measurement | 20,000+ samples/sec | ~50 microseconds (Python) |
 | `StreamingAggregator.get_moving_average()` | 100-sample window | 100,000+ queries/sec | ~10 microseconds |
-| `SloGraph.evaluate()` | 100 metrics | 50,000+ metrics/sec | ~2 milliseconds |
-| `SloGraph.evaluate()` | 1,000 metrics | 50,000+ metrics/sec | ~20 milliseconds |
-| `SloGraph.evaluate()` | 10,000 metrics | 50,000+ metrics/sec | ~200 milliseconds |
+| `ParallelMetricBatch.evaluate()` | 100 metrics | 50,000+ metrics/sec | ~2 milliseconds |
+| `ParallelMetricBatch.evaluate()` | 1,000 metrics | 50,000+ metrics/sec | ~20 milliseconds |
+| `ParallelMetricBatch.evaluate()` | 10,000 metrics | 50,000+ metrics/sec | ~200 milliseconds |
 
 ### Parallelism
 
-- `SloGraph.evaluate()` uses all available CPU cores (typical: 4–32 cores on modern servers)
+- `ParallelMetricBatch.evaluate()` uses all available CPU cores (typical: 4–32 cores on modern servers)
 - On single-core systems, evaluation still completes sequentially; throughput remains 50,000+ metrics/sec
 - No additional synchronization or locking overhead; each metric is independent
 
@@ -354,8 +354,8 @@ for node_id, value, threshold, passed, score in all_nodes:
 |-----------|---------------|--------------|
 | `StreamingAggregator` buffer | 5-second window at 5k samples/sec | ~100 KB |
 | `StreamingAggregator` buffer | Traffic spike at 25k samples/sec | ~4 MB (auto-pruned) |
-| `SloGraph` | 1,000 metrics | ~100 KB |
-| `SloGraph` | 10,000 metrics | ~1 MB |
+| `ParallelMetricBatch` | 1,000 metrics | ~100 KB |
+| `ParallelMetricBatch` | 10,000 metrics | ~1 MB |
 
 ---
 
@@ -373,12 +373,12 @@ agg.push(1000, "not_a_value")      # Raises TypeError
 
 **Expected behavior:** If timestamps are provided out of order, results may be incorrect. Always provide monotonically increasing timestamps.
 
-### SloGraph
+### ParallelMetricBatch
 
 **Invalid initialization:**
 ```python
-SloGraph([("metric", "not_a_float", 100.0)])  # Raises ValueError
-SloGraph([("metric", 50.0)])                  # Raises ValueError (wrong tuple length)
+ParallelMetricBatch([('metric', 'not_a_float', 100.0)])  # Raises ValueError
+ParallelMetricBatch([('metric', 50.0)])                  # Raises ValueError (wrong tuple length)
 ```
 
 **Invalid operations:**
@@ -392,7 +392,7 @@ graph.update_node("nonexistent", 50.0)  # Returns False (not an error)
 ## Integration Example: End-to-End SLO Evaluation
 
 ```python
-from neuralbudget import StreamingAggregator, SloGraph
+from neuralbudget import StreamingAggregator, ParallelMetricBatch
 import time
 
 # Step 1: Aggregate metrics over 5-second window
@@ -408,19 +408,19 @@ for i in range(100):
 avg_latency = latency_agg.get_moving_average(current_time_ms + 5000, 5000)
 avg_errors = error_agg.get_moving_average(current_time_ms + 5000, 5000)
 
-# Step 3: Create evaluation graph
-graph = SloGraph([
+# Step 3: Create evaluation batch
+batch = ParallelMetricBatch([
     ("latency_p99", avg_latency, 200.0),
     ("error_rate", avg_errors, 0.5),
     ("availability", 99.9, 99.0),  # Hypothetical current value
 ])
 
 # Step 4: Evaluate in parallel
-results = graph.evaluate()
+results = batch.evaluate()
 
 # Step 5: Report results
-print(f"Overall health: {graph.aggregate_score():.1%}")
-print(f"Passing metrics: {graph.pass_count()}/{graph.node_count}")
+print(f"Overall health: {batch.aggregate_score():.1%}")
+print(f"Passing metrics: {batch.pass_count()}/{batch.node_count}")
 
 for node_id, value, threshold, passed, score in results:
     status = "PASS" if passed else "FAIL"

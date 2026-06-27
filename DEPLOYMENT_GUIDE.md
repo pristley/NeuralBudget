@@ -71,11 +71,11 @@ maturin develop --release
 Test that both components are available:
 
 ```python
-from neuralbudget import StreamingAggregator, SloGraph
+from neuralbudget import StreamingAggregator, ParallelMetricBatch
 
 agg = StreamingAggregator()
-graph = SloGraph([("test", 50.0, 100.0)])
-results = graph.evaluate()
+batch = ParallelMetricBatch([("test", 50.0, 100.0)])
+results = batch.evaluate()
 print(f"Installation verified. Evaluated {len(results)} metrics.")
 ```
 
@@ -97,14 +97,14 @@ The adaptive windowing system is fully automatic. You cannot configure threshold
 
 **Why hardcoded?** Hardcoded values eliminate configuration bugs and reduce API surface. If these parameters do not fit your use case, contact the NeuralBudget team.
 
-### SloGraph: Initialize with Metric Definitions
+### ParallelMetricBatch: Initialize with Metric Definitions
 
 No runtime configuration. Provide metric definitions at initialization:
 
 ```python
-from neuralbudget import SloGraph
+from neuralbudget import ParallelMetricBatch
 
-graph = SloGraph([
+batch = ParallelMetricBatch([
     ("latency_p99", current_latency, 200.0),
     ("error_rate", current_errors, 0.5),
     ("availability", current_avail, 99.9),
@@ -224,19 +224,19 @@ log.info(f"Moving average query: {latency_us:.0f} µs")
 
 #### 3. Evaluation Throughput
 
-Measure how many metrics SloGraph evaluates per second:
+Measure how many metrics ParallelMetricBatch evaluates per second:
 
 ```python
 import time
-from neuralbudget import SloGraph
+from neuralbudget import ParallelMetricBatch
 
-graph = SloGraph([(f"metric_{i}", 50.0, 100.0) for i in range(1000)])
+batch = ParallelMetricBatch([(f"metric_{i}", 50.0, 100.0) for i in range(1000)])
 
 start = time.time()
 for _ in range(10):
-    graph.evaluate()
+    batch.evaluate()
 duration = time.time() - start
-throughput = (graph.node_count * 10) / duration
+throughput = (batch.node_count * 10) / duration
 log.info(f"Throughput: {throughput:.0f} metrics/sec")
 ```
 
@@ -248,10 +248,10 @@ log.info(f"Throughput: {throughput:.0f} metrics/sec")
 If using Prometheus or similar:
 
 ```python
-from neuralbudget import StreamingAggregator, SloGraph
+from neuralbudget import StreamingAggregator, ParallelMetricBatch
 
 agg = StreamingAggregator()
-graph = SloGraph(metrics)
+batch = ParallelMetricBatch(metrics)
 
 # Expose as metrics
 metrics = {
@@ -396,24 +396,22 @@ t.start()  # Worker thread processes results
 
 **Example: Reusing a graph**
 ```python
-from neuralbudget import SloGraph
-
-# Initialize once
-graph = SloGraph([
-    ("metric_1", 50.0, 100.0),
-    ("metric_2", 75.0, 100.0),
-])
+from neuralbudget import ParallelMetricBatch
 
 # Evaluation loop
 while True:
-    new_value_1 = fetch_metric("metric_1")
-    new_value_2 = fetch_metric("metric_2")
+    metric_1_value = fetch_metric("metric_1")
+    metric_2_value = fetch_metric("metric_2")
     
-    graph.update_node("metric_1", new_value_1)
-    graph.update_node("metric_2", new_value_2)
+    # Create a fresh batch with current values
+    batch = ParallelMetricBatch([
+        ("metric_1", metric_1_value, 100.0),
+        ("metric_2", metric_2_value, 100.0),
+    ])
     
-    results = graph.evaluate()
-    if not graph.all_pass():
+    results = batch.evaluate()
+    # Check if any failed
+    if not all(passed for _, _, _, passed, _ in results):
         alert("SLO violation")
 ```
 
@@ -462,15 +460,15 @@ If upgrading from Phase 2 or earlier:
 ### What's New
 
 1. **StreamingAggregator:** Now automatically prunes at > 15k samples/sec (previously user-controlled)
-2. **SloGraph:** New class for parallel SLO evaluation (previously used `HttpSlo`, `StatefulSlo`, etc.)
+2. **ParallelMetricBatch:** New class for parallel, independent SLO evaluation (previously used `HttpSlo`, `StatefulSlo`, etc.)
 
 ### Migration Path
 
 **Recommended:** Gradual adoption.
 
 1. **Phase 1 (Week 1):** Deploy Phase 3; existing code continues to work.
-2. **Phase 2 (Week 2–3):** Introduce SloGraph for new SLO checks; keep old SLO classes for existing checks.
-3. **Phase 3 (Week 4+):** Migrate old SLO classes to SloGraph for uniform evaluation.
+2. **Phase 2 (Week 2–3):** Introduce ParallelMetricBatch for new SLO checks; keep old SLO classes for existing checks.
+3. **Phase 3 (Week 4+):** Migrate old SLO classes to ParallelMetricBatch for uniform evaluation.
 
 **Example migration:**
 ```python
@@ -478,9 +476,9 @@ If upgrading from Phase 2 or earlier:
 slo = HttpSlo(threshold=200.0)
 evaluation = slo.evaluate(latency_value)
 
-# After: SloGraph (Phase 3)
-graph = SloGraph([("latency", latency_value, 200.0)])
-results = graph.evaluate()
+# After: ParallelMetricBatch (Phase 3)
+batch = ParallelMetricBatch([("latency", latency_value, 200.0)])
+results = batch.evaluate()
 evaluation = results[0][3]  # Pass/fail field
 ```
 
@@ -496,7 +494,7 @@ evaluation = results[0][3]  # Pass/fail field
 
 ### Known Limitations
 
-1. **No topological sorting:** SloGraph assumes independent metrics; inter-metric dependencies not supported.
+1. **No topological sorting:** ParallelMetricBatch assumes independent metrics; inter-metric dependencies not supported. Use `CompositeSloGraph` for dependency-aware evaluation.
 2. **No custom thread pools:** Uses Rayon global thread pool; cannot configure pool size.
 3. **No node indexing:** Lookup by ID is O(n); acceptable for < 10k metrics.
 4. **No metric weights:** All metrics contribute equally to aggregate score.

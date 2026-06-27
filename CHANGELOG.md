@@ -12,7 +12,7 @@ Release entries are maintained automatically by the CD workflow on tagged releas
   - Added `StreamingAggregator` struct with velocity-based adaptive windowing for high-frequency metric ingestion
   - Implements automatic buffer pruning at >15,000 samples/sec with 5-second retention window
   - VecDeque-based zero-allocation push operations with O(1) amortized complexity
-  - Added `SloGraph` struct for parallel SLO metric evaluation using Rayon work-stealing threads
+  - Added `ParallelMetricBatch` struct for parallel, independent metric evaluation using Rayon work-stealing threads
   - Explicit GIL release via `py.allow_threads()` for true multi-threaded evaluation from Python
   - Comprehensive unit tests for streaming aggregation and parallel graph evaluation
 

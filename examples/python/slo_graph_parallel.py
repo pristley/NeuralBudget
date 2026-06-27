@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-Parallel SLO Graph Evaluation Example
+Parallel Metric Batch Evaluation Example
 
-Demonstrates how to use the SloGraph with GIL-released parallel evaluation
+Demonstrates how to use ParallelMetricBatch with GIL-released parallel evaluation
 via Rayon thread pool. This example shows:
 
-1. Creating a graph of independent metric nodes
+1. Creating a batch of independent metric nodes
 2. Evaluating nodes in parallel using Rayon
 3. Extracting results and computing aggregate scores
 4. Monitoring evaluation performance
 """
 
 import time
-from neuralbudget import SloGraph
+from neuralbudget import ParallelMetricBatch
 
 # Example 1: Simple parallel evaluation of 5 metrics
 print("=" * 60)
-print("Example 1: Parallel SLO Graph Evaluation")
+print("Example 1: Parallel Metric Batch Evaluation")
 print("=" * 60)
 
-# Create a graph with 5 independent metric nodes
+# Create a batch with 5 independent metric nodes
 # Format: (node_id, metric_value, threshold)
 nodes_data = [
     ("api_latency_p99", 150.0, 200.0),      # Latency in ms (threshold 200ms)
@@ -29,13 +29,13 @@ nodes_data = [
     ("memory_utilization", 0.55, 0.85),     # Fraction (threshold 85%)
 ]
 
-graph = SloGraph(nodes_data)
-print(f"\nCreated SLO graph with {graph.node_count} nodes")
+batch = ParallelMetricBatch(nodes_data)
+print(f"\nCreated metric batch with {batch.node_count} nodes")
 
 # Evaluate all nodes in parallel (with explicit GIL release)
 print("\nEvaluating nodes in parallel...")
 start = time.time()
-results = graph.evaluate()  # This releases the GIL and uses Rayon thread pool
+results = batch.evaluate()  # This releases the GIL and uses Rayon thread pool
 elapsed = time.time() - start
 
 print(f"Parallel evaluation completed in {elapsed*1000:.3f} ms")
@@ -44,97 +44,101 @@ for node_id, value, threshold, passed, score in results:
     status = "✓ PASS" if passed else "✗ FAIL"
     print(f"  {status:7} {node_id:20} value={value:7.2f}, threshold={threshold:6.2f}, score={score:.3f}")
 
-# Example 2: Aggregate scoring
+# Example 2: Aggregate Metrics
 print("\n" + "=" * 60)
 print("Example 2: Aggregate Metrics")
 print("=" * 60)
 
-all_pass = graph.all_pass()
-aggregate_score = graph.aggregate_score()
-pass_count = graph.pass_count()
+# Compute aggregate results from the batch evaluation
+pass_count = sum(1 for _, _, _, passed, _ in results if passed)
+aggregate_score = sum(score for _, _, _, _, score in results) / len(results) if results else 0.0
 
-print(f"\nGraph Status:")
-print(f"  All nodes passing: {all_pass}")
-print(f"  Nodes passing: {pass_count}/{graph.node_count}")
+print(f"\nBatch Status:")
+print(f"  All nodes passing: {pass_count == len(results)}")
+print(f"  Nodes passing: {pass_count}/{batch.node_count}")
 print(f"  Aggregate score: {aggregate_score:.3f}")
 
-# Example 3: Node-specific operations
+# Example 3: Re-evaluate with different metric values
 print("\n" + "=" * 60)
-print("Example 3: Node-specific Operations")
+print("Example 3: Re-evaluate with Different Values")
 print("=" * 60)
 
-# Retrieve a specific node
-api_latency = graph.get_node("api_latency_p99")
-if api_latency:
-    node_id, value, threshold = api_latency
-    print(f"\nRetrieved node '{node_id}':")
-    print(f"  Current value: {value} ms")
-    print(f"  Threshold: {threshold} ms")
-    print(f"  Status: {'✓ PASS' if value >= threshold else '✗ FAIL'}")
+# Create new batch with updated values
+updated_nodes_data = [
+    ("api_latency_p99", 180.0, 200.0),      # Improved latency
+    ("availability", 99.98, 99.9),           # Better availability
+    ("error_rate", 0.05, 0.5),               # Lower error rate
+    ("cpu_utilization", 0.70, 0.80),        # Higher CPU usage
+    ("memory_utilization", 0.60, 0.85),     # Higher memory usage
+]
 
-# Update a node's value
-print("\nUpdating 'api_latency_p99' to 180.0 ms...")
-success = graph.update_node("api_latency_p99", 180.0)
-if success:
-    api_latency = graph.get_node("api_latency_p99")
-    if api_latency:
-        node_id, value, threshold = api_latency
-        print(f"  Updated value: {value} ms (now {'✓ PASS' if value >= threshold else '✗ FAIL'})")
+updated_batch = ParallelMetricBatch(updated_nodes_data)
+print(f"\nCreated updated batch with {updated_batch.node_count} nodes")
+
+updated_results = updated_batch.evaluate()
+print("\nUpdated Results:")
+for node_id, value, threshold, passed, score in updated_results:
+    status = "✓ PASS" if passed else "✗ FAIL"
+    print(f"  {status:7} {node_id:20} value={value:7.2f}, threshold={threshold:6.2f}, score={score:.3f}")
 
 # Example 4: Large-scale parallel evaluation (demonstrates Rayon benefits)
 print("\n" + "=" * 60)
 print("Example 4: Large-scale Parallel Evaluation")
 print("=" * 60)
 
-# Create a larger graph with 100 nodes
-print("\nCreating a graph with 100 nodes...")
+# Create a larger batch with 100 nodes
+print("\nCreating a batch with 100 nodes...")
 large_nodes = [
     (f"metric_{i}", float(50 + i % 100), 75.0)
     for i in range(100)
 ]
 
-large_graph = SloGraph(large_nodes)
+large_batch = ParallelMetricBatch(large_nodes)
 
 # Evaluate and measure
-print(f"Graph created with {large_graph.node_count} nodes")
+print(f"Batch created with {large_batch.node_count} nodes")
 start = time.time()
-large_results = large_graph.evaluate()  # Rayon handles parallel execution
+large_results = large_batch.evaluate()  # Rayon handles parallel execution
 elapsed = time.time() - start
 
-large_aggregate = large_graph.aggregate_score()
-large_pass_count = large_graph.pass_count()
+large_pass_count = sum(1 for _, _, _, passed, _ in large_results if passed)
+large_aggregate = sum(score for _, _, _, _, score in large_results) / len(large_results) if large_results else 0.0
 
 print(f"\nLarge-scale evaluation:")
 print(f"  Evaluation time: {elapsed*1000:.3f} ms")
 print(f"  Nodes evaluated: {len(large_results)}")
-print(f"  Nodes passing: {large_pass_count}/{large_graph.node_count}")
+print(f"  Nodes passing: {large_pass_count}/{large_batch.node_count}")
 print(f"  Aggregate score: {large_aggregate:.3f}")
 print(f"  Throughput: {len(large_results)/elapsed:.0f} nodes/second")
 
-# Example 5: Export all nodes as tuples
+# Example 5: View sample of large batch results
 print("\n" + "=" * 60)
-print("Example 5: Export Node Data")
+print("Example 5: Large Batch Results (Sample)")
 print("=" * 60)
 
-print("\nAll nodes (first 5 only):")
-all_nodes = large_graph.nodes_as_tuples()
-for i, (node_id, value, threshold, passed, score) in enumerate(all_nodes[:5]):
+print("\nFirst 5 results from large batch:")
+for i, (node_id, value, threshold, passed, score) in enumerate(large_results[:5]):
     status = "✓" if passed else "✗"
     print(f"  [{status}] {node_id:15} value={value:6.2f}, score={score:.3f}")
-print(f"  ... ({len(all_nodes)-5} more nodes)")
+print(f"  ... ({len(large_results)-5} more nodes)")
 
 print("\n" + "=" * 60)
-print("Summary: SloGraph enables parallel SLO evaluation via Rayon")
+print("Summary: ParallelMetricBatch enables parallel SLO evaluation")
 print("=" * 60)
 print("""
 Key Benefits:
   1. GIL-released evaluation: py.allow_threads() unlocks thread pool
   2. Parallel metrics: Independent nodes evaluated concurrently
-  3. High throughput: 100+ nodes/ms with Rayon thread pool
+  3. High throughput: 50,000+ nodes/sec with Rayon thread pool
   4. Composable: Results can be aggregated for composite scoring
+
+Key Difference from CompositeSloGraph:
+  - ParallelMetricBatch: No dependencies, all metrics independent
+  - CompositeSloGraph: Supports topological DAG with failure propagation
 
 Next steps:
   - Integrate into real-time metric pipelines
   - Combine with StreamingAggregator for continuous evaluation
   - Scale to thousands of metrics for large deployments
+  - Use CompositeSloGraph if you need dependency modeling
 """)
