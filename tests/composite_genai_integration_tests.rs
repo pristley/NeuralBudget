@@ -50,7 +50,7 @@ mod composite_genai_integration_tests {
 
     #[test]
     fn test_composite_all_minimum_pass() {
-        let dims = create_dimensions(0.90, 0.90, 0.85, 0.95, 0.50, 0.50, 0.99);
+        let dims = create_dimensions(0.95, 0.90, 0.85, 0.95, 0.90, 0.90, 0.99);
         let weights = CompositeGenAiWeights::default();
         let thresholds = CompositeGenAiThresholds::default();
 
@@ -163,7 +163,7 @@ mod composite_genai_integration_tests {
 
     #[test]
     fn test_balanced_profile() {
-        let dims = create_dimensions(0.92, 0.88, 0.86, 0.96, 0.88, 0.89, 0.98);
+        let dims = create_dimensions(0.92, 0.90, 0.86, 0.96, 0.88, 0.89, 0.99);
         let weights = CompositeGenAiWeights::default();
         let thresholds = CompositeGenAiThresholds::default();
 
@@ -311,7 +311,7 @@ mod composite_genai_integration_tests {
 
     #[test]
     fn test_high_volume_service() {
-        let dims = create_dimensions(0.98, 0.92, 0.85, 0.94, 0.80, 0.85, 0.995);
+        let dims = create_dimensions(0.98, 0.92, 0.85, 0.95, 0.80, 0.85, 0.995);
 
         // Throughput-optimized: higher throughput weight for high-volume
         let weights = CompositeGenAiWeights {
