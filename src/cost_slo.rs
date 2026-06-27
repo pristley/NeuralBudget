@@ -5,7 +5,6 @@
 
 use crate::NeuralBudgetError;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Cost budget configuration for input/output tokens.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

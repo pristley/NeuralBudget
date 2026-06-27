@@ -33,7 +33,6 @@
 
 use crate::{NeuralBudgetError, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A single claim extracted from an LLM response
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

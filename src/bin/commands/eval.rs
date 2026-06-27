@@ -1,6 +1,6 @@
 /// Evaluate an SLO against a metric sample
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -18,7 +18,7 @@ pub fn run(config_path: &Path, sample_path: &Path, json_output: bool, verbose: b
     let sample_content = fs::read_to_string(sample_path)
         .context(format!("Failed to read sample file: {}", sample_path.display()))?;
 
-    let sample: Value = serde_json::from_str(&sample_content)
+    let _sample: Value = serde_json::from_str(&sample_content)
         .context("Failed to parse JSON sample")?;
 
     // For now, output a basic evaluation result

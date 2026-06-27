@@ -14,7 +14,7 @@
 /// - Contextualized with current burn rate, time to exhaustion, etc.
 
 use anyhow::{Context, Result};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
@@ -123,7 +123,7 @@ pub fn run(config_path: &Path, kubernetes: bool, namespace: &str) -> Result<()> 
 
 fn generate_prometheus_rules(metrics: &SloMetrics) -> String {
     let error_budget_percent = (1.0 - metrics.availability_target) * 100.0;
-    let latency_threshold_s = metrics.latency_threshold_ms / 1000.0;
+    let _latency_threshold_s = metrics.latency_threshold_ms / 1000.0;
 
     let mut rules = format!(
         r#"# Generated Prometheus recording and alerting rules for: {}
@@ -183,7 +183,7 @@ groups:
 
     for window in &metrics.burn_rate_windows {
         let window_prom = convert_window_to_prometheus(&window.window);
-        let burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
+        let _burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
             * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
@@ -208,7 +208,7 @@ groups:
 
     // Generate multi-burn-rate alerting rules
     for window in &metrics.burn_rate_windows {
-        let (duration, for_duration) = get_alert_timing(&window.window);
+        let (_duration, for_duration) = get_alert_timing(&window.window);
         let threshold = (1.0 - metrics.availability_target)
             * (window.threshold_percent / 100.0);
 
@@ -299,7 +299,7 @@ fn format_window_name(window: &str) -> String {
 
 fn generate_kubernetes_rules(metrics: &SloMetrics, namespace: &str) -> String {
     let error_budget_percent = (1.0 - metrics.availability_target) * 100.0;
-    let latency_threshold_s = metrics.latency_threshold_ms / 1000.0;
+    let _latency_threshold_s = metrics.latency_threshold_ms / 1000.0;
 
     let mut rules = format!(
         r#"apiVersion: monitoring.coreos.com/v1
@@ -357,7 +357,7 @@ spec:
     rules.push_str("        # Multi-window burn rate indicators\n");
     for window in &metrics.burn_rate_windows {
         let window_prom = convert_window_to_prometheus(&window.window);
-        let burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
+        let _burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
             * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
@@ -382,7 +382,7 @@ spec:
 
     // Generate multi-burn-rate alerting rules
     for window in &metrics.burn_rate_windows {
-        let (duration, for_duration) = get_alert_timing(&window.window);
+        let (_duration, for_duration) = get_alert_timing(&window.window);
         let threshold = (1.0 - metrics.availability_target)
             * (window.threshold_percent / 100.0);
 

@@ -2,16 +2,10 @@
 /// 
 /// Command-line interface for SLO evaluation, configuration validation, and rule generation.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::fs;
 use std::path::PathBuf;
 use std::process;
-
-use neuralbudget::{
-    calculate_availability, calculate_error_budget, HttpSlo, HttpSloIterator, HistogramSample,
-    HistogramFormat, HistogramBucket, JsonExt,
-};
 
 mod commands;
 use commands::{check, convert, eval, gen_rules, serve};

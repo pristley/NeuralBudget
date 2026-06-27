@@ -1,7 +1,7 @@
 /// Convert between SLO formats (NeuralBudget ↔ OpenSLO)
 
 use anyhow::{anyhow, Result};
-use neuralbudget::openslo::{parse_openslo_yaml, to_openslo_yaml};
+use neuralbudget::openslo::to_openslo_yaml;
 use neuralbudget::HttpSlo;
 use std::fs;
 use std::path::Path;
