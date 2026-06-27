@@ -16,6 +16,16 @@ from .client import (
     NeuralBudgetClientConfig,
 )
 from .alerting import AlertDispatchResult, AlertDispatchSummary, AlertDispatcher
+from .alert_dispatch_advanced import (
+    AlertDispatchManager,
+    AlertDeduplicationEntry,
+    CircuitBreakerState,
+    DeduplicationPolicy,
+    EscalationAction,
+    EscalationPolicy,
+    EscalationStep,
+    RetryPolicy,
+)
 from .convenience import (
     AvailabilitySnapshotResult,
     GENAI_PROFILE_PRESETS,

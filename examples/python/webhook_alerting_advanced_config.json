@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "mode": "http",
+  "profile": "strict_latency",
+  "params": {
+    "latency_threshold_ms": 180.0,
+    "availability_threshold": 0.999
+  },
+  "alerts": {
+    "enabled": true,
+    "on_violation": true,
+    "fail_open": true,
+    "slack": {
+      "webhook_url": "https://hooks.slack.com/services/REPLACE/ME",
+      "timeout_seconds": 5
+    },
+    "pagerduty": {
+      "routing_key": "env:NEURALBUDGET_PAGERDUTY_ROUTING_KEY",
+      "severity": "error",
+      "source": "neuralbudget",
+      "component": "api-gateway",
+      "group": "slo",
+      "class": "violation",
+      "timeout_seconds": 5
+    },
+    "opsgenie": {
+      "api_key": "env:NEURALBUDGET_OPSGENIE_API_KEY",
+      "priority": "P3",
+      "source": "neuralbudget",
+      "tags": ["neuralbudget", "http", "slo-violation"],
+      "timeout_seconds": 5
+    }
+  },
+  "advanced_dispatch": {
+    "enabled": true,
+    "retry_policy": {
+      "max_retries": 3,
+      "initial_delay_ms": 100,
+      "max_delay_ms": 30000,
+      "backoff_multiplier": 2.0,
+      "jitter_percent": 10.0,
+      "use_circuit_breaker": true,
+      "circuit_breaker_threshold": 5,
+      "circuit_breaker_open_seconds": 60
+    },
+    "deduplication_policy": {
+      "enabled": true,
+      "window_seconds": 300,
+      "key_strategy": "content_hash"
+    },
+    "escalation_policy": {
+      "enabled": true,
+      "max_escalations": 10,
+      "steps": [
+        {
+          "after_seconds": 300,
+          "action": "add_channels",
+          "config": {
+            "channels": ["pagerduty"],
+            "pagerduty_config": {
+              "severity": "error",
+              "event_action": "trigger"
+            }
+          }
+        },
+        {
+          "after_seconds": 900,
+          "action": "increase_severity",
+          "config": {}
+        },
+        {
+          "after_seconds": 1800,
+          "action": "add_channels",
+          "config": {
+            "channels": ["opsgenie"],
+            "opsgenie_config": {
+              "priority": "P1",
+              "tags": ["escalated", "unresolved-30min"]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "service_profiles": {
+    "critical_payment": {
+      "comment": "Aggressive retry for revenue-impacting service",
+      "retry_policy": {
+        "max_retries": 5,
+        "initial_delay_ms": 50,
+        "backoff_multiplier": 3.0,
+        "use_circuit_breaker": false
+      },
+      "deduplication_policy": {
+        "enabled": true,
+        "window_seconds": 60
+      },
+      "escalation_policy": {
+        "enabled": true,
+        "steps": [
+          {
+            "after_seconds": 120,
+            "action": "add_channels",
+            "config": {
+              "channels": ["pagerduty"],
+              "pagerduty_config": {
+                "severity": "critical"
+              }
+            }
+          },
+          {
+            "after_seconds": 300,
+            "action": "increase_severity",
+            "config": {}
+          }
+        ]
+      }
+    },
+    "batch_processing": {
+      "comment": "Moderate retry for non-critical service",
+      "retry_policy": {
+        "max_retries": 2,
+        "initial_delay_ms": 500,
+        "backoff_multiplier": 2.0,
+        "use_circuit_breaker": true
+      },
+      "deduplication_policy": {
+        "enabled": true,
+        "window_seconds": 600
+      },
+      "escalation_policy": {
+        "enabled": true,
+        "steps": [
+          {
+            "after_seconds": 1800,
+            "action": "add_channels",
+            "config": {
+              "channels": ["pagerduty"],
+              "pagerduty_config": {
+                "severity": "warning"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "monitoring_infra": {
+      "comment": "Conservative for observability infrastructure",
+      "retry_policy": {
+        "max_retries": 1,
+        "initial_delay_ms": 1000,
+        "backoff_multiplier": 1.5,
+        "use_circuit_breaker": true
+      },
+      "deduplication_policy": {
+        "enabled": true,
+        "window_seconds": 3600
+      },
+      "escalation_policy": {
+        "enabled": false
+      }
+    }
+  }
+}
