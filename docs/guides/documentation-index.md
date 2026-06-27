@@ -10,7 +10,11 @@ This index groups documentation by audience and workflow.
 
 ## Read By Goal
 
-- I need a first working example: [docs/guides/getting-started.md](getting-started.md)
+- I don't know where to start: [docs/guides/getting-started.md](getting-started.md)
+- I need to understand key terms: [docs/reference/glossary.md](../reference/glossary.md)
+- I'm getting an error: [docs/reference/errors.md](../reference/errors.md)
+- I need troubleshooting help: [docs/guides/troubleshooting.md](troubleshooting.md)
+- I need to understand the architecture: [docs/reference/architecture.md](../reference/architecture.md)
 - I need interface and mode selection help: [docs/guides/user-guide.md](user-guide.md)
 - I need production rollout guidance: [docs/guides/production-deployment.md](production-deployment.md)
 - I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
@@ -44,8 +48,15 @@ This index groups documentation by audience and workflow.
 - **Adaptive Windowing**: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md) — Memory-bounded high-frequency ingestion
 - **Deployment Guide**: [../../DEPLOYMENT_GUIDE.md](../../DEPLOYMENT_GUIDE.md) — Production rollout patterns for Phase 3 features
 
-## API References
+## API References & Reference Materials
 
+**Getting Help:**
+- [docs/reference/glossary.md](../reference/glossary.md): Glossary of key terms, acronyms, and concepts used throughout NeuralBudget.
+- [docs/reference/errors.md](../reference/errors.md): Error reference guide with root causes, solutions, and debugging techniques.
+- [docs/guides/troubleshooting.md](troubleshooting.md): Consolidated troubleshooting guide with decision trees and solutions.
+- [docs/reference/architecture.md](../reference/architecture.md): System architecture, design decisions, and module interactions with Mermaid diagrams.
+
+**API Documentation:**
 - [docs/reference/api.md](../reference/api.md): Complete reference for NeuralBudget Python API, including native extension classes, NeuralBudgetClient, convenience functions, alert dispatching, data models, type hints, and examples.
 - [docs/reference/streaming-aggregator.md](../reference/streaming-aggregator.md): StreamingAggregator API, usage patterns, performance characteristics, and adaptive windowing behavior.
 - [docs/reference/convenience-layer.md](../reference/convenience-layer.md): Detailed reference for the Python convenience layer, typed dataclass returns, and profile presets.
@@ -54,6 +65,10 @@ This index groups documentation by audience and workflow.
 - [docs/reference/advanced_alert_dispatch.md](../reference/advanced_alert_dispatch.md): Advanced alert dispatch API reference, retry policies, deduplication, circuit breaker, and escalation.
 - [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md): Dashboard and CLI TUI API reference, endpoints, data models, and integration patterns.
 - [docs/reference/genai_connectors.md](../reference/genai_connectors.md): GenAI telemetry connectors API reference, data models, connector implementations, and integration examples.
+- [docs/reference/anomaly_drift_detection.md](../reference/anomaly_drift_detection.md): Anomaly detection and drift analysis API reference.
+
+**Additional References:**
+- [docs/reference/parallel-slo-api.md](../reference/parallel-slo-api.md): ParallelMetricBatch API reference (Phase 3 streaming SLO evaluation).
 
 ## Testing and Quality Gates
 
