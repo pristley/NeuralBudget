@@ -103,7 +103,7 @@ Comprehensive guide covering:
 - **FAQ**: Frequently asked questions
 
 #### 9. **docs/guides/documentation-index.md** (updated)
-Added TTFT SLO guide link:
+Added TTFT SLO guide link (simplified path used from docs/guides/ directory):
 ```
 - **Streaming First-Token Latency** → [TTFT SLO Guide](ttft-slo.md)
 ```
