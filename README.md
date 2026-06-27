@@ -207,32 +207,50 @@ For detailed module responsibilities and interactions, see [agentmap.md](agentma
 ### Python: Basic Availability Check
 
 ```python
-from neuralbudget.convenience import availability_snapshot
+try:
+    from neuralbudget.convenience import availability_snapshot
 
-snapshot = availability_snapshot(success=9_995, total=10_000, slo_target=0.999)
-print(f"Availability: {snapshot['availability']:.4f}")
-print(f"SLO Met: {snapshot['target_met']}")
+    snapshot = availability_snapshot(success=9_995, total=10_000, slo_target=0.999)
+    print(f"✓ Availability: {snapshot['availability']:.4f}")
+    print(f"✓ SLO Met: {snapshot['target_met']}")
+except ValueError as e:
+    print(f"✗ Error: {e}")
+    print("  → Check that success <= total")
+except ImportError as e:
+    print(f"✗ Module import error: {e}")
+    print("  → Run: pip install neuralbudget")
 ```
 
 ### Python: HTTP SLO Evaluation
 
 ```python
-from neuralbudget import NeuralBudgetClient
+try:
+    from neuralbudget import NeuralBudgetClient
 
-client = NeuralBudgetClient().load_config("slo.yaml")
+    client = NeuralBudgetClient()
+    client.load_config("slo.yaml")
 
-result = client.evaluate({
-    "timestamp": 1,
-    "success": 9995,
-    "total": 10000,
-    "buckets": [
-        {"upper_bound_ms": 100.0, "count": 9700},
-        {"upper_bound_ms": 220.0, "count": 10000},
-    ],
-    "format": "prometheus_cumulative",
-})
+    result = client.evaluate({
+        "timestamp": 1,
+        "success": 9995,
+        "total": 10000,
+        "buckets": [
+            {"upper_bound_ms": 100.0, "count": 9700},
+            {"upper_bound_ms": 220.0, "count": 10000},
+        ],
+        "format": "prometheus_cumulative",
+    })
 
-print(f"SLO Pass: {result['passed']}")
+    print(f"✓ SLO Pass: {result['passed']}")
+    print(f"✓ Score: {result['score']:.3f}")
+except FileNotFoundError:
+    print("✗ Config file not found (slo.yaml)")
+    print("  → See docs/guides/getting-started.md for example config")
+except ValueError as e:
+    print(f"✗ Invalid data: {e}")
+    print("  → Check bucket ordering and histogram format")
+except RuntimeError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ### Rust: Availability & Error Budget
@@ -325,21 +343,29 @@ Combine system performance (latency, GPU utilization) with model quality (drift,
 **Formula**: `Hybrid Score = (Latency Score × latency_weight) + (Drift Score × drift_weight)`
 
 ```python
-from neuralbudget.convenience import evaluate_ml_once
+try:
+    from neuralbudget.convenience import evaluate_ml_once
 
-result = evaluate_ml_once(
-    {
-        "timestamp": 1,
-        "inference_latency_ms": 185.0,
-        "gpu_utilization": 0.72,
-        "feature_drift": 0.07,
-        "prediction_confidence": 0.93,
-    },
-    latency_weight=0.6,
-    drift_weight=0.4,
-)
+    result = evaluate_ml_once(
+        {
+            "timestamp": 1,
+            "inference_latency_ms": 185.0,
+            "gpu_utilization": 0.72,
+            "feature_drift": 0.07,
+            "prediction_confidence": 0.93,
+        },
+        latency_weight=0.6,
+        drift_weight=0.4,
+    )
 
-print(f"Hybrid Score: {result['hybrid_score']:.3f}, Pass: {result['pass']}")
+    print(f"✓ Hybrid Score: {result['hybrid_score']:.3f}")
+    print(f"✓ Pass: {result['pass']}")
+except ValueError as e:
+    print(f"✗ Invalid metric data: {e}")
+    print("  → Ensure latency_ms, gpu_utilization, and drift are valid ranges")
+except TypeError as e:
+    print(f"✗ Type error: {e}")
+    print("  → Check that weights sum to 1.0 and metrics are numeric")
 ```
 
 ### GenAI Workload SLOs
@@ -347,25 +373,35 @@ print(f"Hybrid Score: {result['hybrid_score']:.3f}, Pass: {result['pass']}")
 Evaluate LLM serving reliability across throughput (TPS), responsiveness (TTFT), and semantic quality.
 
 ```python
-from neuralbudget.convenience import evaluate_genai_once
+try:
+    from neuralbudget.convenience import evaluate_genai_once
 
-result = evaluate_genai_once(
-    {
-        "timestamp": 1,
-        "tokens_generated": 420,
-        "generation_duration_ms": 14000,
-        "time_to_first_token_ms": 850,
-        "reference_text": "NeuralBudget is a deterministic SLO toolkit.",
-        "generated_text": "NeuralBudget provides deterministic reliability scoring.",
-    },
-    profile="default",
-)
+    result = evaluate_genai_once(
+        {
+            "timestamp": 1,
+            "tokens_generated": 420,
+            "generation_duration_ms": 14000,
+            "time_to_first_token_ms": 850,
+            "reference_text": "NeuralBudget is a deterministic SLO toolkit.",
+            "generated_text": "NeuralBudget provides deterministic reliability scoring.",
+        },
+        profile="default",
+    )
 
-print(
-    f"TPS: {result['tokens_per_second']:.1f}, "
-    f"Quality: {result['semantic_similarity']:.2f}, "
-    f"Pass: {result['pass']}"
-)
+    print(
+        f"✓ TPS: {result['tokens_per_second']:.1f}, "
+        f"Quality: {result['semantic_similarity']:.2f}, "
+        f"Pass: {result['pass']}"
+    )
+except ValueError as e:
+    print(f"✗ Invalid metrics: {e}")
+    print("  → Check timestamps, token counts, and text fields are correct")
+except KeyError as e:
+    print(f"✗ Missing required field: {e}")
+    print("  → Ensure all fields in metric_data are present")
+except Exception as e:
+    print(f"✗ Error: {e}")
+    print("  → See docs/guides/troubleshooting.md for GenAI integration help")
 ```
 
 ### Composite Dependency DAGs
@@ -373,23 +409,34 @@ print(
 Evaluate service dependency graphs with automatic failure propagation and weighted global SLO calculation.
 
 ```python
-import neuralbudget
+try:
+    import neuralbudget
 
-graph = neuralbudget.CompositeSloGraph(
-    services=[
-        neuralbudget.CompositeServiceSlo("api-gateway", 0.95, 0.9, 2.0),
-        neuralbudget.CompositeServiceSlo("auth-service", 0.98, 0.9, 1.5),
-        neuralbudget.CompositeServiceSlo("payment-service", 0.92, 0.9, 3.0),
-    ],
-    dependencies=[
-        neuralbudget.CompositeDependencyEdge("auth-service", "api-gateway", 0.15),
-        neuralbudget.CompositeDependencyEdge("payment-service", "api-gateway", 0.25),
-    ],
-    global_min_pass_score=0.85,
-)
+    graph = neuralbudget.CompositeSloGraph(
+        services=[
+            neuralbudget.CompositeServiceSlo("api-gateway", 0.95, 0.9, 2.0),
+            neuralbudget.CompositeServiceSlo("auth-service", 0.98, 0.9, 1.5),
+            neuralbudget.CompositeServiceSlo("payment-service", 0.92, 0.9, 3.0),
+        ],
+        dependencies=[
+            neuralbudget.CompositeDependencyEdge("auth-service", "api-gateway", 0.15),
+            neuralbudget.CompositeDependencyEdge("payment-service", "api-gateway", 0.25),
+        ],
+        global_min_pass_score=0.85,
+    )
 
-evaluation = neuralbudget.evaluate_composite_slo_graph(graph)
-print(f"Global SLO: {evaluation.global_slo:.3f}, System Pass: {evaluation.global_pass}")
+    evaluation = neuralbudget.evaluate_composite_slo_graph(graph)
+    print(f"✓ Global SLO: {evaluation.global_slo:.3f}")
+    print(f"✓ System Pass: {evaluation.global_pass}")
+except ValueError as e:
+    print(f"✗ Invalid graph configuration: {e}")
+    print("  → Check that all edge targets reference existing services")
+except TypeError as e:
+    print(f"✗ Type error: {e}")
+    print("  → Ensure SLO values are floats and weights sum correctly")
+except RuntimeError as e:
+    print(f"✗ Graph evaluation failed: {e}")
+    print("  → See docs/reference/composite-slo-dag.md for detailed examples")
 ```
 
 ---

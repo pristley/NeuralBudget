@@ -22,8 +22,13 @@ Create a new aggregator. No arguments required.
 
 **Example:**
 ```python
-from neuralbudget import StreamingAggregator
-agg = StreamingAggregator()
+try:
+    from neuralbudget import StreamingAggregator
+    agg = StreamingAggregator()
+    print("✓ StreamingAggregator created successfully")
+except ImportError as e:
+    print(f"✗ Import error: {e}")
+    print("  → Run: pip install neuralbudget")
 ```
 
 ### Methods
@@ -45,9 +50,17 @@ Add a single metric measurement to the aggregator.
 
 **Example:**
 ```python
-agg.push(1000, 50.0)   # At time 1000ms, value was 50
-agg.push(1050, 52.0)   # At time 1050ms, value was 52
-agg.push(1100, 51.0)   # At time 1100ms, value was 51
+try:
+    agg.push(1000, 50.0)   # At time 1000ms, value was 50
+    agg.push(1050, 52.0)   # At time 1050ms, value was 52
+    agg.push(1100, 51.0)   # At time 1100ms, value was 51
+    print("✓ Metrics pushed successfully")
+except TypeError as e:
+    print(f"✗ Type error: {e}")
+    print("  → Ensure timestamp is integer and value is float")
+except OverflowError as e:
+    print(f"✗ Value out of range: {e}")
+    print("  → Check that values are within valid ranges")
 ```
 
 #### get_moving_average(current_timestamp: int, window_milliseconds: int) → float
@@ -67,15 +80,21 @@ Retrieve the arithmetic mean of all values within a time window.
 
 **Example:**
 ```python
-agg.push(1000, 50.0)
-agg.push(1050, 52.0)
-agg.push(1100, 51.0)
+try:
+    agg.push(1000, 50.0)
+    agg.push(1050, 52.0)
+    agg.push(1100, 51.0)
 
-# Average of measurements within 100ms before time 1100
-avg = agg.get_moving_average(1100, 100)  # Returns 51.5 (mean of 52 and 51)
+    # Average of measurements within 100ms before time 1100
+    avg = agg.get_moving_average(1100, 100)  # Returns 51.5 (mean of 52 and 51)
+    print(f"✓ 100ms average: {avg:.1f}")
 
-# Average of all measurements (window size 150ms)
-avg = agg.get_moving_average(1100, 150)  # Returns 51.0 (mean of 52, 51, and 50)
+    # Average of all measurements (window size 150ms)
+    avg = agg.get_moving_average(1100, 150)  # Returns 51.0 (mean of 52, 51, and 50)
+    print(f"✓ 150ms average: {avg:.1f}")
+except TypeError as e:
+    print(f"✗ Error: {e}")
+    print("  → Ensure both timestamp and window_ms are integers")
 ```
 
 #### prune(cutoff_timestamp: int) → None
@@ -94,7 +113,12 @@ Remove all measurements before the specified timestamp to free memory.
 
 **Example:**
 ```python
-agg.prune(900)  # Remove all measurements before timestamp 900
+try:
+    agg.prune(900)  # Remove all measurements before timestamp 900
+    print(f"✓ Pruned old data. Remaining entries: {agg.len()}")
+except TypeError as e:
+    print(f"✗ Error: {e}")
+    print("  → Ensure cutoff_timestamp is an integer")
 ```
 
 #### len() → int
@@ -105,9 +129,14 @@ Return the number of measurements currently stored.
 
 **Example:**
 ```python
-count = agg.len()  # Returns current buffer size
-if count > 100000:
-    print("Warning: buffer is large")
+try:
+    count = agg.len()  # Returns current buffer size
+    if count > 100000:
+        print(f"✗ Warning: buffer is large ({count} entries)")
+    else:
+        print(f"✓ Buffer size: {count} entries")
+except Exception as e:
+    print(f"✗ Error: {e}")
 ```
 
 #### is_empty() → bool
@@ -118,8 +147,13 @@ Check whether the aggregator contains any measurements.
 
 **Example:**
 ```python
-if agg.is_empty():
-    print("No measurements yet")
+try:
+    if agg.is_empty():
+        print("✗ No measurements yet")
+    else:
+        print(f"✓ Aggregator has {agg.len()} measurements")
+except Exception as e:
+    print(f"✗ Error: {e}")
 ```
 
 ---
@@ -219,15 +253,22 @@ Create a new graph from a list of metric definitions.
 
 **Example:**
 ```python
-from neuralbudget import ParallelMetricBatch
+try:
+    from neuralbudget import ParallelMetricBatch
 
-batch = ParallelMetricBatch([
-    ("latency_p99", 150.0, 200.0),
-    ("availability", 99.95, 99.9),
-    ("error_rate", 0.1, 0.5),
-])
+    batch = ParallelMetricBatch([
+        ("latency_p99", 150.0, 200.0),
+        ("availability", 99.95, 99.9),
+        ("error_rate", 0.1, 0.5),
+    ])
 
-print(batch.node_count)  # Prints: 3
+    print(f"✓ Batch created with {batch.node_count} metrics")
+except ValueError as e:
+    print(f"✗ Invalid batch configuration: {e}")
+    print("  → Check that all tuples have 3 numeric elements")
+except TypeError as e:
+    print(f"✗ Type error: {e}")
+    print("  → Ensure values and thresholds are floats")
 ```
 
 ### Methods
@@ -253,17 +294,21 @@ Evaluate all metrics against their thresholds in parallel using multiple CPU cor
 
 **Example:**
 ```python
-results = graph.evaluate()
-# Returns:
-# [
-#   ("latency_p99", 150.0, 200.0, True, 0.75),
-#   ("availability", 99.95, 99.9, True, 1.0),
-#   ("error_rate", 0.1, 0.5, True, 0.2),
-# ]
+try:
+    results = graph.evaluate()
+    # Returns:
+    # [
+    #   ("latency_p99", 150.0, 200.0, True, 0.75),
+    #   ("availability", 99.95, 99.9, True, 1.0),
+    #   ("error_rate", 0.1, 0.5, True, 0.2),
+    # ]
 
-for node_id, value, threshold, passed, score in results:
-    status = "PASS" if passed else "FAIL"
-    print(f"{node_id}: {value:.2f} (threshold {threshold}) {status}")
+    print(f"✓ Evaluated {len(results)} metrics:")
+    for node_id, value, threshold, passed, score in results:
+        status = "PASS" if passed else "FAIL"
+        print(f"  {node_id}: {value:.2f} (threshold {threshold}) {status}")
+except RuntimeError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 #### all_pass() → bool
@@ -281,17 +326,24 @@ Check whether every metric passed (all values >= thresholds).
 
 **Example:**
 ```python
-batch = ParallelMetricBatch([
-    ("latency", 150.0, 200.0),  # Fails: 150 < 200
-    ("availability", 99.95, 99.9),  # Passes: 99.95 >= 99.9
-])
+try:
+    batch = ParallelMetricBatch([
+        ("latency", 150.0, 200.0),  # Fails: 150 < 200
+        ("availability", 99.95, 99.9),  # Passes: 99.95 >= 99.9
+    ])
 
-# Works correctly before evaluate() is called
-print(batch.all_pass())  # False (latency fails)
+    # Works correctly before evaluate() is called
+    if batch.all_pass():
+        print("✓ All metrics pass")
+    else:
+        print("✗ Some metrics fail")
 
-# After updating a metric
-batch.update_node("latency", 250.0)  # Now passes
-print(batch.all_pass())  # True (both metrics now pass)
+    # After updating a metric
+    batch.update_node("latency", 250.0)  # Now passes
+    if batch.all_pass():
+        print("✓ All metrics now pass (after update)")
+except ValueError as e:
+    print(f"✗ Error: {e}")
 ```
 
 #### aggregate_score() → float
@@ -316,18 +368,22 @@ Calculate the mean score across all metrics.
 
 **Example:**
 ```python
-batch = ParallelMetricBatch([
-    ("metric1", 100.0, 100.0),  # Score: 1.0
-    ("metric2", 50.0, 100.0),   # Score: 0.5
-])
+try:
+    batch = ParallelMetricBatch([
+        ("metric1", 100.0, 100.0),  # Score: 1.0
+        ("metric2", 50.0, 100.0),   # Score: 0.5
+    ])
 
-# Works correctly before evaluate() is called
-health = batch.aggregate_score()  # Returns 0.75 (mean of 1.0 and 0.5)
-print(f"Composite health: {health:.1%}")  # "Composite health: 75.0%"
+    # Works correctly before evaluate() is called
+    health = batch.aggregate_score()  # Returns 0.75 (mean of 1.0 and 0.5)
+    print(f"✓ Composite health: {health:.1%}")  # "Composite health: 75.0%"
 
-# After updating metrics
-batch.update_node("metric2", 75.0)  # New score: 0.75
-health = batch.aggregate_score()  # Returns 0.875 (mean of 1.0 and 0.75)
+    # After updating metrics
+    batch.update_node("metric2", 75.0)  # New score: 0.75
+    health = batch.aggregate_score()  # Returns 0.875 (mean of 1.0 and 0.75)
+    print(f"✓ Updated health: {health:.1%}")
+except ValueError as e:
+    print(f"✗ Error: {e}")
 ```
 
 #### pass_count() → int
@@ -345,20 +401,24 @@ Count how many metrics passed.
 
 **Example:**
 ```python
-batch = ParallelMetricBatch([
-    ("metric1", 250.0, 200.0),  # Passes
-    ("metric2", 99.9, 99.0),    # Passes
-    ("metric3", 0.1, 0.5),      # Fails
-])
+try:
+    batch = ParallelMetricBatch([
+        ("metric1", 250.0, 200.0),  # Passes
+        ("metric2", 99.9, 99.0),    # Passes
+        ("metric3", 0.1, 0.5),      # Fails
+    ])
 
-# Works correctly before evaluate() is called
-passed = batch.pass_count()  # Returns 2
-total = batch.node_count     # Returns 3
-print(f"Passed: {passed}/{total}")  # "Passed: 2/3"
+    # Works correctly before evaluate() is called
+    passed = batch.pass_count()  # Returns 2
+    total = batch.node_count     # Returns 3
+    print(f"✓ Passed: {passed}/{total}")  # "Passed: 2/3"
 
-# After updating a metric that failed
-batch.update_node("metric3", 1.0)  # Now passes
-passed = batch.pass_count()  # Returns 3
+    # After updating a metric that failed
+    batch.update_node("metric3", 1.0)  # Now passes
+    passed = batch.pass_count()  # Returns 3
+    print(f"✓ Updated: {passed}/{total}")
+except ValueError as e:
+    print(f"✗ Error: {e}")
 ```
 
 #### get_node(node_id: str) → Tuple[str, float, float] | None
@@ -376,12 +436,16 @@ Retrieve a specific metric's current definition.
 
 **Example:**
 ```python
-result = graph.get_node("latency_p99")
-if result:
-    node_id, value, threshold = result
-    print(f"Current: {value}, Threshold: {threshold}")
-else:
-    print("Metric not found")
+try:
+    result = graph.get_node("latency_p99")
+    if result:
+        node_id, value, threshold = result
+        print(f"✓ Current: {value}, Threshold: {threshold}")
+    else:
+        print("✗ Metric not found: latency_p99")
+        print("  → See batch.nodes_as_tuples() to list all metrics")
+except TypeError as e:
+    print(f"✗ Error: {e}")
 ```
 
 #### update_node(node_id: str, new_value: float) → bool
@@ -407,20 +471,27 @@ Change a metric's current value and keep the threshold unchanged.
 
 **Example (Safe):**
 ```python
-from threading import Lock
+try:
+    from threading import Lock
 
-batch = ParallelMetricBatch([("latency", 100.0, 200.0)])
-batch_lock = Lock()
+    batch = ParallelMetricBatch([("latency", 100.0, 200.0)])
+    batch_lock = Lock()
 
-# Safe pattern: protect with lock
-with batch_lock:
-    success = batch.update_node("latency", 150.0)
-    if success:
-        results = batch.evaluate()
+    # Safe pattern: protect with lock
+    with batch_lock:
+        success = batch.update_node("latency", 150.0)
+        if success:
+            print("✓ Metric updated")
+            results = batch.evaluate()
+        else:
+            print("✗ Metric not found")
 
-# Or: update before concurrent evaluations
-batch.update_node("latency", 150.0)
-results = batch.evaluate()  # Single evaluation (no lock needed)
+    # Or: update before concurrent evaluations
+    batch.update_node("latency", 150.0)
+    results = batch.evaluate()  # Single evaluation (no lock needed)
+    print("✓ Single evaluation completed")
+except (ValueError, RuntimeError) as e:
+    print(f"✗ Error: {e}")
 ```
 
 **Example (Unsafe - avoid):**
