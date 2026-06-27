@@ -4,7 +4,7 @@ use neuralbudget::{
     semantic_similarity_placeholder, CompositeDependencyEdge, CompositeServiceSlo,
     CompositeSloError, CompositeSloGraph, ErrorBudget, GenAiSample, GenAiSlo, GenAiSloEvaluation,
     GenAiSloIterator, HistogramBucket, HistogramFormat, HistogramSample, HttpSlo,
-    HttpSloEvaluation, HttpSloIterator, JsonYamlExt, MetricPoint, MlSample, MlSlo, MlSloEvaluation,
+    HttpSloEvaluation, HttpSloIterator, JsonExt, MetricPoint, MlSample, MlSlo, MlSloEvaluation,
     MlSloIterator, OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet, StatefulSample,
     StatefulSlo, StatefulSloEvaluation, StatefulSloIterator, StatefulTier, TimeWindow,
     WebApiRequest, WebApiSloPolicy,
@@ -186,7 +186,7 @@ fn serialization_round_trips_across_models() {
         config
     );
     assert_eq!(
-        ErrorBudget::from_yaml_str(&budget.to_yaml_string().expect("ErrorBudget serialization should succeed")).expect("ErrorBudget deserialization should succeed"),
+        ErrorBudget::from_json_str(&budget.to_json_string().expect("ErrorBudget serialization should succeed")).expect("ErrorBudget deserialization should succeed"),
         budget
     );
     assert_eq!(
@@ -194,7 +194,7 @@ fn serialization_round_trips_across_models() {
         point
     );
     assert_eq!(
-        TimeWindow::from_yaml_str(&window.to_yaml_string().expect("TimeWindow serialization should succeed")).expect("TimeWindow deserialization should succeed"),
+        TimeWindow::from_json_str(&window.to_json_string().expect("TimeWindow serialization should succeed")).expect("TimeWindow deserialization should succeed"),
         window
     );
     assert_eq!(
@@ -202,7 +202,7 @@ fn serialization_round_trips_across_models() {
         histogram
     );
     assert_eq!(
-        HttpSlo::from_yaml_str(&http_slo.to_yaml_string().expect("HttpSlo serialization should succeed")).expect("HttpSlo deserialization should succeed"),
+        HttpSlo::from_json_str(&http_slo.to_json_string().expect("HttpSlo serialization should succeed")).expect("HttpSlo deserialization should succeed"),
         http_slo
     );
     assert_eq!(
@@ -210,7 +210,7 @@ fn serialization_round_trips_across_models() {
         stateful_slo
     );
     assert_eq!(
-        StatefulSample::from_yaml_str(&stateful_sample.to_yaml_string().unwrap()).unwrap(),
+        StatefulSample::from_json_str(&stateful_sample.to_json_string().unwrap()).unwrap(),
         stateful_sample
     );
 }
@@ -386,7 +386,7 @@ fn stateful_slo_penalty_impacts_pass_fail() {
 fn weighted_stateful_policy_profiles_round_trip_and_diverge_by_tier() {
     let profiles = StatefulPolicyProfileSet::default();
     let round_trip =
-        StatefulPolicyProfileSet::from_yaml_str(&profiles.to_yaml_string().unwrap()).unwrap();
+        StatefulPolicyProfileSet::from_json_str(&profiles.to_json_string().unwrap()).unwrap();
 
     assert_eq!(round_trip, profiles);
     assert_eq!(
@@ -496,7 +496,7 @@ fn ml_slo_iterator_and_serialization_round_trip() {
     let round_trip = MlSlo::from_json_str(&slo.to_json_string().unwrap()).unwrap();
     assert_eq!(round_trip, slo);
 
-    let sample_round_trip = MlSample::from_yaml_str(
+    let sample_round_trip = MlSample::from_json_str(
         &MlSample {
             timestamp: 99,
             inference_latency_ms: 120.0,
@@ -504,7 +504,7 @@ fn ml_slo_iterator_and_serialization_round_trip() {
             feature_drift: 0.03,
             prediction_confidence: 0.98,
         }
-        .to_yaml_string()
+        .to_json_string()
         .unwrap(),
     )
     .unwrap();
