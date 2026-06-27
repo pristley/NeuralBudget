@@ -556,4 +556,4 @@ Log messages include:
 
 - [Advanced Alert Dispatch Guide](../guides/advanced_alert_dispatch.md)
 - [Basic Alert Dispatcher](../../python/neuralbudget/alerting.py)
-- [Examples](../../../examples/python/advanced_alert_dispatch.py)
+- [Examples](../../examples/python/advanced_alert_dispatch.py)

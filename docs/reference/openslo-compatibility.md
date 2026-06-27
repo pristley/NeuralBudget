@@ -333,8 +333,8 @@ neuralbudget convert --service my-service ...
 
 - [OpenSLO Specification](https://github.com/openslo/spec)
 - [CNCF OpenSLO Project](https://www.cncf.io/)
-- [Prometheus Rule Generation](prometheus-rule-generation.md)
-- [NeuralBudget User Guide](user-guide.md)
+- [Prometheus Rule Generation](../guides/prometheus-rule-generation.md)
+- [NeuralBudget User Guide](../guides/user-guide.md)
 
 ## Examples
 

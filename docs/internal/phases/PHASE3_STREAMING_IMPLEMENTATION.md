@@ -3,7 +3,7 @@
 ## Feature: Adaptive Windowing for High-Frequency Ingestion
 
 **Status:** ✅ Implemented and Active (Phase 3.1)  
-**Design:** [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md)  
+**Design:** [ADAPTIVE_WINDOWING_DESIGN.md](../design/ADAPTIVE_WINDOWING_DESIGN.md)  
 **Date:** 2026-06-26
 
 ### Overview

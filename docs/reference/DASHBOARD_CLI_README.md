@@ -329,21 +329,21 @@ python examples/python/dashboard_cli_examples.py 2
 
 ## Complete Documentation
 
-- **Implementation Guide**: [docs/guides/dashboard_cli.md](docs/guides/dashboard_cli.md)
-- **API Reference**: [docs/reference/dashboard_cli.md](docs/reference/dashboard_cli.md)
-- **Examples**: [examples/python/dashboard_cli_examples.py](examples/python/dashboard_cli_examples.py)
+- **Implementation Guide**: [docs/guides/dashboard_cli.md](../guides/dashboard_cli.md)
+- **API Reference**: [docs/reference/dashboard_cli.md](./dashboard_cli.md)
+- **Examples**: [examples/python/dashboard_cli_examples.py](../../examples/python/dashboard_cli_examples.py)
 
 ## Next Steps
 
 1. **Try the dashboard**: `python -m neuralbudget.dashboard`
 2. **Try the CLI TUI**: `python -m neuralbudget.cli_tui`
-3. **Read the guide**: See [docs/guides/dashboard_cli.md](docs/guides/dashboard_cli.md)
-4. **Check examples**: See [examples/python/dashboard_cli_examples.py](examples/python/dashboard_cli_examples.py)
+3. **Read the guide**: See [docs/guides/dashboard_cli.md](../guides/dashboard_cli.md)
+4. **Check examples**: See [examples/python/dashboard_cli_examples.py](../../examples/python/dashboard_cli_examples.py)
 
 ## Getting Help
 
-- **Questions?** Check [docs/guides/dashboard_cli.md](docs/guides/dashboard_cli.md)
-- **API help?** See [docs/reference/dashboard_cli.md](docs/reference/dashboard_cli.md)
+- **Questions?** Check [docs/guides/dashboard_cli.md](../guides/dashboard_cli.md)
+- **API help?** See [docs/reference/dashboard_cli.md](./dashboard_cli.md)
 - **Issues?** See troubleshooting section above
 
 ---

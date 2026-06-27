@@ -662,4 +662,4 @@ for node_id, value, threshold, passed, score in results:
 
 - [Getting Started Guide](#) — Quick introduction and task-based examples
 - [Deployment Guide](#) — Production configuration, monitoring, and troubleshooting
-- [Source Code](src/streaming.rs) — Rust implementation details
+- [Source Code](../../src/streaming.rs) — Rust implementation details

@@ -9,8 +9,8 @@
 
 ### Code Review
 
-- [ ] Review [src/streaming.rs](src/streaming.rs) for adaptive windowing logic
-- [ ] Review [src/slo_graph.rs](src/slo_graph.rs) for parallel evaluation implementation
+- [ ] Review [src/streaming.rs](../../src/streaming.rs) for adaptive windowing logic
+- [ ] Review [src/slo_graph.rs](../../src/slo_graph.rs) for parallel evaluation implementation
 - [ ] Confirm all test cases pass: `cargo test streaming --lib && cargo test slo_graph --lib`
 - [ ] Run benchmarks to baseline performance: `cargo bench --bench streaming_aggregator`
 
@@ -636,7 +636,7 @@ evaluation = results[0][3]  # Pass/fail field
 ### Getting Help
 
 - **Documentation:** [PHASE3_GETTING_STARTED.md](../internal/phases/PHASE3_GETTING_STARTED.md), [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md)
-- **Source Code:** [src/streaming.rs](src/streaming.rs), [src/slo_graph.rs](src/slo_graph.rs)
+- **Source Code:** [src/streaming.rs](../../src/streaming.rs), [src/slo_graph.rs](../../src/slo_graph.rs)
 - **Issues:** Open a GitHub issue or contact the NeuralBudget team
 
 ### Known Limitations
@@ -676,4 +676,4 @@ evaluation = results[0][3]  # Pass/fail field
 
 - [Getting Started Guide](../internal/phases/PHASE3_GETTING_STARTED.md)
 - [API Reference](PARALLEL_SLO_API_REFERENCE.md)
-- [Source Code](src/streaming.rs) and [Parallel Implementation](src/slo_graph.rs)
+- [Source Code](../../src/streaming.rs) and [Parallel Implementation](../../src/slo_graph.rs)

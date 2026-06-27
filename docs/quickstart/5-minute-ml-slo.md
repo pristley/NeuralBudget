@@ -312,18 +312,18 @@ A: Use statistical tests (KL divergence, Kolmogorov-Smirnov) on feature distribu
 
 ## 🔗 Next Steps
 
-- [Advanced ML Monitoring](../../guides/anomaly_drift_detection.md)
-- [ML Best Practices](../../guides/user-guide.md#ml-section)
-- [Anomaly Detection](../../reference/ANOMALY_DETECTION_IMPLEMENTATION.md)
+- [Advanced ML Monitoring](../guides/anomaly_drift_detection.md)
+- [ML Best Practices](../guides/user-guide.md#ml-section)
+- [Anomaly Detection](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md)
 - [Try GenAI SLO](5-minute-genai-slo.md)
-- [Go to Prometheus Integration](../examples/quickstart/prometheus/README.md)
+- [Go to Prometheus Integration](../../examples/quickstart/prometheus/README.md)
 
 ## 🔗 Full Resources
 
-- **🤖 Drift Detection:** [Anomaly Drift Detection](../../guides/anomaly_drift_detection.md)
-- **📊 Model Monitoring:** [Advanced Monitoring](../../guides/advanced_alert_dispatch.md)
-- **🚀 Production ML:** [Production Deployment](../../guides/production-deployment.md)
-- **🔌 API Reference:** [Full API](../../reference/api.md)
+- **🤖 Drift Detection:** [Anomaly Drift Detection](../guides/anomaly_drift_detection.md)
+- **📊 Model Monitoring:** [Advanced Monitoring](../guides/advanced_alert_dispatch.md)
+- **🚀 Production ML:** [Production Deployment](../guides/production-deployment.md)
+- **🔌 API Reference:** [Full API](../reference/api.md)
 
 ---
 

@@ -101,9 +101,9 @@ docs/
 
 ## 🔗 Other Important Docs
 
-- **[Licensing](../LICENSING.md)** — Apache 2.0 open source + commercial options
+- **[Licensing](internal/LICENSING.md)** — Apache 2.0 open source + commercial options
 - **[Contributing](../CONTRIBUTING.md)** — How to contribute
-- **[Changelog](../CHANGELOG.md)** — Release history
+- **[Changelog](internal/CHANGELOG.md)** — Release history
 - **[README](../README.md)** — Project overview
 
 ---
@@ -126,7 +126,7 @@ Internal docs are archived in `docs/internal/` for reference:
 - **Getting an error?** → [Error Reference](reference/errors.md)
 - **Don't know the term?** → [Glossary](reference/glossary.md)
 - **Want to contribute?** → [Contributing](../CONTRIBUTING.md)
-- **Need commercial support?** → [Licensing](../LICENSING.md)
+- **Need commercial support?** → [Licensing](internal/LICENSING.md)
 
 ---
 

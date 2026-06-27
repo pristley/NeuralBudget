@@ -622,6 +622,6 @@ A: Yes! Agent SLO measures execution trajectory. Works with:
 ## See Also
 
 - [Cost-Based SLOs](./cost-slo.md) - Token costs and budget control
-- [LLM-as-Judge](./llm_as_judge.md) - Quality evaluation via reference-free scoring
-- [Hallucination Detection](./hallucination_detection.md) - Groundedness checking
+- [LLM-as-Judge](./llm-judge-eval.md) - Quality evaluation via reference-free scoring
+- [Hallucination Detection](./hallucination-detection-slo.md) - Groundedness checking
 - [SLO Best Practices](./DEPLOYMENT_GUIDE.md) - Production deployment guidance

@@ -24,7 +24,7 @@ Monitor REST API uptime and response time.
 
 ---
 
-### 2. [ML Model Drift & Confidence](ml-slo.md) 🤖
+### 2. [ML Model Drift & Confidence](5-minute-ml-slo.md) 🤖
 
 Monitor ML model performance, accuracy, and data drift.
 
@@ -43,7 +43,7 @@ Monitor ML model performance, accuracy, and data drift.
 
 ---
 
-### 3. [GenAI TPS + TTFT](genai-slo.md) 🧠
+### 3. [GenAI TPS + TTFT](5-minute-genai-slo.md) 🧠
 
 Track LLM endpoints and AI workloads (TTFT = Time To First Token).
 
@@ -63,7 +63,7 @@ Track LLM endpoints and AI workloads (TTFT = Time To First Token).
 
 ---
 
-### 4. [Prometheus Integration](prometheus-rules.md) 📊
+### 4. [Prometheus Integration](5-minute-http-slo.md) 📊
 
 Generate and deploy Prometheus alerting rules from SLOs.
 
@@ -82,7 +82,7 @@ Generate and deploy Prometheus alerting rules from SLOs.
 
 ---
 
-### 5. [Python Notebook](python-notebook.md) 🐍
+### 5. [Python Notebook](../guides/getting-started.md) 🐍
 
 Programmatic SLO evaluation using NeuralBudgetClient.
 
@@ -198,12 +198,12 @@ examples/quickstart/
 
 ### Start Here (Recommended Order)
 
-1. **New to SLOs?** → Start with [HTTP SLO](http-slo.md)
+1. **New to SLOs?** → Start with [HTTP SLO](5-minute-http-slo.md)
 2. **Have a microservices architecture?** → Try [Composite DAG](5-minute-composite-dag-slo.md)
-3. **Have a Python service?** → Try [Python Notebook](python-notebook.md)
-4. **Using Kubernetes?** → Check [Prometheus Rules](prometheus-rules.md)
-5. **Running ML models?** → See [ML Drift](ml-slo.md)
-6. **Operating LLMs?** → Go to [GenAI SLO](genai-slo.md)
+3. **Have a Python service?** → Try [Getting Started](../guides/getting-started.md)
+4. **Using Kubernetes?** → Check [Prometheus Integration](5-minute-http-slo.md)
+5. **Running ML models?** → See [ML Drift](5-minute-ml-slo.md)
+6. **Operating LLMs?** → Go to [GenAI SLO](5-minute-genai-slo.md)
 
 ### Common Issues
 

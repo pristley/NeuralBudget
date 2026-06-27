@@ -290,32 +290,32 @@ A: The percentage of failures you can "afford" while still meeting your SLO. Onc
 ## 🔗 Next Steps
 
 ### Option A: Learn More HTTP Patterns
-- [Advanced HTTP SLOs](../../guides/user-guide.md#http-section)
-- [Production Deployment](../../guides/production-deployment.md)
+- [Advanced HTTP SLOs](../guides/user-guide.md#http-section)
+- [Production Deployment](../guides/production-deployment.md)
 
 ### Option B: Try Another Use Case
 - [ML Model Drift](5-minute-ml-slo.md)
 - [GenAI Monitoring](5-minute-genai-slo.md)
 
 ### Option C: Set Up Kubernetes
-- [Prometheus Integration](../examples/quickstart/prometheus/README.md)
-- [Kubernetes Guide](../../guides/kubernetes-integration.md)
+- [Prometheus Integration](../../examples/quickstart/prometheus/README.md)
+- [Kubernetes Guide](../guides/kubernetes-integration.md)
 
 ### Option D: Programmatic Usage
-- [Python Notebook](../examples/quickstart/notebook.ipynb)
-- [Python API](../../reference/api.md#python-client)
+- [Python Notebook](../../examples/quickstart/notebook.ipynb)
+- [Python API](../reference/api.md#python-client)
 
 ## 🔗 Full Resources
 
-- **📖 Complete User Guide:** [User Guide](../../guides/user-guide.md)
-- **🚀 Production Setup:** [Production Deployment](../../guides/production-deployment.md)
-- **📊 Prometheus:** [Prometheus Integration](../../guides/prometheus-scraping-examples.md)
-- **🔌 API Reference:** [Full API](../../reference/api.md)
-- **🐛 Troubleshooting:** [Troubleshooting Guide](../../guides/troubleshooting.md)
+- **📖 Complete User Guide:** [User Guide](../guides/user-guide.md)
+- **🚀 Production Setup:** [Production Deployment](../guides/production-deployment.md)
+- **📊 Prometheus:** [Prometheus Integration](../guides/prometheus-scraping-examples.md)
+- **🔌 API Reference:** [Full API](../reference/api.md)
+- **🐛 Troubleshooting:** [Troubleshooting Guide](../guides/troubleshooting.md)
 
 ---
 
 **Questions?** 
 - 💬 [Ask on GitHub Discussions](https://github.com/pristley/NeuralBudget/discussions)
 - 🐛 [Report Issues](https://github.com/pristley/NeuralBudget/issues)
-- 📚 [Browse Examples](../examples/quickstart/http-slo)
+- 📚 [Browse Examples](../../examples/quickstart/http-slo)

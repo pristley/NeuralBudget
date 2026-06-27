@@ -76,7 +76,7 @@ New to NeuralBudget? Choose your path:
 ### Contributing & Development
 
 - **How do I contribute?** → [Contributing](../../CONTRIBUTING.md)
-- **What changed in this release?** → [Changelog](../../CHANGELOG.md)
+- **What changed in this release?** → [Changelog](../internal/CHANGELOG.md)
 - **What's the roadmap?** → [Feature Plans](../plans/mlops-model-drift-serving-plan.md)
 
 ## Documentation Paths (By Role)

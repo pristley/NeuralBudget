@@ -324,18 +324,18 @@ A: Monitor tokens × price. Set budgets and alerts.
 
 ## 🔗 Next Steps
 
-- [GenAI Integrations](../../guides/genai_connectors.md)
-- [Burn Rate Forecasting](../../guides/burn-rate-forecasting.md)
-- [Production Deployment](../../guides/production-deployment.md)
-- [Advanced Alerting](../../guides/advanced_alert_dispatch.md)
-- [Try Prometheus Integration](../examples/quickstart/prometheus/README.md)
+- [GenAI Integrations](../guides/genai_connectors.md)
+- [Burn Rate Forecasting](../guides/burn-rate-forecasting.md)
+- [Production Deployment](../guides/production-deployment.md)
+- [Advanced Alerting](../guides/advanced_alert_dispatch.md)
+- [Try Prometheus Integration](../../examples/quickstart/prometheus/README.md)
 
 ## 🔗 Full Resources
 
-- **🧠 GenAI Guide:** [GenAI Connectors](../../guides/genai_connectors.md)
-- **📊 Prometheus:** [Prometheus Integration](../../guides/prometheus-scraping-examples.md)
-- **📈 Forecasting:** [Burn Rate Forecasting](../../guides/burn-rate-forecasting.md)
-- **🔌 API Reference:** [Full API](../../reference/api.md)
+- **🧠 GenAI Guide:** [GenAI Connectors](../guides/genai_connectors.md)
+- **📊 Prometheus:** [Prometheus Integration](../guides/prometheus-scraping-examples.md)
+- **📈 Forecasting:** [Burn Rate Forecasting](../guides/burn-rate-forecasting.md)
+- **🔌 API Reference:** [Full API](../reference/api.md)
 
 ---
 

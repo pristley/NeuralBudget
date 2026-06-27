@@ -296,11 +296,11 @@ python examples/python/advanced_alert_dispatch.py
 
 ## Documentation
 
-- **Start here**: [Advanced Alert Dispatch Guide](docs/guides/advanced_alert_dispatch.md)
-- **API Details**: [API Reference](docs/reference/advanced_alert_dispatch.md)
-- **Examples**: [advanced_alert_dispatch.py](examples/python/advanced_alert_dispatch.py)
-- **Tests**: [Tests](tests/python_advanced_alert_dispatch_tests.py)
-- **Config**: [webhook_alerting_advanced_config.json](examples/python/webhook_alerting_advanced_config.json)
+- **Start here**: [Advanced Alert Dispatch Guide](../guides/advanced_alert_dispatch.md)
+- **API Details**: [API Reference](./advanced_alert_dispatch.md)
+- **Examples**: [advanced_alert_dispatch.py](../../examples/python/advanced_alert_dispatch.py)
+- **Tests**: [Tests](../../tests/python_advanced_alert_dispatch_tests.py)
+- **Config**: [webhook_alerting_advanced_config.json](../../examples/python/webhook_alerting_advanced_config.json)
 
 ## Performance Profile
 

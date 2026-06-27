@@ -384,6 +384,6 @@ The GIL release in `evaluate()` allows Python code to run on other threads *whil
 
 ## What's Next
 
-- [API Reference](PARALLEL_SLO_API_REFERENCE.md) — Full method signatures and return types
-- [Deployment Guide](DEPLOYMENT_GUIDE.md) — Production configuration and monitoring
-- [Examples](examples/python/) — Code samples for Prometheus integration, Kubernetes, and dashboards
+- [API Reference](../../guides/PARALLEL_SLO_API_REFERENCE.md) — Full method signatures and return types
+- [Deployment Guide](../../guides/DEPLOYMENT_GUIDE.md) — Production configuration and monitoring
+- [Examples](../../../examples/python) — Code samples for Prometheus integration, Kubernetes, and dashboards

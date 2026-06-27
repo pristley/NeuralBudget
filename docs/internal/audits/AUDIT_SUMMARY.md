@@ -31,7 +31,7 @@ Detailed assessment of the codebase including:
 ---
 
 ### 2. **Contributing Guide** ✅
-**File:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+**File:** [`CONTRIBUTING.md`](../../../CONTRIBUTING.md)
 
 New comprehensive guide for contributors including:
 - Code of conduct and collaboration expectations
@@ -50,7 +50,7 @@ New comprehensive guide for contributors including:
 ---
 
 ### 3. **Development Guide** ✅
-**File:** [`docs/guides/development.md`](docs/guides/development.md)
+**File:** [`docs/guides/development.md`](../../guides/development.md)
 
 Detailed developer reference covering:
 - **Environment Setup** — One-time and per-session setup scripts
@@ -67,7 +67,7 @@ Detailed developer reference covering:
 ---
 
 ### 4. **Python API Reference** ✅
-**File:** [`docs/reference/api.md`](docs/reference/api.md)
+**File:** [`docs/reference/api.md`](../../reference/api.md)
 
 Complete Python API documentation with:
 - **Core Classes** — SloConfig, ErrorBudget, TimeWindow, HistogramSample with examples
@@ -253,19 +253,19 @@ All improvements have been verified:
 ## How to Use These Improvements
 
 ### For Contributors
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
-2. Follow [docs/guides/development.md](docs/guides/development.md) for setup
+1. Read [CONTRIBUTING.md](../../../CONTRIBUTING.md) for guidelines
+2. Follow [docs/guides/development.md](../../guides/development.md) for setup
 3. Reference [AUDIT_REPORT.md](AUDIT_REPORT.md) for code quality standards
 
 ### For Users  
-1. Check [README.md](README.md) for quick start
-2. Consult [docs/reference/api.md](docs/reference/api.md) for API details
-3. See [docs/guides/](docs/guides/) for specific workflows
+1. Check [README.md](../../../README.md) for quick start
+2. Consult [docs/reference/api.md](../../reference/api.md) for API details
+3. See [docs/guides/](../../guides/) for specific workflows
 
 ### For Maintainers
 1. Review [AUDIT_REPORT.md](AUDIT_REPORT.md) for assessment
 2. Use recommendations for prioritizing future work
-3. Reference [CONTRIBUTING.md](CONTRIBUTING.md) during PR reviews
+3. Reference [CONTRIBUTING.md](../../../CONTRIBUTING.md) during PR reviews
 
 ---
 

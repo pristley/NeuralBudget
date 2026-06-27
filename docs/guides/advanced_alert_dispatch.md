@@ -512,7 +512,7 @@ escalation_policy = EscalationPolicy(
 
 ## Examples
 
-See [examples/python/advanced_alert_dispatch.py](../../../examples/python/advanced_alert_dispatch.py) for:
+See [examples/python/advanced_alert_dispatch.py](../../examples/python/advanced_alert_dispatch.py) for:
 - Basic retry policy
 - Deduplication strategies
 - Circuit breaker usage

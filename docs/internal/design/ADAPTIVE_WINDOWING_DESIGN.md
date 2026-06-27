@@ -260,10 +260,10 @@ When velocity adaptation proves insufficient, consider:
 
 ## References
 
-- **StreamingAggregator Implementation:** [src/streaming.rs](src/streaming.rs)
-- **Benchmarks:** [benches/streaming_aggregator.rs](benches/streaming_aggregator.rs)
-- **Phase 3 Design:** [PHASE3_STREAMING_IMPLEMENTATION.md](PHASE3_STREAMING_IMPLEMENTATION.md)
-- **Benchmark Guide:** [PHASE3_BENCHMARK_GUIDE.md](PHASE3_BENCHMARK_GUIDE.md)
+- **StreamingAggregator Implementation:** [src/streaming.rs](../../../src/streaming.rs)
+- **Benchmarks:** [benches/streaming_aggregator.rs](../../../benches/streaming_aggregator.rs)
+- **Phase 3 Design:** [PHASE3_STREAMING_IMPLEMENTATION.md](../phases/PHASE3_STREAMING_IMPLEMENTATION.md)
+- **Benchmark Guide:** [PHASE3_BENCHMARK_GUIDE.md](../phases/PHASE3_BENCHMARK_GUIDE.md)
 
 ---
 
