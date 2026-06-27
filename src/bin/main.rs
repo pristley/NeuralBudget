@@ -19,7 +19,7 @@ use commands::{check, convert, eval, gen_rules, serve};
 #[derive(Parser)]
 #[command(name = "neuralbudget")]
 #[command(about = "SLO evaluation and configuration tool", long_about = None)]
-#[command(version = "0.1.3")]
+#[command(version = "0.2.0")]
 #[command(author = "NeuralBudget Contributors")]
 struct Cli {
     #[command(subcommand)]
