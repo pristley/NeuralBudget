@@ -59,10 +59,6 @@ impl MultiWindowBurnRate {
     pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
-
-    pub fn to_yaml_string(&self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(self)
-    }
 }
 
 /// Burn rate alert rule configuration following SRE workbook patterns.
@@ -164,10 +160,6 @@ pub struct BudgetExhaustionForecast {
 impl BudgetExhaustionForecast {
     pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
-    }
-
-    pub fn to_yaml_string(&self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(self)
     }
 }
 

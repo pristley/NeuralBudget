@@ -45,48 +45,24 @@ pub struct SloNodeEvaluation {
 /// Unlike CompositeSloGraph, this does NOT model dependencies.
 /// Nodes are evaluated independently and concurrently for maximum throughput.
 ///
-/// ## Thread Safety
+/// ## Usage
 ///
-/// **IMPORTANT:** `ParallelMetricBatch` is NOT safe for concurrent access across threads.
-///
-/// **Safe patterns:**
-/// - Single-threaded use: Call `evaluate()`, then read results with `all_pass()`, `aggregate_score()`, etc.
-/// - No concurrent mutations: Do NOT call `update_node()` while `evaluate()` is running on another thread.
-///
-/// **Unsafe patterns (will cause data races or panics):**
-/// - Calling `evaluate()` and `update_node()` concurrently on same instance from different threads.
-/// - Calling `update_node()` from multiple threads concurrently.
-/// - If you need thread-safe concurrent access, synchronize externally with a Mutex:
-///   ```python
-///   from threading import Lock
-///   batch_lock = Lock()
-///   with batch_lock:
-///       batch.update_node("id", value)
-///       result = batch.evaluate()
-///   ```
-///
-/// ## Result Consistency
-///
-/// All query methods (`all_pass()`, `aggregate_score()`, `pass_count()`, `nodes_as_tuples()`)
-/// **recompute results from the current node state on every call**.
-/// They do NOT cache results from `evaluate()`.
-///
-/// This means:
-/// - Results are always consistent with current node values
-/// - Calling a query method before `evaluate()` is valid and returns correct results
-/// - If you call `update_node()` after `evaluate()`, query methods will reflect the new values
-/// - `evaluate()` is used primarily for GIL release; results are not cached
-///
-/// Example:
+/// Primary workflow:
 /// ```python
 /// batch = ParallelMetricBatch([("metric", 100.0, 200.0)])
-/// batch.evaluate()  # Returns: [("metric", 100.0, 200.0, False, 0.5)]
-/// # Now if we call a query method without re-evaluating:
-/// print(batch.all_pass())  # Returns: False (recomputed from current state)
-/// # If we update and query:
-/// batch.update_node("metric", 250.0)
-/// print(batch.all_pass())  # Returns: True (new value exceeds threshold)
+/// results = batch.evaluate()  # [(id, value, threshold, pass, score), ...]
+/// if batch.all_pass():
+///     print("All metrics passing")
 /// ```
+///
+/// ## Thread Safety
+///
+/// **NOT thread-safe for concurrent access.** Do NOT call `evaluate()` and `update_node()`
+/// concurrently from different threads on the same instance. Synchronize externally with Mutex if needed.
+///
+/// ## Performance
+///
+/// `evaluate()` releases the Python GIL, enabling true concurrent execution on the Rayon thread pool.
 #[pyclass]
 pub struct ParallelMetricBatch {
     /// List of metric nodes to evaluate
@@ -153,36 +129,10 @@ impl ParallelMetricBatch {
 
     /// Get the overall graph pass/fail status (all nodes must pass).
     ///
-    /// Computes results from the current node state (recomputes on every call).
-    /// This method does NOT use cached results from `evaluate()`.
-    ///
     /// Returns true only if ALL nodes have value >= threshold.
     /// Returns true for an empty batch (vacuous truth).
-    ///
-    /// Time complexity: O(n) where n = number of metrics.
-    /// Safe to call before `evaluate()` has been invoked.
     pub fn all_pass(&self) -> bool {
         self.nodes.iter().all(|node| node.evaluate())
-    }
-
-    /// Get aggregate score across all nodes (arithmetic mean).
-    ///
-    /// Computes results from the current node state (recomputes on every call).
-    /// This method does NOT use cached results from `evaluate()`.
-    ///
-    /// Returns the mean of all per-node scores (score = min(value / threshold, 1.0)).
-    /// Returns 1.0 for an empty batch.
-    /// Handles zero thresholds by treating score as 1.0 for that node.
-    ///
-    /// Time complexity: O(n) where n = number of metrics.
-    /// Safe to call before `evaluate()` has been invoked.
-    pub fn aggregate_score(&self) -> f64 {
-        if self.nodes.is_empty() {
-            1.0
-        } else {
-            let sum: f64 = self.nodes.iter().map(|n| n.score()).sum();
-            sum / self.nodes.len() as f64
-        }
     }
 
     /// Retrieve a specific node by ID.
@@ -202,44 +152,6 @@ impl ParallelMetricBatch {
         } else {
             false
         }
-    }
-
-    /// Return the number of passing nodes.
-    ///
-    /// Computes results from the current node state (recomputes on every call).
-    /// This method does NOT use cached results from `evaluate()`.
-    ///
-    /// A node passes if value >= threshold.
-    /// Time complexity: O(n) where n = number of metrics.
-    /// Safe to call before `evaluate()` has been invoked.
-    pub fn pass_count(&self) -> usize {
-        self.nodes.iter().filter(|n| n.evaluate()).count()
-    }
-
-    /// Export all nodes as a list of (id, value, threshold, pass, score) tuples.
-    ///
-    /// Computes results from the current node state (recomputes on every call).
-    /// This method does NOT use cached results from `evaluate()`.
-    ///
-    /// Format is identical to `evaluate()` return type, but always computes
-    /// from current state rather than from any cached results.
-    ///
-    /// Time complexity: O(n) where n = number of metrics.
-    /// Safe to call before `evaluate()` has been invoked.
-    /// Returns an empty list if the batch is empty.
-    pub fn nodes_as_tuples(&self) -> Vec<(String, f64, f64, bool, f64)> {
-        self.nodes
-            .iter()
-            .map(|n| {
-                (
-                    n.id.clone(),
-                    n.value,
-                    n.threshold,
-                    n.evaluate(),
-                    n.score(),
-                )
-            })
-            .collect()
     }
 }
 

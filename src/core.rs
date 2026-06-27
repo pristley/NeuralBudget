@@ -53,12 +53,6 @@ impl From<serde_json::Error> for NeuralBudgetError {
     }
 }
 
-impl From<serde_yaml::Error> for NeuralBudgetError {
-    fn from(err: serde_yaml::Error) -> Self {
-        Self::FormatError(format!("YAML error: {err}"))
-    }
-}
-
 /// Result type alias using NeuralBudgetError as the error type.
 pub type Result<T> = std::result::Result<T, NeuralBudgetError>;
 
@@ -120,15 +114,6 @@ impl SloConfig {
 
     pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(&SloConfigSchemaV1::from(self))
-    }
-
-    pub fn from_yaml_str(input: &str) -> Result<Self, serde_yaml::Error> {
-        let schema: SloConfigSchemaV1 = serde_yaml::from_str(input)?;
-        Ok(schema.into())
-    }
-
-    pub fn to_yaml_string(&self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(&SloConfigSchemaV1::from(self))
     }
 }
 
@@ -811,7 +796,7 @@ impl TimeWindow {
     }
 }
 
-pub trait JsonYamlExt: Sized + Serialize + DeserializeOwned {
+pub trait JsonExt: Sized + Serialize + DeserializeOwned {
     fn from_json_str(input: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(input)
     }
@@ -819,45 +804,37 @@ pub trait JsonYamlExt: Sized + Serialize + DeserializeOwned {
     fn to_json_string(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
-
-    fn from_yaml_str(input: &str) -> Result<Self, serde_yaml::Error> {
-        serde_yaml::from_str(input)
-    }
-
-    fn to_yaml_string(&self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(self)
-    }
 }
 
-impl JsonYamlExt for SloConfig {}
-impl JsonYamlExt for ErrorBudget {}
-impl JsonYamlExt for MetricPoint {}
-impl JsonYamlExt for WebApiRequest {}
-impl JsonYamlExt for OutlierFilterConfig {}
-impl JsonYamlExt for WebApiSloPolicy {}
-impl JsonYamlExt for WebApiSloReport {}
-impl JsonYamlExt for HistogramBucket {}
-impl JsonYamlExt for HistogramSample {}
-impl JsonYamlExt for HttpSlo {}
-impl JsonYamlExt for HttpSloEvaluation {}
-impl JsonYamlExt for StatefulSample {}
-impl JsonYamlExt for StatefulTier {}
-impl JsonYamlExt for StatefulPolicyProfile {}
-impl JsonYamlExt for StatefulPolicyProfileSet {}
-impl JsonYamlExt for StatefulSlo {}
-impl JsonYamlExt for StatefulSloEvaluation {}
-impl JsonYamlExt for MlSample {}
-impl JsonYamlExt for MlSlo {}
-impl JsonYamlExt for MlSloEvaluation {}
-impl JsonYamlExt for GenAiSample {}
-impl JsonYamlExt for GenAiSlo {}
-impl JsonYamlExt for GenAiSloEvaluation {}
-impl JsonYamlExt for CompositeServiceSlo {}
-impl JsonYamlExt for CompositeDependencyEdge {}
-impl JsonYamlExt for CompositeSloGraph {}
-impl JsonYamlExt for CompositeServiceSloEvaluation {}
-impl JsonYamlExt for CompositeSloEvaluation {}
-impl JsonYamlExt for TimeWindow {}
+impl JsonExt for SloConfig {}
+impl JsonExt for ErrorBudget {}
+impl JsonExt for MetricPoint {}
+impl JsonExt for WebApiRequest {}
+impl JsonExt for OutlierFilterConfig {}
+impl JsonExt for WebApiSloPolicy {}
+impl JsonExt for WebApiSloReport {}
+impl JsonExt for HistogramBucket {}
+impl JsonExt for HistogramSample {}
+impl JsonExt for HttpSlo {}
+impl JsonExt for HttpSloEvaluation {}
+impl JsonExt for StatefulSample {}
+impl JsonExt for StatefulTier {}
+impl JsonExt for StatefulPolicyProfile {}
+impl JsonExt for StatefulPolicyProfileSet {}
+impl JsonExt for StatefulSlo {}
+impl JsonExt for StatefulSloEvaluation {}
+impl JsonExt for MlSample {}
+impl JsonExt for MlSlo {}
+impl JsonExt for MlSloEvaluation {}
+impl JsonExt for GenAiSample {}
+impl JsonExt for GenAiSlo {}
+impl JsonExt for GenAiSloEvaluation {}
+impl JsonExt for CompositeServiceSlo {}
+impl JsonExt for CompositeDependencyEdge {}
+impl JsonExt for CompositeSloGraph {}
+impl JsonExt for CompositeServiceSloEvaluation {}
+impl JsonExt for CompositeSloEvaluation {}
+impl JsonExt for TimeWindow {}
 
 pub(crate) fn missing_key(key: &str) -> PyErr {
     PyKeyError::new_err(format!("missing required key '{key}'"))
