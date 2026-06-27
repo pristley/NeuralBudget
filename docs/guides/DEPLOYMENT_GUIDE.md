@@ -23,7 +23,7 @@
 
 ### Documentation Review
 
-- [ ] Read [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md) to understand user-facing behavior
+- [ ] Read [PHASE3_GETTING_STARTED.md](../internal/phases/PHASE3_GETTING_STARTED.md) to understand user-facing behavior
 - [ ] Review this deployment guide for configuration and monitoring requirements
 - [ ] Confirm team understands automatic memory adaptation at high frequencies
 
@@ -635,7 +635,7 @@ evaluation = results[0][3]  # Pass/fail field
 
 ### Getting Help
 
-- **Documentation:** [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md), [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md)
+- **Documentation:** [PHASE3_GETTING_STARTED.md](../internal/phases/PHASE3_GETTING_STARTED.md), [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md)
 - **Source Code:** [src/streaming.rs](src/streaming.rs), [src/slo_graph.rs](src/slo_graph.rs)
 - **Issues:** Open a GitHub issue or contact the NeuralBudget team
 
@@ -674,6 +674,6 @@ evaluation = results[0][3]  # Pass/fail field
 
 ## See Also
 
-- [Getting Started Guide](PHASE3_GETTING_STARTED.md)
+- [Getting Started Guide](../internal/phases/PHASE3_GETTING_STARTED.md)
 - [API Reference](PARALLEL_SLO_API_REFERENCE.md)
 - [Source Code](src/streaming.rs) and [Parallel Implementation](src/slo_graph.rs)

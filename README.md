@@ -7,322 +7,60 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)](.github/workflows/ci.yml)
 
-## What You Build With NeuralBudget
+## Deterministic SLO Evaluation
 
-Monitor service reliability with deterministic, reproducible SLO evaluations. Define thresholds once. Evaluate identically across CI/CD pipelines, notebooks, and production systems.
+Define SLO thresholds once. Evaluate identically across CI/CD, notebooks, and production. Rust-powered (< 1μs per evaluation) with Python bindings.
 
-**Real examples:**
-- Gate deployments on quantified reliability: "Block this build if availability < 99.9%"
-- Track ML model quality: "Alert when prediction drift exceeds 5% or latency > 200ms"
-- Monitor LLM endpoints: "Fail SLO if token throughput drops or semantic quality degrades"
-- Composite service health: "Evaluate entire microservice graph; fail if critical path SLO breaches"
-
-## Install (2 minutes)
+## Quick Start
 
 ```bash
 pip install neuralbudget
 ```
 
-## Evaluate Your First SLO (5 minutes)
-
 ```python
-try:
-    from neuralbudget import NeuralBudgetClient
+from neuralbudget import NeuralBudgetClient
 
-    client = NeuralBudgetClient()
-    client.load_config("slo.json")
-    result = client.evaluate({
-        "timestamp": 1,
-        "success": 9995,
-        "total": 10000,
-        "format": "prometheus_cumulative",
-    })
-    print(f"✓ SLO Pass: {result['passed']}")
-except FileNotFoundError:
-    print("✗ Create slo.json first. See docs/guides/getting-started.md")
-except ValueError as e:
-    print(f"✗ Invalid config: {e}")
+client = NeuralBudgetClient()
+client.load_config("slo.json")
+result = client.evaluate({
+    "timestamp": 1, "success": 9995, "total": 10000,
+    "format": "prometheus_cumulative"
+})
+print(f"✓ SLO Pass: {result['passed']}")
 ```
 
-See [getting-started.md](docs/guides/getting-started.md) for step-by-step walkthrough.
+👉 **[→ Start Here: Complete Documentation](docs/INDEX.md)**
 
-## Key Capabilities
+Choose your path:
+- **First time?** → [5-minute quickstart](docs/quickstart/)
+- **Building with Python?** → [User guide](docs/guides/user-guide.md)
+- **Deploying to production?** → [Production deployment](docs/guides/production-deployment.md)
+- **Kubernetes?** → [Kubernetes integration](docs/guides/kubernetes-integration.md)
 
-| Capability | Purpose | Use Case |
-|---|---|---|
-| **HTTP/gRPC Histogram Evaluation** | Latency percentile + availability gates | Service SLOs |
-| **Stateful Service Metrics** | Replication lag, queue depth, saturation | Distributed system health |
-| **ML Serving SLOs** | Latency + GPU utilization + model drift | Model monitoring |
-| **GenAI Workload SLOs** | Throughput (TPS) + responsiveness + semantic quality | LLM endpoint monitoring |
-| **Composite DAG Evaluation** | Service graph with failure propagation | System-wide health scoring |
-| **Streaming Aggregation** | High-frequency windowed metrics | Production ingestion (15k+ msgs/sec) |
-| **Prometheus & OpenTelemetry Integration** | Native exporters and scraping | Observability platforms |
+## Key Features
 
-## Why NeuralBudget?
+- ✅ **HTTP/gRPC**, **Stateful**, **ML**, **GenAI**, **Composite SLO** modes
+- ✅ **Streaming aggregation** — 15k+ messages/sec with adaptive windowing
+- ✅ **Prometheus + OpenTelemetry** — Native exporters
+- ✅ **100% reproducible** — Same results across platforms, no floating-point variation
+- ✅ **Fast** — < 1μs per evaluation, millions/sec throughput
+- ✅ **Type-safe** — Rust core + Python validation
 
-**Deterministic:** All calculations are pure functions. Run the same metrics on Windows, Linux, or macOS; get identical results. No floating-point variation, no GC pauses.
+## More Information
 
-**Type-Safe:** Rust compile-time guarantees at the core + Python TypedDict validation at the boundary. Catch errors before deployment.
+| Resource | Purpose |
+|----------|---------|
+| **[Docs](docs/INDEX.md)** | Complete documentation organized by goal |
+| **[Glossary](docs/reference/glossary.md)** | Key terms & acronyms |
+| **[API Reference](docs/reference/api.md)** | Full Python API |
+| **[Examples](examples/)** | Grafana, Kubernetes, Python examples |
+| **[License](LICENSING.md)** | Apache 2.0 + commercial options |
 
-**Fast:** Single evaluations complete in < 1 microsecond. Composite DAGs with 50+ services: < 100 microseconds. Evaluate millions of metrics per second on standard hardware.
+## Contributing
 
-**Reproducible:** Single source of truth in Rust. Python bindings are thin FFI wrappers. Fix a bug once; it fixes everywhere.
-
-## Architecture
-
-NeuralBudget pairs a **Rust core** (deterministic, fast, type-safe) with **Python bindings** (ergonomic, notebook-friendly):
-
-- **Rust Core** (`src/core.rs`, `src/exporter.rs`): All SLO models and evaluation logic
-- **Python Bindings** (`src/python.rs`): PyO3 FFI exposing Rust types to Python
-- **Python Convenience Layer** (`python/neuralbudget/`): High-level functions for common patterns
-
-Design rationale: Data scientists need Python notebooks; production systems need compiled performance. Both teams get deterministic guarantees.
-
-See [docs/reference/architecture.md](docs/reference/architecture.md) for visual architecture diagrams and detailed design decisions.
-
-## Choose Your Path
-
-| Path | For | Start With |
-|---|---|---|
-| **Python** | Notebooks, scripts, CI/CD | [docs/guides/getting-started.md](docs/guides/getting-started.md) |
-| **Rust** | Production binaries, embedded systems | [README](docs/reference/api.md) in crates.io |
-| **Kubernetes** | Sidecar collectors, exporters | [docs/guides/kubernetes-integration.md](docs/guides/kubernetes-integration.md) |
-| **Grafana** | Visual dashboards | [examples/grafana/README.md](examples/grafana/README.md) |
-
-## Documentation
-
-- **[Getting Started](docs/guides/getting-started.md)** — First evaluation in 10 minutes
-- **[User Guide](docs/guides/user-guide.md)** — All SLO modes and config patterns
-- **[API Reference](docs/reference/api.md)** — Complete Python API with examples
-- **[Architecture](docs/reference/architecture.md)** — Design rationale and module interactions
-- **[Glossary](docs/reference/glossary.md)** — Key terms and acronyms
-- **[Troubleshooting](docs/guides/troubleshooting.md)** — Common errors and solutions
-- **[Full Index](docs/guides/documentation-index.md)** — All docs organized by goal
-
-## Version
-
-Current: **0.1.3** | [Changelog](CHANGELOG.md) | [Contributing](CONTRIBUTING.md)
-
-License: [Source-Available](LICENSE)
-- **PyPI**: https://pypi.org/project/neuralbudget/
-- **Issues**: https://github.com/pristley/NeuralBudget/issues
-- **Releases**: https://github.com/pristley/NeuralBudget/releases
-
+[See CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute.
 
 ---
 
-## Advanced Integrations
-
-### OpenTelemetry Protocol (OTLP) Ingestion
-
-NeuralBudget can ingest OTLP metric payloads directly, converting them to native samples.
-
-```python
-import neuralbudget
-
-payload = """{
-    "resourceMetrics": [{
-        "scopeMetrics": [{
-            "metrics": [{
-                "name": "http.server.duration",
-                "histogram": {
-                    "dataPoints": [{
-                        "timeUnixNano": "1700000000000000000",
-                        "count": "100",
-                        "bucketCounts": ["70", "25", "5"],
-                        "explicitBounds": [100.0, 250.0]
-                    }]
-                }
-            }]
-        }]
-    }]
-}"""
-
-slo = neuralbudget.HttpSlo(200.0, 0.99, 0.95)
-evaluations = neuralbudget.evaluate_http_slo_otlp(payload, "http.server.duration", slo)
-print(f"Pass: {evaluations[0].pass}")
-```
-
-**Supported helpers**:
-- `ingest_otlp_histogram()` — Convert OTLP histogram to HistogramSample
-- `ingest_otlp_numeric()` — Convert OTLP gauge/sum to MetricPoint
-- `evaluate_http_slo_otlp()` — Evaluate HTTP SLO directly from OTLP payload
-
-### Prometheus Metrics Export
-
-NeuralBudget renders evaluation results as Prometheus text exposition format for scraping:
-
-```python
-import neuralbudget
-
-slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
-sample = neuralbudget.HistogramSample(
-    timestamp=1,
-    success=100,
-    total=100,
-    buckets=[neuralbudget.HistogramBucket(100.0, 100)],
-    format="prometheus_cumulative",
-)
-evaluation = slo.evaluate_histogram(sample)
-
-# Reusable exporter
-exporter = neuralbudget.PrometheusExporter("neuralbudget")
-exporter.set_static_label("env", "prod")
-exporter.observe_http_slo("api-gateway", evaluation)
-print(exporter.render())
-```
-
----
-
-## Development
-
-### Local Setup
-
-Clone and setup development environment:
-
-```bash
-git clone https://github.com/pristley/NeuralBudget.git
-cd NeuralBudget
-
-# Install build tools
-pip install --upgrade pip maturin
-cargo update
-
-# Run local validation (matching CI)
-cargo fmt --all --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-targets --all-features
-python3 tests/python_*.py
-
-# Build extension
-maturin develop --release
-```
-
-### Testing & Coverage
-
-NeuralBudget uses property-based tests (via Proptest) and deterministic unit tests:
-
-```bash
-# Run all tests with coverage
-cargo llvm-cov --workspace --all-features --lib --tests --summary-only
-
-# Run property-based tests (in src/tests.rs)
-cargo test --lib core -- --nocapture
-
-# Benchmark composite DAG evaluation
-cargo bench composite_slo_dag
-```
-
-**Coverage Requirements**:
-- Minimum: 87% line coverage (CI gate)
-- Target: 95%+ for release confidence
-
-### Release Process
-
-NeuralBudget uses GitHub Actions for cross-platform builds and PyPI publishing:
-
-1. **Update version** in `pyproject.toml` and `Cargo.toml`
-2. **Commit and push** to `main`
-3. **Create a git tag**: `git tag v0.1.3 && git push origin v0.1.3`
-4. **Create GitHub Release** — CD automatically:
-   - Validates all checks (fmt, clippy, tests, coverage)
-   - Builds wheels for Linux, macOS, Windows
-   - Publishes to PyPI
-
-Published artifacts:
-- Linux x86_64 (manylinux2014)
-- macOS aarch64
-- Windows x86_64
-- Python source distribution (sdist)
-
----
-
-## Performance Characteristics
-
-| Operation | Latency | Notes |
-|-----------|---------|-------|
-| **HTTP SLO Evaluation** | <1ms | Per histogram sample |
-| **Availability Calculation** | <100μs | Pure arithmetic |
-| **Composite DAG (100 services)** | <10ms | Including topological sort |
-| **Alert Dispatch** | 100-1000ms | Network I/O dependent |
-
-**Memory**: ~1MB per client instance (Python or Rust)
-
-**Throughput**: Thousands of SLO evaluations per second on modern hardware
-
----
-
-## Troubleshooting
-
-### Python Import Issues
-
-**Problem:** `ImportError: No module named 'neuralbudget'`
-
-**Solution:**
-```bash
-# Reinstall the extension
-pip install --force-reinstall neuralbudget
-
-# Or rebuild from source
-maturin develop
-```
-
-### Configuration Validation Errors
-
-**Problem:** `ValueError: unknown variant in 'mode'`
-
-**Solution:** Ensure config has a valid mode (`http`, `stateful`, `ml`, `genai`, `composite`):
-```yaml
-mode: http  # Must be one of the valid types
-params: {...}
-```
-
-### Coverage Gate Failures
-
-**Problem:** CI fails with "coverage below 87%"
-
-**Solution:** Write tests for new code:
-```bash
-# Check current coverage
-cargo llvm-cov --all-features --lib --tests --summary-only
-
-# View detailed report
-cargo llvm-cov --all-features --html
-open target/llvm-cov/html/index.html
-```
-
-### Wheel Build Failures
-
-**Problem:** `maturin build` fails with compiler errors
-
-**Solution:**
-```bash
-# Update maturin
-pip install --upgrade maturin
-
-# Clean and rebuild
-cargo clean
-maturin build --release
-```
-
-### PyO3 Deprecation Warnings
-
-**Note:** Some warnings during development are acceptable. They're tracked in [AUDIT_REPORT.md](AUDIT_REPORT.md) and don't affect functionality.
-
-For more troubleshooting, see [docs/guides/development.md](docs/guides/development.md#troubleshooting-development-issues).
-
-## License
-
-NeuralBudget is available under **dual licensing**:
-
-- **Open Source:** [Apache 2.0](LICENSE) — Free for all uses (commercial included)
-- **Commercial:** [Commercial License](LICENSE.COMMERCIAL) — Enterprise support & SLAs
-
-**Quick facts:**
-- ✓ Use commercially without restriction (Apache 2.0)
-- ✓ Modify and redistribute (keep attribution)
-- ✓ Zero GPL dependencies (no viral licensing)
-- ✓ Priority support & indemnification available
-
-See [LICENSING.md](LICENSING.md) for complete licensing details and FAQ.
+**Version:** 0.1.3 | **License:** [Apache 2.0](LICENSE) | **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 

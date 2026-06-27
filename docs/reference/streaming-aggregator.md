@@ -500,7 +500,7 @@ print(f"SLO Pass: {result['passed']}")
 
 ## See Also
 
-- **Design Document**: [ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md)
-- **Implementation Details**: [PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md)
-- **Getting Started**: [PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md)
+- **Design Document**: [ADAPTIVE_WINDOWING_DESIGN.md](../internal/design/ADAPTIVE_WINDOWING_DESIGN.md)
+- **Implementation Details**: [PHASE3_STREAMING_IMPLEMENTATION.md](../internal/phases/PHASE3_STREAMING_IMPLEMENTATION.md)
+- **Getting Started**: [PHASE3_GETTING_STARTED.md](../internal/phases/PHASE3_GETTING_STARTED.md)
 - **Source Code**: [src/streaming.rs](../../src/streaming.rs)

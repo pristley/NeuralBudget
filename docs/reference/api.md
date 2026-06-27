@@ -762,4 +762,4 @@ except RuntimeError:
 **See also:**
 - [User Guide](../guides/user-guide.md)
 - [Development Guide](../guides/development.md)
-- [Architecture Map](../../agentmap.md)
+- [Architecture Map](../internal/architecture/agentmap.md)

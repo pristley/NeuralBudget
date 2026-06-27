@@ -35,9 +35,9 @@ New to NeuralBudget? Choose your path:
 
 ### Advanced Features
 
-- **High-frequency metric collection** → [Phase 3: Streaming](PHASE3_GETTING_STARTED.md)
+- **High-frequency metric collection** → [Phase 3: Streaming](../internal/phases/PHASE3_GETTING_STARTED.md)
 - **Parallel metric evaluation** → [Parallel API Reference](PARALLEL_SLO_API_REFERENCE.md)
-- **Adaptive memory management** → [Adaptive Windowing Design](ADAPTIVE_WINDOWING_DESIGN.md)
+- **Adaptive memory management** → [Adaptive Windowing Design](../internal/design/ADAPTIVE_WINDOWING_DESIGN.md)
 - **Anomaly detection & drift** → [Anomaly Detection](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md)
 - **Burn-rate alerting** → [Burn-Rate Forecasting](burn-rate-forecasting.md)
 - **Advanced alert dispatch** → [Advanced Alert Dispatch](../reference/ADVANCED_ALERT_DISPATCH_SUMMARY.md)
