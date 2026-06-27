@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod composite_genai_integration_tests {
     use neuralbudget::{
-        CompositeGenAiDimensions, CompositeGenAiEvaluation, CompositeGenAiThresholds,
+        CompositeGenAiDimensions, CompositeGenAiThresholds,
         CompositeGenAiWeights, evaluate_composite_genai_slo,
     };
 

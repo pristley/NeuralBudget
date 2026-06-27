@@ -352,7 +352,7 @@ mod hallucination_detection_tests {
         let response = "Exercise improves cardiovascular health and increases muscle strength.";
         let claims = evaluator.extract_claims_rule_based(response).unwrap();
 
-        let docs = vec![
+        let _docs = vec![
             Document {
                 text: "Exercise strengthens the cardiovascular system".into(),
                 source: "cardio.pdf".into(),

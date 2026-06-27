@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 fn create_test_config(path: &Path, content: &str) {
     fs::create_dir_all(path.parent().unwrap()).ok();
