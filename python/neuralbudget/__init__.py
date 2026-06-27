@@ -92,6 +92,33 @@ try:
 except ImportError:
     pass  # httpx/requests not installed
 
+# Anomaly detection and drift explanation (requires numpy/scipy/sklearn)
+try:
+    from .anomaly_detection import (
+        AnomalyScore,
+        DriftDetection,
+        FeatureImportance,
+        DriftExplanation,
+        StatisticalBaseline,
+        MLBaseline,
+        DriftDetector,
+        FeatureImportanceCalculator,
+        DriftExplainer,
+    )
+except ImportError:
+    pass  # numpy/scipy/sklearn not installed
+
+# Adaptive SLO evaluation with anomaly detection (requires anomaly_detection)
+try:
+    from .adaptive_slo import (
+        AdaptiveMlEvaluationResult,
+        AdaptiveGenAiEvaluationResult,
+        AdaptiveMlSloEvaluator,
+        AdaptiveGenAiSloEvaluator,
+    )
+except ImportError:
+    pass  # anomaly_detection dependencies not available
+
 for _name in dir(_native):
     if _name.startswith("_"):
         continue
