@@ -10,7 +10,7 @@ license = "Apache-2.0"
 
 [lib]
 name = "neuralbudget"
-crate-type = ["cdylib"]
+crate-type = ["rlib", "cdylib"]
 
 [[bin]]
 name = "neuralbudget"

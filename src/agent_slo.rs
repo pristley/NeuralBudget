@@ -716,7 +716,7 @@ mod tests {
         let params = AgentSloParams {
             max_steps: 5,
             tool_success_threshold: 0.9,
-            max_repeated_actions: 1,
+            max_repeated_actions: 2,  // Allow up to 2 repeated ToolCall actions
             success_threshold: 0.8,
             loop_detection_enabled: true,
         };

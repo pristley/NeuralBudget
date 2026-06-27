@@ -355,12 +355,12 @@ mod tests {
 
     #[test]
     fn test_cost_evaluation_over_budget() {
-        let budget = CostBudget::new(0.001, 0.001, 0.01);  // Strict budget
-        let sample = GenaiCostSample::new(1000, 100, 100);
+        let budget = CostBudget::new(0.001, 0.001, 0.005);  // max_per_request = 0.005
+        let _sample = GenaiCostSample::new(1000, 5000, 5000);  // 5000 input + 5000 output tokens
 
-        let input_cost = (100.0 / 1000.0) * 0.001;
-        let output_cost = (100.0 / 1000.0) * 0.001;
-        let total_cost = input_cost + output_cost;
+        let input_cost = (5000.0 / 1000.0) * 0.001;  // 0.005
+        let output_cost = (5000.0 / 1000.0) * 0.001; // 0.005
+        let total_cost = input_cost + output_cost;   // 0.01 > 0.005 budget
 
         let eval = CostEvaluation::new(input_cost, output_cost, total_cost, budget.max_per_request, 0.95);
 
@@ -438,15 +438,20 @@ mod tests {
     #[test]
     fn test_monthly_budget_tracking() {
         let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(1.0);  // Very tight budget
+            .with_monthly_limit(1.0);  // $1 monthly budget
 
         let samples = vec![
-            GenaiCostSample::new(1000, 5000, 5000),   // ~$5
-            GenaiCostSample::new(2000, 5000, 5000),   // ~$5
+            // Each with 500K output tokens costs ~$0.30
+            // Need at least 4 samples to exceed $1.0 limit
+            GenaiCostSample::new(1000, 1000, 500_000),   // ~$0.30
+            GenaiCostSample::new(2000, 1000, 500_000),   // ~$0.30
+            GenaiCostSample::new(3000, 1000, 500_000),   // ~$0.30
+            GenaiCostSample::new(4000, 1000, 500_000),   // ~$0.30
+            // Total: ~$1.20, exceeding $1.0 limit
         ];
 
         let result = evaluator.evaluate_batch(&samples).unwrap();
-        assert!(!result.monthly_budget_ok);  // Over $1 limit
+        assert!(!result.monthly_budget_ok);  // Total cost should exceed $1 limit
     }
 
     #[test]
@@ -465,14 +470,16 @@ mod tests {
     fn test_cost_calculation_accuracy() {
         // GPT-4 Mini: $0.00015 per 1K input, $0.0006 per 1K output
         let budget = CostBudget::gpt4_mini();
-        let sample = GenaiCostSample::new(1000, 1000, 1000);
+        let _sample = GenaiCostSample::new(1000, 1000, 1000);
 
         let input_cost = (1000.0 / 1000.0) * 0.00015;
         let output_cost = (1000.0 / 1000.0) * 0.0006;
+        let total_cost = input_cost + output_cost;
 
         assert_eq!(input_cost, 0.00015);
         assert_eq!(output_cost, 0.0006);
-        assert_eq!(input_cost + output_cost, 0.00075);
+        // Use approximate equality for floating point
+        assert!((total_cost - 0.00075_f64).abs() < 1e-10);
     }
 
     #[test]
