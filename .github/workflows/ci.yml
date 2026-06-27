@@ -10,67 +10,90 @@ on:
     branches:
       - main
 
+# Cancel in-progress runs for the same PR or branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  test:
+  # Fast checks – run in parallel with the main build
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Clippy lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Setup Rust toolchain
+  # Build, test, and coverage – depends on lint to fail fast
+  test-build:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy, llvm-tools-preview
+          components: llvm-tools-preview
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+      # Cache Rust dependencies (registry and target)
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Install build tools
+      # Cache pip packages (maturin, pytest, etc.)
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      # Install required tools using pre-built binaries (faster than cargo install)
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install maturin
         run: |
-          cargo install cargo-llvm-cov --locked
-          python3 -m pip install --upgrade pip maturin
+          python3 -m pip install --upgrade pip
+          pip install maturin
 
-      - name: Fetch dependencies
-        run: cargo fetch
-
-      - name: Check code formatting
-        run: cargo fmt --all --check
-
-      - name: Lint with Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Run Rust tests
-        run: cargo test --all-features
-
-      - name: Run documentation tests
-        run: cargo test --doc --all-features
-
-      - name: Run Python tests
+      # Run all Rust tests *and* doc tests while collecting coverage in one go
+      - name: Run tests with coverage
         run: |
-          python3 tests/python_streaming_aggregator_tests.py
-          python3 tests/python_comprehensive_tests.py
-          python3 tests/python_functional_integration_tests.py
-          python3 tests/python_convenience_tests.py
-          python3 tests/python_client_tests.py
+          cargo llvm-cov --workspace --all-features \
+            --tests --doc \
+            --summary-only --fail-under-lines 70
 
-      - name: Generate coverage report
-        run: cargo llvm-cov --workspace --all-features --lib --tests --summary-only --fail-under-lines 70
-
-      - name: Build Python wheel
+      # Build the Python wheel (now that tests pass)
+      - name: Build wheel
         run: maturin build --release --manifest-path Cargo.toml
 
+      # Verify wheel contents
       - name: Verify wheel contents
         run: |
           WHEEL=$(ls target/wheels/neuralbudget-*.whl | head -1)
           echo "Built wheel: $WHEEL"
           unzip -l "$WHEEL" | grep -E '(\.so|__init__|METADATA)' | head -10
 
+      # Install the wheel and run Python tests
+      - name: Install wheel and run Python tests
+        run: |
+          pip install --force-reinstall target/wheels/neuralbudget-*.whl
+          python3 tests/python_streaming_aggregator_tests.py
+          python3 tests/python_comprehensive_tests.py
+          python3 tests/python_functional_integration_tests.py
+          python3 tests/python_convenience_tests.py
+          python3 tests/python_client_tests.py
