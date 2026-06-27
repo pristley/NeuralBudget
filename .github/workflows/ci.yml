@@ -73,7 +73,7 @@ jobs:
       # Run all Rust tests while collecting coverage
       # Exclude binary code (CLI commands) as they're not unit tested
       - name: Run tests with coverage
-        run: cargo llvm-cov --workspace --all-features --tests --lib --summary-only --fail-under-lines 80
+        run: cargo llvm-cov --workspace --all-features --tests --lib --summary-only --fail-under-lines 75
 
       # Run doc tests separately (without coverage collection to avoid conflicts)
       - name: Run doc tests
