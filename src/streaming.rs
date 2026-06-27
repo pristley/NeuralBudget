@@ -15,14 +15,14 @@ pub struct StreamingAggregator {
     /// (timestamp, value) pairs in insertion order.
     /// Oldest data at front, newest at back.
     buffer: VecDeque<(i64, f64)>,
-    
+
     /// Rolling window of last 1000 sample timestamps (for velocity calculation).
     /// Kept separate to avoid iterating the full buffer repeatedly.
     velocity_window: VecDeque<i64>,
-    
+
     /// Hardcoded threshold: if ingestion rate > this (samples/sec), auto-truncate.
     velocity_threshold_samples_per_sec: i64,
-    
+
     /// Hardcoded target window size when velocity is high (milliseconds).
     /// Keeps recent data; old data is auto-pruned to this boundary.
     auto_prune_window_ms: i64,
@@ -49,13 +49,13 @@ impl StreamingAggregator {
     /// Automatically truncates older data if velocity exceeds threshold.
     pub fn push(&mut self, ts: i64, val: f64) {
         self.buffer.push_back((ts, val));
-        
+
         // Track velocity: maintain rolling window of last 1000 timestamps.
         self.velocity_window.push_back(ts);
         if self.velocity_window.len() > 1000 {
             self.velocity_window.pop_front();
         }
-        
+
         // Check velocity and auto-prune if high.
         // Only compute velocity every 100 samples to avoid per-sample overhead.
         if self.velocity_window.len() == 1000 && self.buffer.len() % 100 == 0 {
@@ -123,11 +123,11 @@ impl Default for StreamingAggregator {
 
 impl StreamingAggregator {
     /// Calculate current ingestion velocity and auto-prune if threshold exceeded.
-    /// 
+    ///
     /// **Velocity Calculation:**
     /// Velocity = 1000 samples / (timestamp_delta in seconds)
     /// Measured over the last 1000 samples.
-    /// 
+    ///
     /// **Adaptation:**
     /// If velocity > 15,000 samples/sec, automatically truncate data older than 5 seconds
     /// to prevent unbounded memory growth during high-frequency streams.
@@ -135,17 +135,17 @@ impl StreamingAggregator {
         if self.velocity_window.len() < 1000 {
             return; // Not enough data to estimate velocity reliably
         }
-        
+
         let oldest_ts = self.velocity_window[0];
         let newest_ts = self.velocity_window[999];
         let ts_delta_ms = newest_ts - oldest_ts;
-        
+
         if ts_delta_ms <= 0 {
             return; // No time passage; velocity is undefined or infinite
         }
         // Calculate velocity: samples per second
         let velocity_samples_per_sec = (1000 * 1000) / ts_delta_ms;
-        
+
         // If velocity exceeds threshold, auto-prune old data
         if velocity_samples_per_sec > self.velocity_threshold_samples_per_sec {
             let prune_cutoff_ts = current_ts - self.auto_prune_window_ms;

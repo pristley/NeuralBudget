@@ -39,7 +39,10 @@ impl std::fmt::Display for NeuralBudgetError {
             Self::FormatError(msg) => write!(f, "Format conversion error: {msg}"),
             Self::EvaluationError(msg) => write!(f, "Evaluation error: {msg}"),
             Self::SchemaVersionError { found, supported } => {
-                write!(f, "Unsupported schema version {found}; supported: {supported}")
+                write!(
+                    f,
+                    "Unsupported schema version {found}; supported: {supported}"
+                )
             }
         }
     }

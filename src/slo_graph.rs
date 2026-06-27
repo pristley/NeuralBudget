@@ -113,13 +113,7 @@ impl ParallelMetricBatch {
                 .map(|node| {
                     let pass = node.evaluate();
                     let score = node.score();
-                    (
-                        node.id.clone(),
-                        node.value,
-                        node.threshold,
-                        pass,
-                        score,
-                    )
+                    (node.id.clone(), node.value, node.threshold, pass, score)
                 })
                 .collect::<Vec<_>>()
         });
@@ -222,7 +216,7 @@ mod tests {
     #[test]
     fn test_slo_graph_aggregate_score() {
         let graph = ParallelMetricBatch::new(vec![
-            ("latency".to_string(), 100.0, 100.0), // Score: 1.0
+            ("latency".to_string(), 100.0, 100.0),     // Score: 1.0
             ("availability".to_string(), 50.0, 100.0), // Score: 0.5
         ]);
 
@@ -312,8 +306,8 @@ mod tests {
         // and that they reflect updated values after mutations.
 
         let mut batch = ParallelMetricBatch::new(vec![
-            ("latency".to_string(), 150.0, 200.0),      // Fails: 150 < 200
-            ("availability".to_string(), 99.95, 99.9),  // Passes: 99.95 >= 99.9
+            ("latency".to_string(), 150.0, 200.0),     // Fails: 150 < 200
+            ("availability".to_string(), 99.95, 99.9), // Passes: 99.95 >= 99.9
         ]);
 
         // BEFORE calling evaluate(), query methods should work correctly
@@ -325,7 +319,7 @@ mod tests {
         let tuples = batch.nodes_as_tuples();
         assert_eq!(tuples.len(), 2);
         assert!(!tuples[0].3); // latency fails
-        assert!(tuples[1].3);  // availability passes
+        assert!(tuples[1].3); // availability passes
 
         // After update_node(), query methods immediately reflect the change
         batch.update_node("latency", 250.0); // Change to pass
@@ -368,8 +362,7 @@ mod tests {
         let score_3 = batch.aggregate_score();
 
         assert_eq!(pass_count_3, 2); // Both pass now
-        assert_eq!(score_3, 1.0);   // Both score 1.0
+        assert_eq!(score_3, 1.0); // Both score 1.0
         assert_ne!(pass_count_2, pass_count_3); // Different from before update
     }
 }
-

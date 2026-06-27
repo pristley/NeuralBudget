@@ -2,20 +2,18 @@
 
 mod core;
 mod exporter;
+mod forecasting;
 mod otlp;
 mod python;
-mod streaming;
 mod slo_graph;
-mod forecasting;
+mod streaming;
 
 // Export error types and result alias first
-pub use core::{NeuralBudgetError, Result};
 pub use core::*;
+pub use core::{NeuralBudgetError, Result};
 pub use exporter::*;
+pub use forecasting::*;
 pub use otlp::*;
 pub use python::*;
-pub use streaming::*;
 pub use slo_graph::*;
-pub use forecasting::*;
-
-
+pub use streaming::*;

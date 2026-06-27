@@ -182,31 +182,66 @@ fn serialization_round_trips_across_models() {
     };
 
     assert_eq!(
-        SloConfig::from_json_str(&config.to_json_string().expect("SloConfig serialization should succeed")).expect("SloConfig deserialization should succeed"),
+        SloConfig::from_json_str(
+            &config
+                .to_json_string()
+                .expect("SloConfig serialization should succeed")
+        )
+        .expect("SloConfig deserialization should succeed"),
         config
     );
     assert_eq!(
-        ErrorBudget::from_json_str(&budget.to_json_string().expect("ErrorBudget serialization should succeed")).expect("ErrorBudget deserialization should succeed"),
+        ErrorBudget::from_json_str(
+            &budget
+                .to_json_string()
+                .expect("ErrorBudget serialization should succeed")
+        )
+        .expect("ErrorBudget deserialization should succeed"),
         budget
     );
     assert_eq!(
-        MetricPoint::from_json_str(&point.to_json_string().expect("MetricPoint serialization should succeed")).expect("MetricPoint deserialization should succeed"),
+        MetricPoint::from_json_str(
+            &point
+                .to_json_string()
+                .expect("MetricPoint serialization should succeed")
+        )
+        .expect("MetricPoint deserialization should succeed"),
         point
     );
     assert_eq!(
-        TimeWindow::from_json_str(&window.to_json_string().expect("TimeWindow serialization should succeed")).expect("TimeWindow deserialization should succeed"),
+        TimeWindow::from_json_str(
+            &window
+                .to_json_string()
+                .expect("TimeWindow serialization should succeed")
+        )
+        .expect("TimeWindow deserialization should succeed"),
         window
     );
     assert_eq!(
-        HistogramSample::from_json_str(&histogram.to_json_string().expect("HistogramSample serialization should succeed")).expect("HistogramSample deserialization should succeed"),
+        HistogramSample::from_json_str(
+            &histogram
+                .to_json_string()
+                .expect("HistogramSample serialization should succeed")
+        )
+        .expect("HistogramSample deserialization should succeed"),
         histogram
     );
     assert_eq!(
-        HttpSlo::from_json_str(&http_slo.to_json_string().expect("HttpSlo serialization should succeed")).expect("HttpSlo deserialization should succeed"),
+        HttpSlo::from_json_str(
+            &http_slo
+                .to_json_string()
+                .expect("HttpSlo serialization should succeed")
+        )
+        .expect("HttpSlo deserialization should succeed"),
         http_slo
     );
     assert_eq!(
-        StatefulSlo::from_json_str(&stateful_slo.to_json_string().expect("StatefulSlo serialization should succeed")).expect("StatefulSlo deserialization should succeed"),
+        StatefulSlo::from_json_str(
+            &stateful_slo
+                .to_json_string()
+                .expect("StatefulSlo serialization should succeed")
+        )
+        .expect("StatefulSlo deserialization should succeed"),
         stateful_slo
     );
     assert_eq!(

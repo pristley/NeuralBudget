@@ -1,19 +1,18 @@
 /// Comprehensive functional tests for end-to-end workflows
-/// 
+///
 /// Tests cover:
 /// - Complete SLO evaluation pipelines
 /// - Multi-SLO scenarios with different types
 /// - Error handling in real workflows
 /// - Performance characteristics
 /// - Complex composite DAG scenarios
-
 use neuralbudget::{
     calculate_availability, calculate_burn_rate, calculate_error_budget, evaluate_composite_slo,
     CompositeDependencyEdge, CompositeServiceSlo, CompositeSloError, CompositeSloGraph,
     GenAiSample, GenAiSlo, GenAiSloIterator, HistogramBucket, HistogramFormat, HistogramSample,
-    HttpSlo, HttpSloIterator, JsonExt, MetricPoint, MlSample, MlSlo, MlSloIterator, OutlierFilterConfig,
-    SloConfig, StatefulPolicyProfileSet, StatefulSample, StatefulSlo, StatefulSloIterator, WebApiRequest,
-    WebApiSloPolicy, TimeWindow,
+    HttpSlo, HttpSloIterator, JsonExt, MetricPoint, MlSample, MlSlo, MlSloIterator,
+    OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet, StatefulSample, StatefulSlo,
+    StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
 };
 
 // ============================================================================
@@ -35,9 +34,18 @@ fn end_to_end_http_slo_evaluation_pipeline() {
             success: 9_990,
             total: 10_000,
             buckets: vec![
-                HistogramBucket { upper_bound_ms: 100.0, count: 8_000 },
-                HistogramBucket { upper_bound_ms: 200.0, count: 9_900 },
-                HistogramBucket { upper_bound_ms: 300.0, count: 10_000 },
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 8_000,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_900,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
             ],
             format: HistogramFormat::PrometheusCumulative,
         },
@@ -46,9 +54,18 @@ fn end_to_end_http_slo_evaluation_pipeline() {
             success: 9_995,
             total: 10_000,
             buckets: vec![
-                HistogramBucket { upper_bound_ms: 100.0, count: 7_900 },
-                HistogramBucket { upper_bound_ms: 200.0, count: 9_850 },
-                HistogramBucket { upper_bound_ms: 300.0, count: 10_000 },
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 7_900,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_850,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
             ],
             format: HistogramFormat::PrometheusCumulative,
         },
@@ -57,9 +74,18 @@ fn end_to_end_http_slo_evaluation_pipeline() {
             success: 9_999,
             total: 10_000,
             buckets: vec![
-                HistogramBucket { upper_bound_ms: 100.0, count: 8_200 },
-                HistogramBucket { upper_bound_ms: 200.0, count: 9_950 },
-                HistogramBucket { upper_bound_ms: 300.0, count: 10_000 },
+                HistogramBucket {
+                    upper_bound_ms: 100.0,
+                    count: 8_200,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 200.0,
+                    count: 9_950,
+                },
+                HistogramBucket {
+                    upper_bound_ms: 300.0,
+                    count: 10_000,
+                },
             ],
             format: HistogramFormat::PrometheusCumulative,
         },
@@ -71,9 +97,18 @@ fn end_to_end_http_slo_evaluation_pipeline() {
     assert_eq!(results.len(), 3);
 
     // All samples should pass (high availability and latency compliance)
-    assert!(results.iter().all(|r| r.pass), "All HTTP SLO samples should pass");
-    assert!(results.iter().all(|r| r.availability_ok), "All samples should have availability OK");
-    assert!(results.iter().all(|r| r.latency_ok), "All samples should have latency OK");
+    assert!(
+        results.iter().all(|r| r.pass),
+        "All HTTP SLO samples should pass"
+    );
+    assert!(
+        results.iter().all(|r| r.availability_ok),
+        "All samples should have availability OK"
+    );
+    assert!(
+        results.iter().all(|r| r.latency_ok),
+        "All samples should have latency OK"
+    );
 }
 
 // ============================================================================
@@ -89,9 +124,18 @@ fn multi_slo_evaluation_across_service_types() {
         success: 9_950,
         total: 10_000,
         buckets: vec![
-            HistogramBucket { upper_bound_ms: 150.0, count: 9_700 },
-            HistogramBucket { upper_bound_ms: 200.0, count: 9_950 },
-            HistogramBucket { upper_bound_ms: 300.0, count: 10_000 },
+            HistogramBucket {
+                upper_bound_ms: 150.0,
+                count: 9_700,
+            },
+            HistogramBucket {
+                upper_bound_ms: 200.0,
+                count: 9_950,
+            },
+            HistogramBucket {
+                upper_bound_ms: 300.0,
+                count: 10_000,
+            },
         ],
         format: HistogramFormat::PrometheusCumulative,
     };
@@ -193,7 +237,11 @@ fn composite_slo_with_cascading_dependencies() {
     let result = evaluate_composite_slo(&graph).expect("Composite SLO evaluation should succeed");
 
     // Verify topological sort
-    assert_eq!(result.topological_order.len(), 4, "All 4 services should be ordered");
+    assert_eq!(
+        result.topological_order.len(),
+        4,
+        "All 4 services should be ordered"
+    );
 
     // Verify dependency propagation
     let api_entry = result
@@ -201,15 +249,28 @@ fn composite_slo_with_cascading_dependencies() {
         .iter()
         .find(|s| s.service == "api")
         .expect("API service should be evaluated");
-    
-    assert!(api_entry.dependency_adjusted, "API should have dependency adjustment");
-    assert_eq!(api_entry.failed_dependencies.len(), 0, "No failed dependencies (all scores > threshold)");
+
+    assert!(
+        api_entry.dependency_adjusted,
+        "API should have dependency adjustment"
+    );
+    assert_eq!(
+        api_entry.failed_dependencies.len(),
+        0,
+        "No failed dependencies (all scores > threshold)"
+    );
 
     // Verify global SLO calculation
     let expected_weights = 2.0 + 1.5 + 2.5 + 1.0;
     let expected_global = (0.98 * 2.0 + 0.99 * 1.5 + 0.97 * 2.5 + 0.96 * 1.0) / expected_weights;
-    assert!((result.global_slo - expected_global).abs() < 1e-9, "Global SLO should match weighted average");
-    assert!(result.global_pass, "Global SLO should pass (all > threshold)");
+    assert!(
+        (result.global_slo - expected_global).abs() < 1e-9,
+        "Global SLO should match weighted average"
+    );
+    assert!(
+        result.global_pass,
+        "Global SLO should pass (all > threshold)"
+    );
 }
 
 // ============================================================================
@@ -222,34 +283,33 @@ fn composite_slo_handles_multiple_failures_and_cascading_impact() {
         services: vec![
             CompositeServiceSlo {
                 service: "db".to_string(),
-                local_score: 0.80,  // Below 0.9 threshold - FAILS
+                local_score: 0.80, // Below 0.9 threshold - FAILS
                 min_pass_score: 0.9,
                 impact_weight: 3.0,
             },
             CompositeServiceSlo {
                 service: "api".to_string(),
-                local_score: 0.85,  // Would pass but depends on db
+                local_score: 0.85, // Would pass but depends on db
                 min_pass_score: 0.9,
                 impact_weight: 2.0,
             },
             CompositeServiceSlo {
                 service: "web".to_string(),
-                local_score: 0.92,  // Passes independently
+                local_score: 0.92, // Passes independently
                 min_pass_score: 0.9,
                 impact_weight: 1.0,
             },
         ],
-        dependencies: vec![
-            CompositeDependencyEdge {
-                dependency: "db".to_string(),
-                dependent: "api".to_string(),
-                failure_penalty: 0.25,
-            },
-        ],
+        dependencies: vec![CompositeDependencyEdge {
+            dependency: "db".to_string(),
+            dependent: "api".to_string(),
+            failure_penalty: 0.25,
+        }],
         global_min_pass_score: 0.85,
     };
 
-    let result = evaluate_composite_slo(&graph).expect("Should evaluate composite SLO with failures");
+    let result =
+        evaluate_composite_slo(&graph).expect("Should evaluate composite SLO with failures");
 
     let db_entry = result.services.iter().find(|s| s.service == "db").unwrap();
     let api_entry = result.services.iter().find(|s| s.service == "api").unwrap();
@@ -259,20 +319,39 @@ fn composite_slo_handles_multiple_failures_and_cascading_impact() {
     assert!(!db_entry.pass, "DB should fail (0.80 < 0.9 threshold)");
 
     // API fails due to dependency on DB failure
-    assert!(api_entry.dependency_adjusted, "API should have dependency adjustment");
-    assert_eq!(api_entry.failed_dependencies, vec!["db".to_string()], "DB should be in failed dependencies");
-    let expected_api_score = 0.85 - 0.25;  // Original - penalty
-    assert!((api_entry.effective_score - expected_api_score).abs() < 1e-9, "API score should have penalty applied");
+    assert!(
+        api_entry.dependency_adjusted,
+        "API should have dependency adjustment"
+    );
+    assert_eq!(
+        api_entry.failed_dependencies,
+        vec!["db".to_string()],
+        "DB should be in failed dependencies"
+    );
+    let expected_api_score = 0.85 - 0.25; // Original - penalty
+    assert!(
+        (api_entry.effective_score - expected_api_score).abs() < 1e-9,
+        "API score should have penalty applied"
+    );
     assert!(!api_entry.pass, "API should fail after penalty");
 
     // Web passes independently
     assert!(web_entry.pass, "Web should pass (0.92 > 0.9)");
-    assert!(!web_entry.dependency_adjusted, "Web should have no dependency adjustment");
+    assert!(
+        !web_entry.dependency_adjusted,
+        "Web should have no dependency adjustment"
+    );
 
     // Global calculation
     let expected_global = (0.80 * 3.0 + expected_api_score * 2.0 + 0.92 * 1.0) / 6.0;
-    assert!((result.global_slo - expected_global).abs() < 1e-9, "Global SLO should reflect failures");
-    assert!(!result.global_pass, "Global SLO should fail when weighted average < threshold");
+    assert!(
+        (result.global_slo - expected_global).abs() < 1e-9,
+        "Global SLO should reflect failures"
+    );
+    assert!(
+        !result.global_pass,
+        "Global SLO should fail when weighted average < threshold"
+    );
 }
 
 // ============================================================================
@@ -285,14 +364,14 @@ fn error_budget_burn_analysis_with_window_comparison() {
     let target = 0.999;
     let month_seconds = 30 * 24 * 60 * 60;
     let budget_seconds = calculate_error_budget(target, month_seconds);
-    
+
     // Create metric stream: 95% availability in first 5 minutes, 99.95% after
     let stream: Vec<MetricPoint> = (0..3600)
         .map(|ts| {
             let value = if ts < 300 {
-                0.95  // 95% availability in first 5 minutes
+                0.95 // 95% availability in first 5 minutes
             } else {
-                0.9995  // 99.95% availability after
+                0.9995 // 99.95% availability after
             };
             MetricPoint {
                 timestamp: ts as i64,
@@ -310,11 +389,17 @@ fn error_budget_burn_analysis_with_window_comparison() {
     assert!(burn_5m > 1.0, "5-minute burn should show spike");
 
     // Full hour: averaged down due to recovery
-    assert!(burn_1h < burn_5m, "1-hour burn should be lower than 5-minute spike");
+    assert!(
+        burn_1h < burn_5m,
+        "1-hour burn should be lower than 5-minute spike"
+    );
 
     // Monthly rate estimate
     let monthly_burn = calculate_burn_rate(stream, month_seconds);
-    assert!(monthly_burn < 1.0, "Monthly average should be < 1x (recovery period covers spike)");
+    assert!(
+        monthly_burn < 1.0,
+        "Monthly average should be < 1x (recovery period covers spike)"
+    );
 }
 
 // ============================================================================
@@ -332,10 +417,13 @@ fn slo_configuration_serialization_round_trip() {
     let json_string = original_config
         .to_json_string()
         .expect("Config should serialize to JSON");
-    let deserialized = SloConfig::from_json_str(&json_string)
-        .expect("Config should deserialize from JSON");
+    let deserialized =
+        SloConfig::from_json_str(&json_string).expect("Config should deserialize from JSON");
 
-    assert_eq!(deserialized, original_config, "Round-trip should preserve configuration");
+    assert_eq!(
+        deserialized, original_config,
+        "Round-trip should preserve configuration"
+    );
     assert_eq!(deserialized.target, 99.95);
     assert_eq!(deserialized.window, "7d");
 }
@@ -347,28 +435,36 @@ fn slo_configuration_serialization_round_trip() {
 #[test]
 fn window_selection_impacts_slo_evaluation() {
     let now = 1_700_000_000_i64;
-    
+
     // Calendar window: daily boundary (86400 seconds), offset by 5 hours
     let calendar_window = TimeWindow::calendar_aligned(86_400, 5 * 3600);
-    
+
     // Rolling window: 24 hours always
     let rolling_window = TimeWindow::rolling(86_400);
 
     // Test boundaries
-    let just_after_calendar_start = 1_700_000_005;  // Just after calendar window starts
-    let just_before_calendar_end = 1_700_086_399;   // Just before next boundary
+    let just_after_calendar_start = 1_700_000_005; // Just after calendar window starts
+    let just_before_calendar_end = 1_700_086_399; // Just before next boundary
 
-    assert!(calendar_window.contains(just_after_calendar_start, now), 
-            "Just after start should be in calendar window");
-    assert!(calendar_window.contains(just_before_calendar_end, now),
-            "Just before end should be in calendar window");
+    assert!(
+        calendar_window.contains(just_after_calendar_start, now),
+        "Just after start should be in calendar window"
+    );
+    assert!(
+        calendar_window.contains(just_before_calendar_end, now),
+        "Just before end should be in calendar window"
+    );
 
     // Rolling window looks back 86400 seconds from now
     let older_than_rolling = now - 86_401;
-    assert!(!rolling_window.contains(older_than_rolling, now),
-            "Too old for rolling window");
-    assert!(rolling_window.contains(now - 86_400, now),
-            "Exactly 24h back should be in rolling window");
+    assert!(
+        !rolling_window.contains(older_than_rolling, now),
+        "Too old for rolling window"
+    );
+    assert!(
+        rolling_window.contains(now - 86_400, now),
+        "Exactly 24h back should be in rolling window"
+    );
 }
 
 // ============================================================================
@@ -383,24 +479,24 @@ fn genai_slo_balances_speed_and_quality() {
     let fast_perfect = GenAiSample {
         timestamp: 1000,
         tokens_generated: 500,
-        generation_duration_ms: 2000.0,  // 250 tokens/sec - fast
+        generation_duration_ms: 2000.0, // 250 tokens/sec - fast
         time_to_first_token_ms: 200.0,
         reference_text: "what is AI".to_string(),
-        generated_text: "what is AI".to_string(),  // Perfect match
+        generated_text: "what is AI".to_string(), // Perfect match
     };
 
     // Sample 2: Slow with degraded quality
     let slow_degraded = GenAiSample {
         timestamp: 2000,
         tokens_generated: 500,
-        generation_duration_ms: 15000.0,  // 33 tokens/sec - slow
+        generation_duration_ms: 15000.0, // 33 tokens/sec - slow
         time_to_first_token_ms: 3000.0,  // Slow to first token
         reference_text: "what is AI".to_string(),
-        generated_text: "AI is technology".to_string(),  // Different but related
+        generated_text: "AI is technology".to_string(), // Different but related
     };
 
-    let results: Vec<_> = GenAiSloIterator::new(slo, vec![fast_perfect, slow_degraded].into_iter())
-        .collect();
+    let results: Vec<_> =
+        GenAiSloIterator::new(slo, vec![fast_perfect, slow_degraded].into_iter()).collect();
 
     assert_eq!(results.len(), 2);
     assert!(results[0].pass, "Fast perfect should pass");
@@ -427,7 +523,7 @@ fn composite_slo_error_detection() {
             impact_weight: 1.0,
         }],
         dependencies: vec![CompositeDependencyEdge {
-            dependency: "cache".to_string(),  // Doesn't exist
+            dependency: "cache".to_string(), // Doesn't exist
             dependent: "api".to_string(),
             failure_penalty: 0.1,
         }],
@@ -494,9 +590,18 @@ fn http_slo_handles_large_histogram_stream() {
                 success: success as i32,
                 total: 10_000,
                 buckets: vec![
-                    HistogramBucket { upper_bound_ms: 100.0, count: 7_000 + (i % 3000) as i32 },
-                    HistogramBucket { upper_bound_ms: 200.0, count: 9_500 + (i % 500) as i32 },
-                    HistogramBucket { upper_bound_ms: 500.0, count: 10_000 },
+                    HistogramBucket {
+                        upper_bound_ms: 100.0,
+                        count: 7_000 + (i % 3000) as i32,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 200.0,
+                        count: 9_500 + (i % 500) as i32,
+                    },
+                    HistogramBucket {
+                        upper_bound_ms: 500.0,
+                        count: 10_000,
+                    },
                 ],
                 format: HistogramFormat::PrometheusCumulative,
             }
@@ -506,9 +611,12 @@ fn http_slo_handles_large_histogram_stream() {
     let results: Vec<_> = HttpSloIterator::new(slo, stream.into_iter()).collect();
 
     assert_eq!(results.len(), 1000, "All 1000 samples should be evaluated");
-    
+
     // Verify some pass and some fail
     let pass_count = results.iter().filter(|r| r.pass).count();
     assert!(pass_count > 0, "Some should pass");
-    assert!(pass_count < 1000, "Some should fail due to low availability");
+    assert!(
+        pass_count < 1000,
+        "Some should fail due to low availability"
+    );
 }

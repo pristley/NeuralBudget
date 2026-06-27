@@ -1,3 +1,4 @@
+use crate::core::{MetricPoint, Result as NeuralBudgetResult};
 /// Burn-rate forecasting and multi-window alert rules following Google's SRE workbook approach.
 ///
 /// This module implements:
@@ -8,9 +9,7 @@
 ///
 /// Reference: Google SRE Workbook - Alerting on SLOs
 /// https://sre.google/books/site-reliability-engineering-workbook/
-
 use serde::{Deserialize, Serialize};
-use crate::core::{MetricPoint, Result as NeuralBudgetResult};
 
 /// Burn rate severity levels used in multi-window alert rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,11 +116,7 @@ impl BurnRateAlertRule {
 
     /// Create all standard SRE workbook alert rules.
     pub fn standard_rules() -> Vec<Self> {
-        vec![
-            Self::fast_burn(),
-            Self::medium_burn(),
-            Self::slow_burn(),
-        ]
+        vec![Self::fast_burn(), Self::medium_burn(), Self::slow_burn()]
     }
 }
 
@@ -164,10 +159,7 @@ impl BudgetExhaustionForecast {
 }
 
 /// Calculate burn rate for a specific window in seconds.
-pub fn calculate_burn_rate_for_window(
-    metric_stream: &[MetricPoint],
-    window_seconds: u64,
-) -> f64 {
+pub fn calculate_burn_rate_for_window(metric_stream: &[MetricPoint], window_seconds: u64) -> f64 {
     if metric_stream.is_empty() || window_seconds == 0 {
         return 0.0;
     }
@@ -197,9 +189,7 @@ pub fn calculate_burn_rate_for_window(
 }
 
 /// Calculate multi-window burn rates.
-pub fn calculate_multi_window_burn_rate(
-    metric_stream: &[MetricPoint],
-) -> MultiWindowBurnRate {
+pub fn calculate_multi_window_burn_rate(metric_stream: &[MetricPoint]) -> MultiWindowBurnRate {
     let now = metric_stream
         .iter()
         .map(|point| point.timestamp)
@@ -221,8 +211,8 @@ pub fn evaluate_burn_rate_alert(
     short_burn: f64,
     long_burn: f64,
 ) -> BurnRateAlertResult {
-    let triggered = short_burn >= rule.short_window_threshold
-        && long_burn >= rule.long_window_threshold;
+    let triggered =
+        short_burn >= rule.short_window_threshold && long_burn >= rule.long_window_threshold;
 
     let message = if triggered {
         format!(
@@ -252,7 +242,7 @@ pub fn forecast_budget_exhaustion(
     now: i64,
 ) -> BudgetExhaustionForecast {
     let will_exhaust = current_burn_rate > 0.0 && remaining_budget_seconds > 0.0;
-    
+
     let time_to_exhaustion_seconds = if will_exhaust && current_burn_rate > 0.0 {
         remaining_budget_seconds / current_burn_rate
     } else {
@@ -331,11 +321,31 @@ mod tests {
     #[test]
     fn test_burn_rate_for_window() {
         let stream = vec![
-            MetricPoint { timestamp: 1, value: 1.0, labels: Default::default() },
-            MetricPoint { timestamp: 2, value: 0.0, labels: Default::default() },
-            MetricPoint { timestamp: 3, value: 1.0, labels: Default::default() },
-            MetricPoint { timestamp: 4, value: 1.0, labels: Default::default() },
-            MetricPoint { timestamp: 5, value: 0.0, labels: Default::default() },
+            MetricPoint {
+                timestamp: 1,
+                value: 1.0,
+                labels: Default::default(),
+            },
+            MetricPoint {
+                timestamp: 2,
+                value: 0.0,
+                labels: Default::default(),
+            },
+            MetricPoint {
+                timestamp: 3,
+                value: 1.0,
+                labels: Default::default(),
+            },
+            MetricPoint {
+                timestamp: 4,
+                value: 1.0,
+                labels: Default::default(),
+            },
+            MetricPoint {
+                timestamp: 5,
+                value: 0.0,
+                labels: Default::default(),
+            },
         ];
 
         // Over 5 second window: 3 bad seconds out of 5
@@ -370,7 +380,7 @@ mod tests {
     #[test]
     fn test_evaluate_burn_rate_alert() {
         let rule = BurnRateAlertRule::fast_burn();
-        
+
         // Alert should trigger
         let result = evaluate_burn_rate_alert(&rule, 10.0, 6.0);
         assert!(result.triggered);
@@ -394,15 +404,13 @@ mod tests {
 
     #[test]
     fn test_determine_overall_severity() {
-        let alerts = vec![
-            BurnRateAlertResult {
-                rule: BurnRateAlertRule::medium_burn(),
-                triggered: true,
-                short_burn_rate: 1.0,
-                long_burn_rate: 0.5,
-                message: "test".to_string(),
-            },
-        ];
+        let alerts = vec![BurnRateAlertResult {
+            rule: BurnRateAlertRule::medium_burn(),
+            triggered: true,
+            short_burn_rate: 1.0,
+            long_burn_rate: 0.5,
+            message: "test".to_string(),
+        }];
         let severity = determine_overall_severity(&alerts);
         assert_eq!(severity, BurnRateSeverity::MediumBurn);
     }
