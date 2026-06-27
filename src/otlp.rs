@@ -322,3 +322,489 @@ pub fn ingest_otlp_numeric_json(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nanos_to_seconds_valid() {
+        assert_eq!(nanos_to_seconds(1_000_000_000).unwrap(), 1);
+        assert_eq!(nanos_to_seconds(0).unwrap(), 0);
+        assert_eq!(nanos_to_seconds(1_500_000_000).unwrap(), 1);
+        assert_eq!(nanos_to_seconds(2_500_000_000).unwrap(), 2);
+    }
+
+    #[test]
+    fn test_nanos_to_seconds_large_value() {
+        // Max i64 / 1_000_000_000 + 1
+        let max_valid = 9_223_372_036_854_775_807i64;
+        let nanos = (max_valid as u64) * 1_000_000_000;
+        assert_eq!(nanos_to_seconds(nanos).unwrap(), max_valid);
+    }
+
+    #[test]
+    fn test_nanos_to_seconds_overflow() {
+        // Value that exceeds max i64
+        let overflow_nanos = u64::MAX;
+        assert!(nanos_to_seconds(overflow_nanos).is_err());
+    }
+
+    #[test]
+    fn test_otlp_any_value_string() {
+        let value = OtlpAnyValue {
+            string_value: Some("test".to_string()),
+            bool_value: None,
+            int_value: None,
+            double_value: None,
+        };
+        assert_eq!(value.as_label_value(), "test");
+    }
+
+    #[test]
+    fn test_otlp_any_value_bool_true() {
+        let value = OtlpAnyValue {
+            string_value: None,
+            bool_value: Some(true),
+            int_value: None,
+            double_value: None,
+        };
+        assert_eq!(value.as_label_value(), "true");
+    }
+
+    #[test]
+    fn test_otlp_any_value_bool_false() {
+        let value = OtlpAnyValue {
+            string_value: None,
+            bool_value: Some(false),
+            int_value: None,
+            double_value: None,
+        };
+        assert_eq!(value.as_label_value(), "false");
+    }
+
+    #[test]
+    fn test_otlp_any_value_int() {
+        let value = OtlpAnyValue {
+            string_value: None,
+            bool_value: None,
+            int_value: Some(42),
+            double_value: None,
+        };
+        assert_eq!(value.as_label_value(), "42");
+    }
+
+    #[test]
+    fn test_otlp_any_value_double() {
+        let value = OtlpAnyValue {
+            string_value: None,
+            bool_value: None,
+            int_value: None,
+            double_value: Some(3.14),
+        };
+        assert_eq!(value.as_label_value(), "3.14");
+    }
+
+    #[test]
+    fn test_otlp_any_value_priority() {
+        // string_value takes priority over others
+        let value = OtlpAnyValue {
+            string_value: Some("string".to_string()),
+            bool_value: Some(true),
+            int_value: Some(42),
+            double_value: Some(3.14),
+        };
+        assert_eq!(value.as_label_value(), "string");
+    }
+
+    #[test]
+    fn test_otlp_any_value_empty() {
+        let value = OtlpAnyValue {
+            string_value: None,
+            bool_value: None,
+            int_value: None,
+            double_value: None,
+        };
+        assert_eq!(value.as_label_value(), "");
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_gauge_json() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.latency",
+                        "gauge": {
+                            "dataPoints": [{
+                                "timeUnixNano": "1000000000",
+                                "asDouble": 42.5,
+                                "attributes": [
+                                    {"key": "service", "value": {"stringValue": "api"}}
+                                ]
+                            }]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "request.latency").unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].value, 42.5);
+        assert_eq!(result[0].timestamp, 1);
+        assert_eq!(result[0].labels.get("service").map(|s| s.as_str()), Some("api"));
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_sum_json() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.count",
+                        "sum": {
+                            "dataPoints": [{
+                                "timeUnixNano": "2000000000",
+                                "asInt": "100"
+                            }]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "request.count").unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].value, 100.0);
+        assert_eq!(result[0].timestamp, 2);
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_missing_value() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.latency",
+                        "gauge": {
+                            "dataPoints": [{
+                                "timeUnixNano": "1000000000"
+                            }]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "request.latency").unwrap();
+        assert_eq!(result[0].value, 0.0);
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_metric_not_found() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.latency",
+                        "gauge": {"dataPoints": []}
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "nonexistent");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OtlpIngestError::MetricNotFound(name) => assert_eq!(name, "nonexistent"),
+            _ => panic!("Expected MetricNotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_unsupported_type() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.latency",
+                        "histogram": {
+                            "dataPoints": []
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "request.latency");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OtlpIngestError::UnsupportedMetricType(name) => assert_eq!(name, "request.latency"),
+            _ => panic!("Expected UnsupportedMetricType error"),
+        }
+    }
+
+    #[test]
+    fn test_ingest_otlp_histogram_json() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "http.request.duration",
+                        "histogram": {
+                            "dataPoints": [{
+                                "timeUnixNano": "1000000000",
+                                "count": "100",
+                                "bucketCounts": ["10", "20", "30", "40"],
+                                "explicitBounds": [100.0, 250.0, 500.0]
+                            }]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_histogram_json(json, "http.request.duration").unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].timestamp, 1);
+        assert_eq!(result[0].buckets.len(), 4);
+        assert_eq!(result[0].buckets[0].upper_bound_ms, 100.0);
+        assert_eq!(result[0].buckets[0].count, 10);
+        assert_eq!(result[0].buckets[3].upper_bound_ms, f64::INFINITY);
+        assert_eq!(result[0].format, HistogramFormat::OpenTelemetryDelta);
+    }
+
+    #[test]
+    fn test_ingest_otlp_histogram_metric_not_found() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "http.request.duration",
+                        "histogram": {"dataPoints": []}
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_histogram_json(json, "nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ingest_otlp_histogram_unsupported_type() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "http.request.duration",
+                        "gauge": {
+                            "dataPoints": [{"timeUnixNano": "1000000000", "asDouble": 42.0}]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_histogram_json(json, "http.request.duration");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ingest_otlp_histogram_invalid_buckets() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "http.request.duration",
+                        "histogram": {
+                            "dataPoints": [{
+                                "timeUnixNano": "1000000000",
+                                "count": "100",
+                                "bucketCounts": ["10", "20"],
+                                "explicitBounds": [100.0, 250.0, 500.0]
+                            }]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_histogram_json(json, "http.request.duration");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OtlpIngestError::InvalidHistogramBuckets(name) => assert_eq!(name, "http.request.duration"),
+            _ => panic!("Expected InvalidHistogramBuckets error"),
+        }
+    }
+
+    #[test]
+    fn test_ingest_otlp_json_invalid_json() {
+        let result = ingest_otlp_numeric_json("not valid json", "metric");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), OtlpIngestError::Json(_)));
+    }
+
+    #[test]
+    fn test_flatten_metrics_nested() {
+        let payload = OtlpExportRequest {
+            resource_metrics: vec![
+                OtlpResourceMetrics {
+                    scope_metrics: vec![
+                        OtlpScopeMetrics {
+                            metrics: vec![
+                                OtlpMetric {
+                                    name: "metric1".to_string(),
+                                    gauge: None,
+                                    sum: None,
+                                    histogram: None,
+                                },
+                                OtlpMetric {
+                                    name: "metric2".to_string(),
+                                    gauge: None,
+                                    sum: None,
+                                    histogram: None,
+                                },
+                            ],
+                        },
+                        OtlpScopeMetrics {
+                            metrics: vec![OtlpMetric {
+                                name: "metric3".to_string(),
+                                gauge: None,
+                                sum: None,
+                                histogram: None,
+                            }],
+                        },
+                    ],
+                },
+                OtlpResourceMetrics {
+                    scope_metrics: vec![OtlpScopeMetrics {
+                        metrics: vec![OtlpMetric {
+                            name: "metric4".to_string(),
+                            gauge: None,
+                            sum: None,
+                            histogram: None,
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        let flattened = flatten_metrics(payload);
+        assert_eq!(flattened.len(), 4);
+        assert_eq!(flattened[0].name, "metric1");
+        assert_eq!(flattened[1].name, "metric2");
+        assert_eq!(flattened[2].name, "metric3");
+        assert_eq!(flattened[3].name, "metric4");
+    }
+
+    #[test]
+    fn test_metric_attributes() {
+        let attrs = vec![
+            OtlpKeyValue {
+                key: "service".to_string(),
+                value: OtlpAnyValue {
+                    string_value: Some("api".to_string()),
+                    bool_value: None,
+                    int_value: None,
+                    double_value: None,
+                },
+            },
+            OtlpKeyValue {
+                key: "region".to_string(),
+                value: OtlpAnyValue {
+                    string_value: Some("us-west".to_string()),
+                    bool_value: None,
+                    int_value: None,
+                    double_value: None,
+                },
+            },
+        ];
+
+        let result = metric_attributes(&attrs);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result.get("service").map(|s| s.as_str()), Some("api"));
+        assert_eq!(result.get("region").map(|s| s.as_str()), Some("us-west"));
+    }
+
+    #[test]
+    fn test_otlp_ingest_error_display() {
+        assert_eq!(
+            OtlpIngestError::MetricNotFound("test".to_string()).to_string(),
+            "OTLP metric 'test' was not found"
+        );
+        assert_eq!(
+            OtlpIngestError::UnsupportedMetricType("histogram".to_string()).to_string(),
+            "OTLP metric 'histogram' is not a supported type for this operation"
+        );
+        assert_eq!(
+            OtlpIngestError::InvalidHistogramBuckets("metric".to_string()).to_string(),
+            "OTLP histogram metric 'metric' has invalid bucketCounts/explicitBounds shape"
+        );
+        assert_eq!(
+            OtlpIngestError::TimestampOutOfRange(999).to_string(),
+            "OTLP timestamp '999' is outside i64 range"
+        );
+    }
+
+    #[test]
+    fn test_ingest_otlp_numeric_multiple_datapoints() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "request.latency",
+                        "gauge": {
+                            "dataPoints": [
+                                {"timeUnixNano": "1000000000", "asDouble": 10.5},
+                                {"timeUnixNano": "2000000000", "asDouble": 20.5},
+                                {"timeUnixNano": "3000000000", "asDouble": 30.5}
+                            ]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_numeric_json(json, "request.latency").unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].value, 10.5);
+        assert_eq!(result[1].value, 20.5);
+        assert_eq!(result[2].value, 30.5);
+    }
+
+    #[test]
+    fn test_ingest_otlp_histogram_multiple_samples() {
+        let json = r#"{
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "metrics": [{
+                        "name": "http.duration",
+                        "histogram": {
+                            "dataPoints": [
+                                {
+                                    "timeUnixNano": "1000000000",
+                                    "count": "10",
+                                    "bucketCounts": ["1", "2", "3", "4"],
+                                    "explicitBounds": [100.0, 250.0, 500.0]
+                                },
+                                {
+                                    "timeUnixNano": "2000000000",
+                                    "count": "20",
+                                    "bucketCounts": ["5", "6", "7", "2"],
+                                    "explicitBounds": [100.0, 250.0, 500.0]
+                                }
+                            ]
+                        }
+                    }]
+                }]
+            }]
+        }"#;
+
+        let result = ingest_otlp_histogram_json(json, "http.duration").unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].timestamp, 1);
+        assert_eq!(result[1].timestamp, 2);
+    }
+}
