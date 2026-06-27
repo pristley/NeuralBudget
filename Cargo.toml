@@ -25,6 +25,10 @@ rayon = "1.7"
 clap = { version = "4.5", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.40", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
+sha2 = "0.10"
+base64 = "0.22"
 
 [dev-dependencies]
 criterion = "0.5"

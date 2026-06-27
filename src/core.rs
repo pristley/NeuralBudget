@@ -658,6 +658,75 @@ pub struct GenAiSloEvaluation {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+/// Quality evaluator configuration for GenAI SLOs (reference-free evaluation).
+pub enum QualityEvaluator {
+    /// LLM-as-Judge evaluator with caching support
+    LlmJudge {
+        model: String,
+        provider: String,
+        cache_config: Option<CacheConfigSpec>,
+        dimensions: Vec<QualityDimensionSpec>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Cache configuration for quality evaluators.
+pub struct CacheConfigSpec {
+    pub redis_url: String,
+    pub ttl_seconds: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Single quality dimension specification for evaluation.
+pub struct QualityDimensionSpec {
+    pub name: String,
+    pub prompt: String,
+    pub weight: f64,
+    pub threshold: f64,
+    pub cost_per_call_usd: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// GenAI SLO configuration with quality evaluator.
+pub struct GenAiSloConfig {
+    pub quality_evaluator: QualityEvaluator,
+    pub sample: GenAiQualitySample,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Sample for GenAI quality evaluation.
+pub struct GenAiQualitySample {
+    pub timestamp: i64,
+    pub query: String,
+    pub response: String,
+    #[serde(default)]
+    pub metadata: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// GenAI quality evaluation result with detailed scoring.
+pub struct GenAiQualityEvaluation {
+    pub timestamp: i64,
+    pub cache_key: String,
+    pub from_cache: bool,
+    pub dimension_scores: Vec<DimensionScoreResult>,
+    pub weighted_score: f64,
+    pub pass: bool,
+    pub total_cost_usd: f64,
+    pub total_tokens: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Individual dimension score result.
+pub struct DimensionScoreResult {
+    pub name: String,
+    pub score: f64,
+    pub reasoning: Option<String>,
+    pub pass: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO policy for one service node in a dependency graph.
 pub struct CompositeServiceSlo {
     pub service: String,

@@ -3,6 +3,7 @@
 mod core;
 mod exporter;
 mod forecasting;
+mod genai_evaluator;
 mod openslo;
 mod otlp;
 mod python;
@@ -14,6 +15,7 @@ pub use core::*;
 pub use core::{NeuralBudgetError, Result};
 pub use exporter::*;
 pub use forecasting::*;
+pub use genai_evaluator::*;
 pub use openslo::*;
 pub use otlp::*;
 pub use python::*;
