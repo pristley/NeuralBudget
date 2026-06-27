@@ -266,7 +266,7 @@ pub fn to_openslo_json(slo: &HttpSlo, service_name: &str, slo_name: &str) -> Res
 }
 
 /// Convert HttpSlo to OpenSloObject
-fn to_openslo_object(slo: &HttpSlo, service_name: &str, slo_name: &str) -> Result<OpenSloObject> {
+pub fn to_openslo_object(slo: &HttpSlo, service_name: &str, slo_name: &str) -> Result<OpenSloObject> {
     let mut objectives = vec![];
 
     // Availability objective

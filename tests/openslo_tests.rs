@@ -9,8 +9,10 @@
 
 #[cfg(test)]
 mod openslo_tests {
-    use neuralbudget::openslo::*;
-    use neuralbudget::HttpSlo;
+    use neuralbudget::{
+        parse_openslo_service, parse_openslo_yaml, to_openslo_json, to_openslo_object,
+        to_openslo_yaml, HttpSlo,
+    };
 
     /// OpenSLO example from CNCF repository (simplified)
     const EXAMPLE_OPENSLO_BASIC: &str = r#"
@@ -265,7 +267,7 @@ spec:
             latency_percentile: 0.95,
         };
 
-        let openslo = crate::openslo::to_openslo_object(&slo, "test-svc", "test-slo");
+        let openslo = to_openslo_object(&slo, "test-svc", "test-slo");
         assert!(openslo.is_ok());
 
         let obj = openslo.unwrap();
@@ -279,7 +281,7 @@ spec:
     #[test]
     fn test_openslo_real_world_scenario() {
         // Simulating migration from another tool
-        let openslo_from_nobl9 = r#"
+        let openslo_from_nobl9 = r###"
 apiVersion: openslo/v1
 kind: SLO
 metadata:
@@ -309,7 +311,7 @@ spec:
       target: 0.99
       window: rolling_30d
       description: Checkout latency (P99 < 500ms)
-"#;
+"###;
 
         // Parse as OpenSLO
         let parsed = parse_openslo_yaml(openslo_from_nobl9);
