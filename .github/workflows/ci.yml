@@ -65,8 +65,25 @@ jobs:
       - name: Run integration test suites
         run: cargo test --tests --all-features
 
+      - name: Run functional and integration tests (Rust)
+        run: |
+          cargo test --test functional_tests --all-features
+          cargo test --test integration_tests --all-features
+          cargo test --test functional_end_to_end_tests --all-features
+
+      - name: Run comprehensive unit tests (Rust)
+        run: cargo test --test comprehensive_unit_tests --all-features
+
       - name: Run MLOps model-drift serving tests
         run: cargo test --all-features ml_slo -- --nocapture
+
+      - name: Run comprehensive unit tests (Python)
+        run: |
+          python3 tests/python_streaming_aggregator_tests.py
+          python3 tests/python_comprehensive_tests.py
+
+      - name: Run functional and integration tests (Python)
+        run: python3 tests/python_functional_integration_tests.py
 
       - name: Run Python convenience layer tests
         run: |
