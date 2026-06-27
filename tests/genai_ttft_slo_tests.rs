@@ -1,6 +1,9 @@
 // Comprehensive test suite for TTFT (Time to First Token) SLO evaluation
 
-use neuralbudget::genai_slo::*;
+use neuralbudget::{
+    evaluate_ttft_batch, evaluate_ttft_slo, GenaiStreamSample, TtftEvaluation, TtftSloParams,
+};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 fn create_sample(
     ttft_ms: f64,
@@ -8,8 +11,11 @@ fn create_sample(
     total_tokens: u32,
     total_time_ms: f64,
 ) -> GenaiStreamSample {
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    
     GenaiStreamSample {
-        request_id: format!("req_{}", rand::random::<u32>()),
+        request_id: format!("req_{}", id),
         timestamp: 1000,
         time_to_first_token_ms: ttft_ms,
         inter_token_latency_ms: inter_token_ms,
