@@ -1,177 +1,110 @@
-# NeuralBudget Getting Started
+# Getting Started: Run Your First SLO Evaluation
 
-Use this guide to run your first NeuralBudget evaluation in about 10 minutes.
+Complete your first NeuralBudget evaluation in 10 minutes. By the end, you evaluate a service against an availability threshold and see a pass/fail result.
 
-## What You Do
+## Complete These 5 Steps
 
-1. Install NeuralBudget.
-2. Create a minimal SLO config file.
-3. Run one evaluation.
-4. Confirm that the evaluation passes.
-5. Run local quality checks.
+### 1. Install NeuralBudget
 
-## Prerequisites
+Run one command:
 
-- Python 3.9 or later
-- Rust toolchain (only if you build from source)
-- A shell environment on Linux, macOS, or Windows
+```bash
+pip install neuralbudget
+```
 
-## 1. Install NeuralBudget
+**Verify:** Run this to confirm the install:
+```bash
+python3 -c "import neuralbudget; print('✓ NeuralBudget ready')"
+```
 
-Choose one path.
+### 2. Create an SLO Config File
 
-### Path A: Install from PyPI (fastest)
+Create `slo.json` in your current directory:
 
-~~~bash
-python3 -m pip install --upgrade pip
-python3 -m pip install neuralbudget
-~~~
-
-### Path B: Build from source (development path)
-
-~~~bash
-git clone https://github.com/pristley/NeuralBudget.git
-cd NeuralBudget
-python3 -m pip install --upgrade pip maturin
-maturin develop --release --manifest-path Cargo.toml
-~~~
-
-Optional: install YAML support if you use YAML configs.
-
-~~~bash
-python3 -m pip install pyyaml
-~~~
-
-## 2. Create a Minimal Config
-
-Create a file named slo.json.
-
-~~~json
+```json
 {
   "schema_version": 1,
   "mode": "http",
-  "profile": "strict_latency",
+  "profile": "balanced",
   "params": {
-    "latency_threshold_ms": 200.0
+    "latency_threshold_ms": 200.0,
+    "availability_threshold": 0.999
   }
 }
-~~~
+```
 
-## 3. Run Your First Evaluation
+**What this does:** Defines an SLO for an HTTP service with a 200ms latency threshold and 99.9% availability target.
 
-Create a file named quick_eval.py.
+### 3. Create a Python Script
 
-~~~python
-from neuralbudget import NeuralBudgetClient
-import sys
+Create `evaluate_slo.py`:
 
+```python
 try:
-    # Step 1: Create client and load config
+    from neuralbudget import NeuralBudgetClient
+
     client = NeuralBudgetClient()
     client.load_config("slo.json")
     
-    # Step 2: Prepare metric data
-    metric_data = {
+    result = client.evaluate({
         "timestamp": 1,
         "success": 9995,
         "total": 10000,
         "buckets": [
             {"upper_bound_ms": 100.0, "count": 9700},
-            {"upper_bound_ms": 200.0, "count": 9950},
-            {"upper_bound_ms": 300.0, "count": 10000}
+            {"upper_bound_ms": 220.0, "count": 10000},
         ],
-        "format": "prometheus_cumulative"
-    }
+        "format": "prometheus_cumulative",
+    })
     
-    # Step 3: Evaluate
-    result = client.evaluate(metric_data)
-    
-    # Step 4: Display results
-    is_pass = result.get("pass", result.get("global_pass"))
-    print("✓ Evaluation succeeded")
-    print("result:", result)
-    print("pass:", bool(is_pass))
+    print(f"✓ SLO Pass: {result['passed']}")
+    print(f"✓ Score: {result['score']:.3f}")
+    print(f"✓ Availability: {result['availability']:.4f}")
 
 except FileNotFoundError:
-    print("✗ ERROR: Config file 'slo.json' not found", file=sys.stderr)
-    print("  → Create slo.json first (see Step 2 above)", file=sys.stderr)
-    sys.exit(1)
-
+    print("✗ slo.json not found")
+    print("  → Create slo.json in your current directory (see Step 2)")
 except ValueError as e:
-    print(f"✗ ERROR: Invalid config or metrics: {e}", file=sys.stderr)
-    print("  → Check slo.json format and metric_data structure", file=sys.stderr)
-    sys.exit(1)
+    print(f"✗ Invalid metrics: {e}")
+    print("  → Check that bucket counts are ordered correctly")
+```
 
-except RuntimeError as e:
-    print(f"✗ ERROR: Evaluation failed: {e}", file=sys.stderr)
-    sys.exit(1)
-~~~
+### 4. Run the Evaluation
 
-Run it:
+Execute the script:
 
-~~~bash
-python3 quick_eval.py
-~~~
+```bash
+python3 evaluate_slo.py
+```
 
-Expected outcome:
-- The script prints an evaluation object.
-- The pass line prints True for this sample input.
+**Expect to see:**
+```
+✓ SLO Pass: True
+✓ Score: 0.978
+✓ Availability: 0.9995
+```
 
-**If you see an error:**
-- `✗ ERROR: Config file 'slo.json' not found` → Make sure you created slo.json in Step 2
-- `✗ ERROR: Invalid config or metrics` → Check your slo.json and metric_data match the format above
-- `✗ ERROR: Evaluation failed` → See [Troubleshooting Guide](troubleshooting.md) for help
+If you see an error, check [docs/guides/troubleshooting.md](troubleshooting.md) or [docs/reference/errors.md](../reference/errors.md).
 
-## 4. Validate Local Quality Gates
+### 5. Modify and Re-Evaluate
 
-Run baseline checks:
+Change the availability threshold in `slo.json` to 0.9999 (99.99%), then re-run the script:
 
-~~~bash
-cargo test --all-targets --all-features
-python3 tests/python_convenience_tests.py
-python3 tests/python_client_tests.py
-~~~
+```bash
+python3 evaluate_slo.py
+```
 
-Run release-grade checks:
+**Expect to see:**
+```
+✗ SLO Pass: False
+```
 
-~~~bash
-cargo fmt --all --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo llvm-cov --workspace --all-features --lib --tests --summary-only
-~~~
+This shows you how NeuralBudget evaluates thresholds. Lower the threshold back to 0.999 and verify it passes again.
 
-Expected outcome:
-- All commands exit successfully.
-- No formatting, lint, or test failures remain.
+## Next Steps
 
-## 5. Fix Common First-Run Errors
-
-### Error: No config loaded. Call load_config(path) first.
-Fix:
-Call load_config before evaluate.
-
-### Error: Unsupported config extension
-Fix:
-Use one of these config file extensions:
-- .json
-- .yaml
-- .yml
-
-### Error: PyYAML is required to load YAML config files
-Fix:
-
-~~~bash
-python3 -m pip install pyyaml
-~~~
-
-### Error: unknown preset
-Fix:
-Use a valid preset name for your selected mode.
-
-## 6. Next Documentation
-
-- Full workflow and mode guidance: [docs/guides/user-guide.md](user-guide.md)
-- Production rollout: [docs/guides/production-deployment.md](production-deployment.md)
-- Kubernetes deployment: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
-- Convenience API reference: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
+- **Run more modes:** [User Guide](user-guide.md) covers ML serving, stateful services, and composite DAGs
+- **Use in CI/CD:** [Production Deployment](production-deployment.md) shows integration patterns
+- **Understand SLO config:** [Full reference](../reference/api.md) documents all fields
+- **Get help:** [Troubleshooting](troubleshooting.md) answers common questions
 - Composite DAG behavior: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)

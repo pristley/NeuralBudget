@@ -1,118 +1,112 @@
 # Documentation Index
 
-This index groups documentation by audience and workflow.
+This index helps you find the right guide for your task. Start with your goal and follow the recommended path.
 
-## Start Here
+## Start Here (Pick One)
 
-- [README.md](../../README.md): Project overview, installation, and high-level examples.
-- [docs/guides/getting-started.md](getting-started.md): Fastest path to first successful evaluation.
-- [docs/guides/user-guide.md](user-guide.md): End-to-end guide for modes, config, CI/CD, and troubleshooting.
+New to NeuralBudget? Choose your path:
 
-## Read By Goal
+- **I want to evaluate my first SLO** → [Getting Started](getting-started.md) (10 minutes)
+- **I'm building with Python** → [User Guide](user-guide.md) (mode selection, config patterns, CI/CD)
+- **I need production deployment help** → [Production Deployment](production-deployment.md) (Kubernetes, monitoring, alerts)
 
-- I don't know where to start: [docs/guides/getting-started.md](getting-started.md)
-- I need to understand key terms: [docs/reference/glossary.md](../reference/glossary.md)
-- I'm getting an error: [docs/reference/errors.md](../reference/errors.md)
-- I need troubleshooting help: [docs/guides/troubleshooting.md](troubleshooting.md)
-- I need to understand the architecture: [docs/reference/architecture.md](../reference/architecture.md)
-- I need interface and mode selection help: [docs/guides/user-guide.md](user-guide.md)
-- I need production rollout guidance: [docs/guides/production-deployment.md](production-deployment.md)
-- I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
-- I need Prometheus scrape and alert patterns: [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
-- I need SRE workbook burn-rate alerting: [docs/guides/burn-rate-forecasting.md](burn-rate-forecasting.md)
-- I need high-frequency metric collection: [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md)
-- I need adaptive windowing details: [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md)
-- I need streaming & performance implementation details: [PHASE3_STREAMING_IMPLEMENTATION.md](PHASE3_STREAMING_IMPLEMENTATION.md)
-- I need ready-made Grafana dashboards: [examples/grafana/README.md](../../examples/grafana/README.md)
-- I need the complete Python API reference: [docs/reference/api.md](../reference/api.md)
-- I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
-- I need the parallel SLO API reference: [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md)
-- I need deployment guidance for Phase 3: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- I need webhook/incident alerting setup: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
-- I need advanced alert dispatch with retry/dedup/escalation: [docs/guides/advanced_alert_dispatch.md](advanced_alert_dispatch.md)
-- I need a lightweight dashboard without Grafana: [docs/guides/dashboard_cli.md](dashboard_cli.md)
-- I need terminal-based SLO monitoring: [docs/guides/dashboard_cli.md](dashboard_cli.md#cli-tui)
-- I need GenAI telemetry integration (OpenAI, Anthropic, vLLM, Triton): [docs/guides/genai_connectors.md](genai_connectors.md)
-- I need GenAI connector API reference: [GENAI_CONNECTORS_PHASE4_SUMMARY.md](../reference/GENAI_CONNECTORS_PHASE4_SUMMARY.md)
-- I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
-- I need burn-rate API reference: [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md)
-- I need dashboard and CLI TUI API details: [DASHBOARD_CLI_README.md](../reference/DASHBOARD_CLI_README.md)
-- I need release changes: [CHANGELOG.md](../../CHANGELOG.md)
+## Find Docs By Goal
 
-## Feature Plans
+### Setup & First Steps
 
-- [docs/plans/mlops-model-drift-serving-plan.md](../plans/mlops-model-drift-serving-plan.md): Detailed implementation plan for MlSlo hybrid scoring.
+- **I'm getting installation errors** → [Troubleshooting: Installation](troubleshooting.md#installation-issues)
+- **I need to understand terminology** → [Glossary](../reference/glossary.md)
+- **I'm seeing error codes** → [Error Reference](../reference/errors.md) (all errors with solutions)
 
-## Phase 3: Streaming & Performance (Live)
+### Using NeuralBudget
 
-- **Overview**: [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md) — Streaming aggregators and parallel evaluation walkthrough
-- **Streaming Implementation**: [PHASE3_STREAMING_IMPLEMENTATION.md](PHASE3_STREAMING_IMPLEMENTATION.md) — Architecture and design decisions
-- **Adaptive Windowing**: [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md) — Memory-bounded high-frequency ingestion
-- **Deployment Guide**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) — Production rollout patterns for Phase 3 features
-- **Benchmarking**: [PHASE3_BENCHMARK_GUIDE.md](PHASE3_BENCHMARK_GUIDE.md) — Performance benchmarking methodology and results
+**Choose your SLO mode:**
+- HTTP/gRPC histogram SLOs: [User Guide: HTTP Mode](user-guide.md#http-slo-evaluation)
+- Stateful service SLOs: [User Guide: Stateful Mode](user-guide.md#stateful-service-slos)
+- ML serving SLOs: [User Guide: ML Mode](user-guide.md#ml-serving-slos)
+- GenAI workload SLOs: [User Guide: GenAI Mode](user-guide.md#genai-workload-slos)
+- Composite service graphs: [User Guide: Composite DAG](user-guide.md#composite-dependency-dags)
 
-## API References & Reference Materials
+**API & Configuration:**
+- Complete Python API reference: [API Reference](../reference/api.md)
+- Convenience layer functions: [Convenience Functions](../reference/convenience-layer.md)
+- Composite DAG schema: [Composite SLO DAG](../reference/composite-slo-dag.md)
+- Streaming aggregator API: [Streaming Aggregator](../reference/streaming-aggregator.md)
 
-**Getting Help:**
-- [docs/reference/glossary.md](../reference/glossary.md): Glossary of key terms, acronyms, and concepts used throughout NeuralBudget.
-- [docs/reference/errors.md](../reference/errors.md): Error reference guide with root causes, solutions, and debugging techniques.
-- [docs/guides/troubleshooting.md](troubleshooting.md): Consolidated troubleshooting guide with decision trees and solutions.
-- [docs/reference/architecture.md](../reference/architecture.md): System architecture, design decisions, and module interactions with Mermaid diagrams.
+### Advanced Features
 
-**API Documentation:**
-- [docs/reference/api.md](../reference/api.md): Complete reference for NeuralBudget Python API, including native extension classes, NeuralBudgetClient, convenience functions, alert dispatching, data models, type hints, and examples.
-- [docs/reference/streaming-aggregator.md](../reference/streaming-aggregator.md): StreamingAggregator API, usage patterns, performance characteristics, and adaptive windowing behavior.
-- [docs/reference/convenience-layer.md](../reference/convenience-layer.md): Detailed reference for the Python convenience layer, typed dataclass returns, and profile presets.
-- [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md): Reference for Composite SLO DAG schemas, dependency propagation, global score semantics, and errors.
-- [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md): Burn-rate forecasting API, multi-window alerts, SRE workbook patterns, and TTEE calculations.
-- [docs/reference/advanced_alert_dispatch.md](../reference/advanced_alert_dispatch.md): Advanced alert dispatch API reference, retry policies, deduplication, circuit breaker, and escalation.
-- [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md): Dashboard and CLI TUI API reference, endpoints, data models, and integration patterns.
-- [docs/reference/genai_connectors.md](../reference/genai_connectors.md): GenAI telemetry connectors API reference, data models, connector implementations, and integration examples.
-- [docs/reference/anomaly_drift_detection.md](../reference/anomaly_drift_detection.md): Anomaly detection and drift analysis API reference.
+- **High-frequency metric collection** → [Phase 3: Streaming](PHASE3_GETTING_STARTED.md)
+- **Parallel metric evaluation** → [Parallel API Reference](PARALLEL_SLO_API_REFERENCE.md)
+- **Adaptive memory management** → [Adaptive Windowing Design](ADAPTIVE_WINDOWING_DESIGN.md)
+- **Anomaly detection & drift** → [Anomaly Detection](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md)
+- **Burn-rate alerting** → [Burn-Rate Forecasting](burn-rate-forecasting.md)
+- **Advanced alert dispatch** → [Advanced Alert Dispatch](../reference/ADVANCED_ALERT_DISPATCH_SUMMARY.md)
+- **GenAI integrations** → [GenAI Connectors](../reference/GENAI_CONNECTORS_PHASE4_SUMMARY.md)
+- **Dashboard & CLI monitoring** → [Dashboard CLI](../reference/DASHBOARD_CLI_README.md)
 
-**Additional References:**
-- [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md): ParallelMetricBatch and StreamingAggregator API reference (Phase 3 streaming SLO evaluation).
-- [ANOMALY_DETECTION_IMPLEMENTATION.md](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md): Anomaly detection and drift analysis implementation guide.
-- [ADVANCED_ALERT_DISPATCH_SUMMARY.md](../reference/ADVANCED_ALERT_DISPATCH_SUMMARY.md): Advanced alert dispatch, retry policies, and deduplication.
+### Production & Operations
 
-## Testing and Quality Gates
+- **Deploy to Kubernetes** → [Kubernetes Integration](kubernetes-integration.md)
+- **Configure Prometheus** → [Prometheus Scraping Guide](prometheus-scraping-examples.md)
+- **Build Grafana dashboards** → [Grafana Dashboards](../../examples/grafana/README.md)
+- **Set up webhooks & alerting** → [Webhook Alerting](../../examples/python/webhook_alerting.py)
+- **Troubleshoot issues** → [Troubleshooting Guide](troubleshooting.md)
 
-- CI workflow: [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
-- CD workflow: [.github/workflows/cd.yml](../../.github/workflows/cd.yml)
-- Release workflow: [.github/workflows/release.yml](../../.github/workflows/release.yml)
-- Coverage command: `cargo llvm-cov --workspace --all-features --lib --tests --summary-only`
-- Property tests: [src/tests.rs](../../src/tests.rs) (`proptest` suites)
-- Python convenience tests: [tests/python_convenience_tests.py](../../tests/python_convenience_tests.py)
-- Python client facade tests: [tests/python_client_tests.py](../../tests/python_client_tests.py)
+### Understanding the System
 
-## Deployment Examples
+- **How does NeuralBudget work?** → [Architecture](../reference/architecture.md) (with diagrams)
+- **Why Rust + Python?** → [Architecture: Design Rationale](../reference/architecture.md#why-rust-first-architecture)
+- **What's the performance?** → [Architecture: Performance Characteristics](../reference/architecture.md#performance-characteristics)
+- **How are scores calculated?** → [Composite SLO Scoring](../reference/composite-slo-dag.md#scoring)
 
-- [examples/kubernetes/configmap.yaml](../../examples/kubernetes/configmap.yaml)
-- [examples/kubernetes/deployment.yaml](../../examples/kubernetes/deployment.yaml)
-- [examples/kubernetes/service.yaml](../../examples/kubernetes/service.yaml)
-- [examples/kubernetes/servicemonitor.yaml](../../examples/kubernetes/servicemonitor.yaml)
-- [examples/kubernetes/prometheus-additional-scrape-config.yaml](../../examples/kubernetes/prometheus-additional-scrape-config.yaml)
-- [examples/grafana/README.md](../../examples/grafana/README.md)
-- [examples/grafana/dashboards/http-slo-dashboard.json](../../examples/grafana/dashboards/http-slo-dashboard.json)
-- [examples/grafana/dashboards/stateful-slo-dashboard.json](../../examples/grafana/dashboards/stateful-slo-dashboard.json)
-- [examples/grafana/dashboards/ml-slo-dashboard.json](../../examples/grafana/dashboards/ml-slo-dashboard.json)
-- [examples/grafana/dashboards/genai-slo-dashboard.json](../../examples/grafana/dashboards/genai-slo-dashboard.json)
-- [examples/grafana/dashboards/composite-slo-dashboard.json](../../examples/grafana/dashboards/composite-slo-dashboard.json)
-- [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
-- [examples/python/webhook_alerting_config.json](../../examples/python/webhook_alerting_config.json)
-- [examples/python/dashboard_cli_examples.py](../../examples/python/dashboard_cli_examples.py)
-- [examples/python/genai_connector_examples.py](../../examples/python/genai_connector_examples.py)
+### Contributing & Development
 
-## Suggested Reading Order
+- **How do I contribute?** → [Contributing](../../CONTRIBUTING.md)
+- **What changed in this release?** → [Changelog](../../CHANGELOG.md)
+- **What's the roadmap?** → [Feature Plans](../plans/mlops-model-drift-serving-plan.md)
 
-1. [README.md](../../README.md)
-2. [docs/guides/getting-started.md](getting-started.md)
-3. [docs/guides/user-guide.md](user-guide.md)
-4. [docs/guides/production-deployment.md](production-deployment.md)
-5. [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
-6. [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
-7. [docs/reference/api.md](../reference/api.md)
-8. [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
-9. [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
-10. [CHANGELOG.md](../../CHANGELOG.md)
-11. [docs/plans/mlops-model-drift-serving-plan.md](../plans/mlops-model-drift-serving-plan.md)
+## Documentation Paths (By Role)
+
+### Data Scientists / ML Engineers
+1. [Getting Started](getting-started.md)
+2. [User Guide: ML Mode](user-guide.md#ml-serving-slos)
+3. [Anomaly Detection](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md)
+4. [Troubleshooting](troubleshooting.md)
+
+### Backend / SRE Engineers
+1. [Getting Started](getting-started.md)
+2. [User Guide: HTTP Mode](user-guide.md#http-slo-evaluation)
+3. [Kubernetes Integration](kubernetes-integration.md)
+4. [Prometheus Scraping](prometheus-scraping-examples.md)
+5. [Burn-Rate Alerting](burn-rate-forecasting.md)
+
+### DevOps / Platform Teams
+1. [Production Deployment](production-deployment.md)
+2. [Kubernetes Integration](kubernetes-integration.md)
+3. [Prometheus Scraping](prometheus-scraping-examples.md)
+4. [Advanced Alert Dispatch](../reference/ADVANCED_ALERT_DISPATCH_SUMMARY.md)
+5. [Grafana Dashboards](../../examples/grafana/README.md)
+
+### API Users / Library Integrators
+1. [API Reference](../reference/api.md)
+2. [Convenience Functions](../reference/convenience-layer.md)
+3. [Error Reference](../reference/errors.md)
+4. [Architecture](../reference/architecture.md)
+
+## How to Use This Index
+
+1. **Scan the "Start Here" section** — Most users pick one link here
+2. **Find your goal in "By Goal"** — Section headers match common tasks
+3. **Use role-based paths** — Jump to your role's recommended sequence
+4. **Check the glossary first** — If you're confused by terminology, read [Glossary](../reference/glossary.md)
+5. **Search the error reference** — If you see an error, find it in [Errors](../reference/errors.md)
+
+## All Docs Overview
+
+| Category | Purpose | Files |
+|---|---|---|
+| **Guides** | Step-by-step tutorials for tasks | getting-started, user-guide, production-deployment, kubernetes, ... |
+| **Reference** | Complete API and design docs | api, architecture, glossary, errors, composite-dag, ... |
+| **Examples** | Runnable code snippets | [examples/](../../examples/) directory |
+| **Plans** | Feature roadmaps | mlops-model-drift-serving-plan |
+| **Archives** | Internal reports | docs/internal/ (audits, verifications) |
