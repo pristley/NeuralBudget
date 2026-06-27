@@ -1,7 +1,53 @@
+# Rust build artifacts
 /target/
+Cargo.lock.bak
+*.rlib
+
+# Python build artifacts
 dist/
-actionlint
-/.idea/
-/.vscode/
+build/
+*.egg-info/
+*.egg
 *.pyc
+*.pyo
+*.pyd
 __pycache__/
+.pytest_cache/
+.tox/
+*.whl
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# Development and temporary files
+*.tmp
+*.bak
+*.orig
+*.rej
+.env
+.env.local
+.env.*.local
+node_modules/
+
+# Test and coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+test-results/
+coverage.xml
+
+# Build tools
+actionlint
+maturin-build/
