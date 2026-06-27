@@ -20,21 +20,23 @@ This index groups documentation by audience and workflow.
 - I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
 - I need Prometheus scrape and alert patterns: [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
 - I need SRE workbook burn-rate alerting: [docs/guides/burn-rate-forecasting.md](burn-rate-forecasting.md)
-- I need high-frequency metric collection: [../../PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md)
-- I need adaptive windowing details: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md)
-- I need streaming & performance implementation details: [../../PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md)
+- I need high-frequency metric collection: [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md)
+- I need adaptive windowing details: [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md)
+- I need streaming & performance implementation details: [PHASE3_STREAMING_IMPLEMENTATION.md](PHASE3_STREAMING_IMPLEMENTATION.md)
 - I need ready-made Grafana dashboards: [examples/grafana/README.md](../../examples/grafana/README.md)
 - I need the complete Python API reference: [docs/reference/api.md](../reference/api.md)
 - I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
+- I need the parallel SLO API reference: [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md)
+- I need deployment guidance for Phase 3: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - I need webhook/incident alerting setup: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
 - I need advanced alert dispatch with retry/dedup/escalation: [docs/guides/advanced_alert_dispatch.md](advanced_alert_dispatch.md)
 - I need a lightweight dashboard without Grafana: [docs/guides/dashboard_cli.md](dashboard_cli.md)
 - I need terminal-based SLO monitoring: [docs/guides/dashboard_cli.md](dashboard_cli.md#cli-tui)
 - I need GenAI telemetry integration (OpenAI, Anthropic, vLLM, Triton): [docs/guides/genai_connectors.md](genai_connectors.md)
-- I need GenAI connector API reference: [docs/reference/genai_connectors.md](../reference/genai_connectors.md)
+- I need GenAI connector API reference: [GENAI_CONNECTORS_PHASE4_SUMMARY.md](../reference/GENAI_CONNECTORS_PHASE4_SUMMARY.md)
 - I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
 - I need burn-rate API reference: [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md)
-- I need dashboard and CLI TUI API details: [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md)
+- I need dashboard and CLI TUI API details: [DASHBOARD_CLI_README.md](../reference/DASHBOARD_CLI_README.md)
 - I need release changes: [CHANGELOG.md](../../CHANGELOG.md)
 
 ## Feature Plans
@@ -43,10 +45,11 @@ This index groups documentation by audience and workflow.
 
 ## Phase 3: Streaming & Performance (Live)
 
-- **Overview**: [../../PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md) — Streaming aggregators and parallel evaluation walkthrough
-- **Streaming Implementation**: [../../PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md) — Architecture and design decisions
-- **Adaptive Windowing**: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md) — Memory-bounded high-frequency ingestion
-- **Deployment Guide**: [../../DEPLOYMENT_GUIDE.md](../../DEPLOYMENT_GUIDE.md) — Production rollout patterns for Phase 3 features
+- **Overview**: [PHASE3_GETTING_STARTED.md](PHASE3_GETTING_STARTED.md) — Streaming aggregators and parallel evaluation walkthrough
+- **Streaming Implementation**: [PHASE3_STREAMING_IMPLEMENTATION.md](PHASE3_STREAMING_IMPLEMENTATION.md) — Architecture and design decisions
+- **Adaptive Windowing**: [ADAPTIVE_WINDOWING_DESIGN.md](ADAPTIVE_WINDOWING_DESIGN.md) — Memory-bounded high-frequency ingestion
+- **Deployment Guide**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) — Production rollout patterns for Phase 3 features
+- **Benchmarking**: [PHASE3_BENCHMARK_GUIDE.md](PHASE3_BENCHMARK_GUIDE.md) — Performance benchmarking methodology and results
 
 ## API References & Reference Materials
 
@@ -68,7 +71,9 @@ This index groups documentation by audience and workflow.
 - [docs/reference/anomaly_drift_detection.md](../reference/anomaly_drift_detection.md): Anomaly detection and drift analysis API reference.
 
 **Additional References:**
-- [docs/reference/parallel-slo-api.md](../reference/parallel-slo-api.md): ParallelMetricBatch API reference (Phase 3 streaming SLO evaluation).
+- [PARALLEL_SLO_API_REFERENCE.md](PARALLEL_SLO_API_REFERENCE.md): ParallelMetricBatch and StreamingAggregator API reference (Phase 3 streaming SLO evaluation).
+- [ANOMALY_DETECTION_IMPLEMENTATION.md](../reference/ANOMALY_DETECTION_IMPLEMENTATION.md): Anomaly detection and drift analysis implementation guide.
+- [ADVANCED_ALERT_DISPATCH_SUMMARY.md](../reference/ADVANCED_ALERT_DISPATCH_SUMMARY.md): Advanced alert dispatch, retry policies, and deduplication.
 
 ## Testing and Quality Gates
 

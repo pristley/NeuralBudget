@@ -467,9 +467,9 @@ Complete documentation organized by use case:
 
 | Document | Audience | Purpose |
 |----------|----------|---------|
-| [Getting Started](PHASE3_GETTING_STARTED.md) | Python developers | Task-based walkthrough with code examples |
-| [API Reference](PARALLEL_SLO_API_REFERENCE.md) | API users | Complete method signatures and performance characteristics |
-| [Deployment Guide](DEPLOYMENT_GUIDE.md) | Operations/DevOps | Production configuration, monitoring, and troubleshooting |
+| [Getting Started](docs/guides/PHASE3_GETTING_STARTED.md) | Python developers | Task-based walkthrough with code examples |
+| [API Reference](docs/guides/PARALLEL_SLO_API_REFERENCE.md) | API users | Complete method signatures and performance characteristics |
+| [Deployment Guide](docs/guides/DEPLOYMENT_GUIDE.md) | Operations/DevOps | Production configuration, monitoring, and troubleshooting |
 
 ### Runnable Examples
 
