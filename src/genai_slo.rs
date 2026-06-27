@@ -98,7 +98,7 @@ pub struct TtftEvaluationDetails {
 pub fn evaluate_ttft_slo(sample: &GenaiStreamSample, params: &TtftSloParams) -> Result<TtftEvaluation> {
     // Validate inputs
     if sample.time_to_first_token_ms < 0.0 || sample.inter_token_latency_ms < 0.0 {
-        return Err(NeuralBudgetError::InvalidConfig(
+        return Err(NeuralBudgetError::ConfigError(
             "Latencies cannot be negative".to_string(),
         ));
     }
@@ -202,7 +202,7 @@ pub fn evaluate_ttft_batch(
     params: &TtftSloParams,
 ) -> Result<TtftBatchEvaluation> {
     if samples.is_empty() {
-        return Err(NeuralBudgetError::InvalidConfig(
+        return Err(NeuralBudgetError::ConfigError(
             "Cannot evaluate empty sample batch".to_string(),
         ));
     }

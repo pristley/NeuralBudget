@@ -233,8 +233,8 @@ impl GroundednessEvaluator {
 
         for sentence in response.split(['.', '!', '?']) {
             let trimmed = sentence.trim();
+            let end_pos = current_pos + sentence.len();
             if trimmed.len() >= self.extraction_config.min_length {
-                let end_pos = current_pos + sentence.len();
                 claims.push(Claim {
                     text: trimmed.to_string(),
                     span: Some((current_pos, end_pos)),
@@ -335,7 +335,7 @@ impl GroundednessEvaluator {
         let mut score = 0.0;
         for claim_word in &claim_words {
             // Count occurrences in document
-            let count = doc_words.iter().filter(|w| w == claim_word).count();
+            let count = doc_words.iter().filter(|w| *w == claim_word).count();
             if count > 0 {
                 // Simple TF-IDF: reward rare words more
                 let tf = count as f64 / doc_words.len() as f64;

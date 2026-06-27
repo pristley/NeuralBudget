@@ -281,7 +281,7 @@ pub fn evaluate_agent_batch(
     params: &AgentSloParams,
 ) -> Result<AgentBatchEvaluation> {
     if trajectories.is_empty() {
-        return Err(NeuralBudgetError::InvalidConfig(
+        return Err(NeuralBudgetError::ConfigError(
             "Cannot evaluate empty trajectory batch".to_string(),
         ));
     }

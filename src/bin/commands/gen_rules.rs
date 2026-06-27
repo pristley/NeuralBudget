@@ -140,21 +140,21 @@ groups:
       # Availability SLI: successful requests / total requests
       - record: "neuralbudget:slo:availability"
         expr: |
-          100 * sum(rate(http_requests_total{{job="{}",status=~"2.."}}{1m})) /
-          sum(rate(http_requests_total{{job="{}"}}{1m}))
+          100 * sum(rate(http_requests_total{{job="{}",status=~"2.."}}{{1m}})) /
+          sum(rate(http_requests_total{{job="{}"}}{{1m}}))
 
       # Latency SLI: P99 latency in milliseconds
       - record: "neuralbudget:slo:latency_p99_ms"
         expr: |
           histogram_quantile(0.99,
-            sum(rate(http_request_duration_seconds_bucket{{job="{}"}}{5m})) by (le)
+            sum(rate(http_request_duration_seconds_bucket{{job="{}"}}{{5m}})) by (le)
           ) * 1000
 
       # Error rate: failed requests / total requests
       - record: "neuralbudget:slo:error_rate"
         expr: |
-          sum(rate(http_requests_total{{job="{}",status=~"5.."}}{1m})) /
-          sum(rate(http_requests_total{{job="{}"}}{1m}))
+          sum(rate(http_requests_total{{job="{}",status=~"5.."}}{{1m}})) /
+          sum(rate(http_requests_total{{job="{}"}}{{1m}}))
 
       # Error budget remaining (in error budget percentage points)
       - record: "neuralbudget:slo:error_budget_remaining"
@@ -318,21 +318,21 @@ spec:
         # Availability SLI: successful requests / total requests
         - record: "neuralbudget:slo:availability"
           expr: |
-            100 * sum(rate(http_requests_total{{job="{}",status=~"2.."}}{1m})) /
-            sum(rate(http_requests_total{{job="{}"}}{1m}))
+            100 * sum(rate(http_requests_total{{job="{}",status=~"2.."}}{{1m}})) /
+            sum(rate(http_requests_total{{job="{}"}}{{1m}}))
 
         # Latency SLI: P99 latency in milliseconds
         - record: "neuralbudget:slo:latency_p99_ms"
           expr: |
             histogram_quantile(0.99,
-              sum(rate(http_request_duration_seconds_bucket{{job="{}"}}{5m})) by (le)
+              sum(rate(http_request_duration_seconds_bucket{{job="{}"}}{{5m}})) by (le)
             ) * 1000
 
         # Error rate: failed requests / total requests
         - record: "neuralbudget:slo:error_rate"
           expr: |
-            sum(rate(http_requests_total{{job="{}",status=~"5.."}}{1m})) /
-            sum(rate(http_requests_total{{job="{}"}}{1m}))
+            sum(rate(http_requests_total{{job="{}",status=~"5.."}}{{1m}})) /
+            sum(rate(http_requests_total{{job="{}"}}{{1m}}))
 
         # Error budget remaining (in error budget percentage points)
         - record: "neuralbudget:slo:error_budget_remaining"
@@ -398,7 +398,7 @@ spec:
         rules.push_str("          labels:\n");
         rules.push_str("            severity: warning\n");
         rules.push_str("            slo: neuralbudget\n");
-        rules.push_str("            service: {}\n".replace("{}", &metrics.service_name));
+        rules.push_str(&format!("            service: {}\n", &metrics.service_name));
         rules.push_str("          annotations:\n");
         rules.push_str(&format!(
             "            summary: \"SLO error budget burning at high rate over {} window\"\n",
@@ -428,7 +428,7 @@ spec:
         "            summary: \"P99 latency exceeds SLO target of {}ms\"\n",
         metrics.latency_threshold_ms
     ));
-    rules.push_str("            description: \"Service {{{{ $labels.job }}}} P99 latency is {{{{ $value | humanize }}}}ms (target: {}ms). Performance is degraded.\"\n".replace("{}", &metrics.latency_threshold_ms.to_string()));
+    rules.push_str(&format!("            description: \"Service {{{{ $labels.job }}}} P99 latency is {{{{ $value | humanize }}}}ms (target: {}ms). Performance is degraded.\"\n", metrics.latency_threshold_ms));
     rules.push_str("            dashboard: \"https://neuralbudget.io/dashboard?service={{{{ $labels.job }}}}\"\n\n");
 
     // Add error budget exhaustion alert

@@ -8,7 +8,7 @@ mod forecasting;
 mod genai_evaluator;
 mod genai_slo;
 mod groundedness;
-mod openslo;
+pub mod openslo;
 mod otlp;
 mod python;
 mod slo_graph;

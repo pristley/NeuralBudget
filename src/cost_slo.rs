@@ -234,14 +234,14 @@ impl CostSloEvaluator {
         let mut total_cost = 0.0;
         let mut evaluations = Vec::new();
         let mut passed = 0;
-        let mut failed = 0;
+        let mut _failed = 0;
 
         for sample in samples {
             let eval = self.evaluate_request(sample)?;
             if eval.pass {
                 passed += 1;
             } else {
-                failed += 1;
+                _failed += 1;
             }
             total_cost += eval.total_cost;
             evaluations.push(eval);

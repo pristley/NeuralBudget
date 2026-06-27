@@ -184,20 +184,18 @@ impl LlmJudgeEvaluator {
     /// Check cache for existing evaluation
     async fn check_cache(&self, cache_key: &str) -> Result<Option<EvaluationResult>> {
         if let Some(manager) = &self.cache_client {
-            let mut conn = manager.clone();
+            let mut conn = manager.as_ref().clone();
             match redis::cmd("GET")
                 .arg(cache_key)
-                .query_async(&mut *conn)
+                .query_async::<_, String>(&mut conn)
                 .await
             {
-                Ok(Some(data)) => {
+                Ok(data) => {
                     if let Ok(result) = serde_json::from_str::<EvaluationResult>(&data) {
                         return Ok(Some(result));
                     }
                 }
-                Ok(None) => return Ok(None),
-                Err(e) => {
-                    eprintln!("Cache lookup failed: {}", e);
+                Err(_) => {
                     return Ok(None);
                 }
             }
@@ -212,13 +210,13 @@ impl LlmJudgeEvaluator {
                 let json = serde_json::to_string(result)
                     .map_err(|e| NeuralBudgetError::FormatError(format!("JSON serialization failed: {}", e)))?;
 
-                let mut conn = manager.clone();
+                let mut conn = manager.as_ref().clone();
                 redis::cmd("SET")
                     .arg(cache_key)
                     .arg(&json)
                     .arg("EX")
                     .arg(config.ttl_seconds)
-                    .query_async(&mut *conn)
+                    .query_async::<_, ()>(&mut conn)
                     .await
                     .map_err(|e| NeuralBudgetError::ConfigError(format!("Cache storage failed: {}", e)))?;
             }
@@ -329,7 +327,7 @@ impl LlmJudgeEvaluator {
             max_tokens: i32,
         }
 
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize)]
         struct OpenAIMessage {
             role: String,
             content: String,

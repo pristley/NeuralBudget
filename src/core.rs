@@ -2077,7 +2077,7 @@ impl HttpSlo {
     ) -> Result<bool> {
         let window_seconds = window.duration_seconds()?;
         let burn_rate = self.calculate_burn_rate(error_rate, window_seconds, slo_window_seconds);
-        let threshold = window.calculate_error_threshold(self.availability_target);
+        let threshold = window.calculate_error_threshold(self.availability_threshold);
         Ok(error_rate > threshold)
     }
 }

@@ -132,7 +132,7 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let result = match cli.command {
@@ -182,4 +182,6 @@ fn main() {
         eprintln!("\nFor more help, run: neuralbudget --help");
         process::exit(1);
     }
+    
+    Ok(())
 }
