@@ -27,7 +27,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - name: Cache Rust registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Clippy lint
@@ -50,11 +59,18 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Cache Rust dependencies (registry and target)
-      - uses: Swatinem/rust-cache@v2
+      - name: Cache Rust registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      # Cache pip packages (maturin, pytest, etc.)
-      - name: Cache pip
+      - name: Cache pip packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -63,7 +79,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Install build tools using pre-built binaries
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
@@ -72,29 +87,23 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install maturin
 
-      # Run all Rust tests while collecting coverage
-      # Exclude binary code (CLI commands) as they're not unit tested
       - name: Run tests with coverage
         run: >
           cargo llvm-cov --workspace --all-features --tests --lib
           --summary-only --fail-under-lines 75
 
-      # Run doc tests separately (without coverage collection)
       - name: Run doc tests
         run: cargo test --doc --all-features
 
-      # Build the Python wheel (now that tests pass)
       - name: Build wheel
         run: maturin build --release --manifest-path Cargo.toml
 
-      # Verify wheel contents
       - name: Verify wheel contents
         run: |
           WHEEL=$(ls target/wheels/neuralbudget-*.whl | head -1)
           echo "Built wheel: $WHEEL"
           unzip -l "$WHEEL" | grep -E '(\.so|__init__|METADATA)' | head -10
 
-      # Install the wheel and run Python tests
       - name: Install wheel and run Python tests
         run: |
           pip install --force-reinstall target/wheels/neuralbudget-*.whl
