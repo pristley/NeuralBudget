@@ -51,8 +51,11 @@ New to NeuralBudget? Choose your path:
 - **Generate Prometheus rules** → [Prometheus Rule Generation](prometheus-rule-generation.md)
   - Multi-burn-rate alerting strategy
   - Recording rules for SLI tracking
-  - Generated rules examples
-- **Build Grafana dashboards** → [Grafana Dashboards](../../examples/grafana/README.md)
+  - Generated rules examples- **Multi-burn-rate alerting** → [Multi-Burn-Rate Alerting](multi-burn-rate-alerting.md)
+  - Google SRE error budget patterns
+  - 4-window alerting configuration
+  - Real-world incident examples
+  - Tuning guidelines by service type- **Build Grafana dashboards** → [Grafana Dashboards](../../examples/grafana/README.md)
 - **Set up webhooks & alerting** → [Webhook Alerting](../../examples/python/webhook_alerting.py)
 - **Troubleshoot issues** → [Troubleshooting Guide](troubleshooting.md)
 
@@ -82,8 +85,9 @@ New to NeuralBudget? Choose your path:
 2. [User Guide: HTTP Mode](user-guide.md#http-slo-evaluation)
 3. [Kubernetes Integration](kubernetes-integration.md)
 4. [Prometheus Rule Generation](prometheus-rule-generation.md)
-5. [Prometheus Scraping](prometheus-scraping-examples.md)
-6. [Burn-Rate Alerting](burn-rate-forecasting.md)
+5. [Multi-Burn-Rate Alerting](multi-burn-rate-alerting.md)
+6. [Prometheus Scraping](prometheus-scraping-examples.md)
+7. [Burn-Rate Alerting](burn-rate-forecasting.md)
 
 ### DevOps / Platform Teams
 1. [Production Deployment](production-deployment.md)

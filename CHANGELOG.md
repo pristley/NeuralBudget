@@ -36,6 +36,21 @@ Release entries are maintained automatically by the CD workflow on tagged releas
   - Full Kubernetes PrometheusRule CRD support with namespace configuration
   - PromQL expressions validated for Prometheus compatibility
 
+- **Baked-In Multi-Burn-Rate Alerting Thresholds**
+  - Added explicit modeling of alerting thresholds per Google SRE handbook patterns
+  - New core types in `src/core.rs`:
+    - `AlertSeverity` enum: Info, Warning, Critical (with lowercase YAML deserialization)
+    - `BurnRateWindow` struct: Encapsulates window duration, burn rate multiplier, evaluation period, and severity
+    - `MultiWindowAlertConfig`: Collection of windows with default 4-window strategy and validation
+  - Extended `HttpSlo` impl with burn rate calculation methods:
+    - `calculate_error_budget_percent(error_rate)` - Returns % of monthly budget remaining
+    - `calculate_burn_rate(error_rate, window_seconds, slo_window_seconds)` - Computes burn rate multiplier
+    - `check_burn_rate_violation(error_rate, window, slo_window_seconds)` - Validates against threshold
+  - Default 4-window configuration: 1h@10x (critical), 6h@2x (warning), 24h@0.5x (info), 3d@1x (warning)
+  - Automatic validation: Ensures first 3 windows in descending order to prevent alert storms
+  - Comprehensive test suite: 5 test suites validating threshold calculations, error budget %, config structure, duration parsing, and real-world scenarios
+  - New guide: `docs/guides/multi-burn-rate-alerting.md` with theory, configuration examples, real incident timelines, and tuning guidelines
+
 - **Documentation Organization**
   - Created `docs/cli/` directory with all CLI documentation
   - Created `docs/guides/prometheus-rule-generation.md` with comprehensive burn rate guide
