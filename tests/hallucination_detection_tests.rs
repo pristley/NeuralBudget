@@ -88,8 +88,8 @@ mod hallucination_detection_tests {
         );
 
         let score = evaluator.token_overlap("exercise is healthy", "exercise is good");
-        // 2 matching tokens (exercise, is) / 4 total = 0.5
-        assert!((0.4..=0.6).contains(&score));
+        // 2 matching tokens (exercise, is) / 3 claim tokens = 0.666...
+        assert!((0.6..=0.7).contains(&score));
     }
 
     #[test]
