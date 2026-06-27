@@ -1,22 +1,25 @@
 /// Evaluate an SLO against a metric sample
 use anyhow::{anyhow, Context, Result};
-use neuralbudget::{
-    calculate_availability, calculate_error_budget,
-};
+use neuralbudget::{calculate_availability, calculate_error_budget};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 
 /// Run the eval command
-pub fn run(config_path: &Path, sample_path: &Path, json_output: bool, _verbose: bool) -> Result<()> {
+pub fn run(
+    config_path: &Path,
+    sample_path: &Path,
+    json_output: bool,
+    _verbose: bool,
+) -> Result<()> {
     // Load and parse YAML config
     let config_content = fs::read_to_string(config_path).context(format!(
         "Failed to read config file: {}",
         config_path.display()
     ))?;
 
-    let config: Value = serde_yaml::from_str(&config_content)
-        .context("Failed to parse YAML config")?;
+    let config: Value =
+        serde_yaml::from_str(&config_content).context("Failed to parse YAML config")?;
 
     // Load and parse JSON sample
     let sample_content = fs::read_to_string(sample_path).context(format!(
@@ -24,8 +27,8 @@ pub fn run(config_path: &Path, sample_path: &Path, json_output: bool, _verbose: 
         sample_path.display()
     ))?;
 
-    let sample: Value = serde_json::from_str(&sample_content)
-        .context("Failed to parse JSON sample")?;
+    let sample: Value =
+        serde_json::from_str(&sample_content).context("Failed to parse JSON sample")?;
 
     // Detect SLO type and evaluate
     let result = evaluate_slo(&config, &sample)?;
@@ -85,9 +88,7 @@ fn evaluate_http_slo(config: &Value, sample: &Value) -> Result<Value> {
         })
         .unwrap_or(0.999);
 
-    let latency_threshold_ms = config["latency_threshold_ms"]
-        .as_f64()
-        .unwrap_or(200.0);
+    let latency_threshold_ms = config["latency_threshold_ms"].as_f64().unwrap_or(200.0);
 
     // Parse sample data
     let total_requests = sample["requests"]["total"]
