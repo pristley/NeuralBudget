@@ -124,6 +124,8 @@ for _name in dir(_native):
         continue
     globals()[_name] = getattr(_native, _name)
 
+__version__ = "0.2.0"
+
 __all__ = [
     name for name in globals() if not name.startswith("_")
 ]
