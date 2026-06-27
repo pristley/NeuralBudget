@@ -1,0 +1,95 @@
+# Composite SLO DAG Configuration - Copy & Paste Ready
+# Purpose: Model inter-service dependencies and failure propagation
+
+mode: "composite_slo_dag"
+description: "E-commerce checkout pipeline with dependency chain"
+
+# Define individual services and their objectives
+services:
+  - name: "feature_store"
+    description: "ML feature data warehouse"
+    local_score: 0.96
+    min_pass_score: 0.95
+    impact_weight: 3.0  # Critical: everything depends on it
+    
+  - name: "ml_model_server"
+    description: "Fraud detection ML model"
+    local_score: 0.95
+    min_pass_score: 0.95
+    impact_weight: 2.5
+    
+  - name: "fraud_detection"
+    description: "Fraud check service"
+    local_score: 0.94
+    min_pass_score: 0.90
+    impact_weight: 2.0
+    
+  - name: "payment_gateway"
+    description: "Payment processing API"
+    local_score: 0.99
+    min_pass_score: 0.99  # Strictest requirement
+    impact_weight: 4.0  # Most critical for revenue
+
+# Define service dependencies (edges)
+# Format: "dependency" → "dependent" with failure_penalty
+dependencies:
+  # Feature store is upstream of everything
+  - dependency: "feature_store"
+    dependent: "ml_model_server"
+    failure_penalty: 0.40  # ML model severely degraded without features
+    description: "ML model needs feature data"
+    
+  # ML model output feeds into fraud detection
+  - dependency: "ml_model_server"
+    dependent: "fraud_detection"
+    failure_penalty: 0.35  # Fraud service has fallback, but degraded
+    description: "Fraud detection uses ML model output"
+    
+  # Fraud detection gates payment processing
+  - dependency: "fraud_detection"
+    dependent: "payment_gateway"
+    failure_penalty: 0.50  # Can't process payments without fraud check
+    description: "Payments blocked if fraud check fails"
+
+# Global system health threshold
+global_min_pass_score: 0.95
+
+# Evaluation settings
+settings:
+  # Topological evaluation order strategy
+  # Options: "dependency_order" (default, evaluates dependencies first)
+  evaluation_order: "dependency_order"
+  
+  # Validation
+  validate_cycles: true        # Detect and reject cycles
+  validate_duplicates: true    # Reject duplicate services/edges
+  validate_references: true    # Ensure all service references exist
+  
+  # Multi-window evaluation (optional)
+  windows:
+    - name: "5m"
+      weight: 0.3
+    - name: "1h"
+      weight: 0.5
+    - name: "24h"
+      weight: 0.2
+
+# Alerting rules
+alerts:
+  - name: "service_slo_miss"
+    condition: "service.pass == false"
+    severity: "warning"
+    
+  - name: "global_slo_miss"
+    condition: "global.pass == false"
+    severity: "critical"
+    
+  - name: "cascading_failure"
+    condition: "failed_services > 1"
+    severity: "critical"
+
+# Annotations/tags
+tags:
+  mode: "composite_dag"
+  tier: "prod"
+  domain: "payments"

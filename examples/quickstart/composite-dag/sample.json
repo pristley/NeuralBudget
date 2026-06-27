@@ -1,0 +1,60 @@
+{
+  "timestamp": 1704067200,
+  "evaluation_window": "5m",
+  "description": "E-commerce checkout pipeline - healthy scenario",
+  
+  "services": [
+    {
+      "name": "feature_store",
+      "local_score": 0.96,
+      "status": "healthy",
+      "details": {
+        "queries_processed": 125000,
+        "query_latency_p99_ms": 45.2,
+        "cache_hit_ratio": 0.92,
+        "data_staleness_minutes": 2
+      }
+    },
+    {
+      "name": "ml_model_server",
+      "local_score": 0.95,
+      "status": "healthy",
+      "details": {
+        "predictions_per_minute": 8500,
+        "inference_latency_p99_ms": 125.3,
+        "model_accuracy": 0.963,
+        "gpu_utilization_percent": 68.5
+      }
+    },
+    {
+      "name": "fraud_detection",
+      "local_score": 0.94,
+      "status": "healthy",
+      "details": {
+        "fraud_checks_per_minute": 7200,
+        "check_latency_p99_ms": 89.1,
+        "false_positive_rate": 0.02,
+        "detection_accuracy": 0.986
+      }
+    },
+    {
+      "name": "payment_gateway",
+      "local_score": 0.99,
+      "status": "healthy",
+      "details": {
+        "transactions_per_minute": 6800,
+        "transaction_latency_p99_ms": 156.7,
+        "success_rate": 0.99,
+        "payment_processor_availability": 0.998
+      }
+    }
+  ],
+  
+  "metadata": {
+    "region": "us-east-1",
+    "environment": "production",
+    "deployment_version": "v2.4.1",
+    "load_level": "normal",
+    "external_incidents": false
+  }
+}

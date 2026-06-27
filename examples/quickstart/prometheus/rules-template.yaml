@@ -1,0 +1,13 @@
+# Prometheus Rule Generation Script - Copy & Paste Ready
+# Usage: Pipe output to file or apply directly
+
+# Example: Generate rules from HTTP SLO
+# neuralbudget gen-rules ../http-slo/slo.yaml > my-rules.yaml
+
+# This script would contain logic to:
+# 1. Parse SLO YAML
+# 2. Extract burn rate thresholds
+# 3. Map to Prometheus metric queries
+# 4. Generate alerting rules YAML
+
+# See README.md for complete step-by-step guide

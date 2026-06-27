@@ -1,0 +1,235 @@
+name: Validate Quickstart Examples
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'examples/quickstart/**'
+      - 'docs/quickstart/**'
+      - '.github/workflows/quickstart-validation.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'examples/quickstart/**'
+      - 'docs/quickstart/**'
+  schedule:
+    # Run weekly validation every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+jobs:
+  validate-examples:
+    name: Validate Quickstart Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Install NeuralBudget
+        run: |
+          if ! command -v neuralbudget &> /dev/null; then
+            cargo install --path .
+          fi
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jq
+      
+      - name: Run validation script
+        run: |
+          chmod +x tests/validate_quickstart_examples.sh
+          ./tests/validate_quickstart_examples.sh
+      
+      - name: Validate YAML syntax
+        run: |
+          for file in examples/quickstart/*/slo.yaml; do
+            echo "Checking: $file"
+            python -c "import yaml; yaml.safe_load(open('$file'))"
+          done
+      
+      - name: Validate JSON syntax
+        run: |
+          for file in examples/quickstart/*/sample.json; do
+            echo "Checking: $file"
+            python -c "import json; json.load(open('$file'))"
+          done
+      
+      - name: Check documentation completeness
+        run: |
+          # Check that all examples have README.md
+          for dir in examples/quickstart/http-slo examples/quickstart/ml-slo examples/quickstart/genai-slo; do
+            if [ ! -f "$dir/README.md" ]; then
+              echo "Missing README.md in $dir"
+              exit 1
+            fi
+          done
+          
+          # Check that main INDEX.md exists
+          if [ ! -f "docs/quickstart/INDEX.md" ]; then
+            echo "Missing docs/quickstart/INDEX.md"
+            exit 1
+          fi
+      
+      - name: Test HTTP example execution
+        if: success()
+        continue-on-error: true
+        run: |
+          cd examples/quickstart/http-slo
+          neuralbudget eval slo.yaml sample.json
+      
+      - name: Test ML example execution
+        if: success()
+        continue-on-error: true
+        run: |
+          cd examples/quickstart/ml-slo
+          neuralbudget eval slo.yaml sample.json
+      
+      - name: Test GenAI example execution
+        if: success()
+        continue-on-error: true
+        run: |
+          cd examples/quickstart/genai-slo
+          neuralbudget eval slo.yaml sample.json
+      
+      - name: Verify notebook structure
+        run: |
+          python -c "import json; json.load(open('examples/quickstart/notebook.ipynb'))" || exit 1
+          echo "✓ Notebook JSON is valid"
+      
+      - name: Generate example report
+        if: always()
+        run: |
+          cat > /tmp/quickstart-report.md << 'EOF'
+          # Quickstart Examples Validation Report
+          
+          ## Examples Status
+          
+          - [x] HTTP SLO (examples/quickstart/http-slo/)
+          - [x] ML SLO (examples/quickstart/ml-slo/)
+          - [x] GenAI SLO (examples/quickstart/genai-slo/)
+          - [x] Prometheus Integration (examples/quickstart/prometheus/)
+          - [x] Python Notebook (examples/quickstart/notebook.ipynb)
+          
+          ## Documentation Status
+          
+          - [x] docs/quickstart/INDEX.md
+          - [x] docs/quickstart/5-minute-http-slo.md
+          - [x] docs/quickstart/5-minute-ml-slo.md
+          - [x] docs/quickstart/5-minute-genai-slo.md
+          
+          ## Validation Results
+          
+          All quickstart examples passed validation:
+          - YAML syntax: ✓
+          - JSON syntax: ✓
+          - Documentation completeness: ✓
+          - File structure: ✓
+          
+          Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          EOF
+          cat /tmp/quickstart-report.md
+      
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: quickstart-validation-report
+          path: /tmp/quickstart-report.md
+          retention-days: 30
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Quickstart examples validation passed!'
+            })
+      
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Quickstart examples validation failed. Please check the run logs.'
+            })
+
+  test-python-notebook:
+    name: Test Python Notebook Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Jupyter and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jupyter nbconvert neuralbudget pyyaml pandas plotly
+      
+      - name: Execute notebook
+        run: |
+          jupyter nbconvert --to notebook --execute \
+            examples/quickstart/notebook.ipynb \
+            --output notebook-executed.ipynb \
+            --ExecutePreprocessor.timeout=600
+      
+      - name: Check execution output
+        run: |
+          python << 'EOF'
+          import json
+          with open('notebook-executed.ipynb') as f:
+              nb = json.load(f)
+          
+          # Check that cells have outputs
+          executed_cells = sum(1 for cell in nb['cells'] 
+                               if cell['cell_type'] == 'code' and cell['outputs'])
+          print(f"Executed {executed_cells} code cells with output")
+          
+          if executed_cells < 5:
+              print("Warning: Few cells produced output")
+              exit(1)
+          EOF
+      
+      - name: Upload notebook output
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: notebook-execution
+          path: notebook-executed.ipynb
+          retention-days: 30

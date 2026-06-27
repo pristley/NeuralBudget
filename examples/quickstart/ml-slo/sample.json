@@ -1,0 +1,40 @@
+{
+  "timestamp": 1704067200,
+  "service": "ml-model-quickstart",
+  "measurement_window": "5m",
+  "model_metrics": {
+    "accuracy": 0.945,
+    "precision": 0.952,
+    "recall": 0.938,
+    "f1_score": 0.945,
+    "auc_roc": 0.978,
+    "log_loss": 0.125
+  },
+  "confidence": {
+    "mean_confidence": 0.88,
+    "min_confidence": 0.72,
+    "predictions_below_threshold": 45,
+    "total_predictions": 50000
+  },
+  "drift": {
+    "feature_drift_score": 0.082,
+    "target_drift_score": 0.045,
+    "concept_drift_detected": false
+  },
+  "latency": {
+    "mean_ms": 85.3,
+    "p99_ms": 142.5,
+    "max_ms": 298.1
+  },
+  "inference": {
+    "total": 50000,
+    "successful": 49950,
+    "errors": 50
+  },
+  "model_info": {
+    "version": "1.0.0",
+    "deployment_timestamp": 1704000000,
+    "gpu_utilization": 0.72,
+    "batch_size": 32
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "timestamp": 1704067200,
+  "service": "genai-api-quickstart",
+  "measurement_window": "5m",
+  "requests": {
+    "total": 1000,
+    "successful": 999,
+    "failed": 1,
+    "rate_limited": 0
+  },
+  "latency": {
+    "ttft_ms": 850.5,
+    "ttft_p99_ms": 950.2,
+    "total_time_to_completion_ms": 2450.3,
+    "mean_ttft_ms": 780.1
+  },
+  "throughput": {
+    "tokens_per_sec": 65.3,
+    "mean_tokens_per_sec": 62.1,
+    "min_tokens_per_sec": 45.8,
+    "p99_tokens_per_sec": 70.2
+  },
+  "tokens": {
+    "total_input_tokens": 450000,
+    "total_output_tokens": 250000,
+    "total_tokens": 700000,
+    "estimated_cost_usd": 7.00
+  },
+  "quality": {
+    "semantic_quality_score": 0.92,
+    "user_satisfaction_score": 0.88,
+    "hallucination_rate": 0.02,
+    "relevance_score": 0.91
+  },
+  "errors": {
+    "timeout": 0,
+    "rate_limit": 0,
+    "authentication": 1,
+    "service_unavailable": 0,
+    "other": 0
+  },
+  "model_info": {
+    "model_name": "gpt-4-turbo",
+    "model_version": "2024-01",
+    "deployment_id": "prod-001",
+    "region": "us-east-1"
+  }
+}

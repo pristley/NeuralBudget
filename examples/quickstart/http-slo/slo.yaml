@@ -1,0 +1,36 @@
+# HTTP/gRPC SLO Configuration - Copy & Paste Ready
+# Purpose: Monitor availability and latency for HTTP APIs
+
+service: "quickstart-api"
+description: "Quick start example for HTTP SLO evaluation"
+
+# SLO Target: 99.9% availability
+target: 99.9
+
+# Measurement window
+window: "30d"
+
+# HTTP-specific thresholds
+latency_threshold_ms: 200     # P99 latency must be < 200ms
+availability_threshold: 0.999  # Availability must be > 99.9%
+latency_percentile: 0.99       # Use P99 percentile
+
+# Multi-window burn rate alerts (recommended by Google SRE)
+alerts:
+  - window: "1h"
+    threshold: 0.10  # Fast burn (1hr)
+  - window: "6h"
+    threshold: 0.05  # Medium burn (6hr)
+  - window: "24h"
+    threshold: 0.02  # Slow burn (24hr)
+
+# Optional: Custom outlier filtering
+outlier_filter:
+  enabled: true
+  mad_threshold: 3.5
+  min_samples: 3
+
+# Service tags
+tags:
+  mode: "http"
+  tier: "prod"

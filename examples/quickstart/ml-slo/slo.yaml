@@ -1,0 +1,50 @@
+# ML Model SLO Configuration - Copy & Paste Ready
+# Purpose: Monitor model performance, accuracy, and data drift
+
+service: "ml-model-quickstart"
+description: "Quick start example for ML SLO evaluation"
+
+# SLO Target: 99.5% model performance uptime
+target: 99.5
+
+# Measurement window (typically shorter for ML due to retraining)
+window: "7d"
+
+# ML-specific thresholds
+accuracy_threshold: 0.92          # Model accuracy must be >= 92%
+latency_threshold_ms: 150         # Inference latency must be < 150ms
+min_confidence: 0.80              # Predictions must have >= 80% confidence
+max_drift: 0.15                   # Feature drift must be <= 15%
+
+# Quality gates (multiple metrics must pass)
+quality_gates:
+  - metric: "accuracy"
+    threshold: 0.92
+  - metric: "precision"
+    threshold: 0.90
+  - metric: "recall"
+    threshold: 0.90
+
+# GPU/compute utilization
+gpu_utilization_threshold: 0.90    # Alert if > 90% saturated
+
+# Model-specific settings
+model:
+  name: "recommendation-v1"
+  version: "1.0.0"
+  retraining_schedule: "weekly"
+  canary_deployment: true
+
+# Burn rate alerts adapted for model performance
+alerts:
+  - window: "1h"
+    threshold: 0.10
+  - window: "12h"
+    threshold: 0.05
+  - window: "7d"
+    threshold: 0.02
+
+# Service tags
+tags:
+  mode: "ml"
+  tier: "prod"

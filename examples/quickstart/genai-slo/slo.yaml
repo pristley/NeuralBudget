@@ -1,0 +1,45 @@
+# GenAI/LLM SLO Configuration - Copy & Paste Ready
+# Purpose: Monitor LLM endpoints, RAG systems, and AI workloads
+
+service: "genai-api-quickstart"
+description: "Quick start example for GenAI SLO evaluation"
+
+# SLO Target: 99.9% availability
+target: 99.9
+
+# Measurement window
+window: "7d"
+
+# GenAI/LLM-specific thresholds
+ttft_threshold_ms: 1000                # Time to first token (TTFT) < 1 second
+throughput_threshold_tokens_per_sec: 50  # Min 50 tokens/sec
+availability_threshold: 0.999          # Must be available 99.9%
+semantic_quality_threshold: 0.85       # Quality score >= 85%
+
+# Token limits and cost tracking
+token_limits:
+  max_tokens_per_request: 4000
+  max_context_length: 8192
+  cost_per_1k_tokens: 0.01
+
+# Model-specific settings
+model:
+  name: "gpt-4-turbo"
+  version: "2024-01"
+  max_retries: 3
+  timeout_sec: 30
+  temperature_stability: true
+
+# Burn rate alerts (adapted for LLM operations)
+alerts:
+  - window: "30m"
+    threshold: 0.15  # Fast burn
+  - window: "4h"
+    threshold: 0.08  # Medium burn
+  - window: "24h"
+    threshold: 0.02  # Slow burn
+
+# Monitoring tags
+tags:
+  mode: "genai"
+  tier: "prod"
