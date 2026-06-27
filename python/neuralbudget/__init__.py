@@ -53,6 +53,17 @@ from .convenience import (
     metric_stream,
 )
 
+# Optional dashboard and CLI TUI (requires fastapi/textual)
+try:
+    from .dashboard import Dashboard, SloSnapshot, AlertEvent
+except ImportError:
+    pass  # FastAPI not installed
+
+try:
+    from .cli_tui import CliTui
+except ImportError:
+    pass  # Textual/Rich not installed
+
 for _name in dir(_native):
     if _name.startswith("_"):
         continue

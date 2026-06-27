@@ -24,8 +24,11 @@ This index groups documentation by audience and workflow.
 - I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
 - I need webhook/incident alerting setup: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
 - I need advanced alert dispatch with retry/dedup/escalation: [docs/guides/advanced_alert_dispatch.md](advanced_alert_dispatch.md)
+- I need a lightweight dashboard without Grafana: [docs/guides/dashboard_cli.md](dashboard_cli.md)
+- I need terminal-based SLO monitoring: [docs/guides/dashboard_cli.md](dashboard_cli.md#cli-tui)
 - I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
 - I need burn-rate API reference: [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md)
+- I need dashboard and CLI TUI API details: [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md)
 - I need release changes: [CHANGELOG.md](../../CHANGELOG.md)
 
 ## Feature Plans
@@ -47,6 +50,7 @@ This index groups documentation by audience and workflow.
 - [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md): Reference for Composite SLO DAG schemas, dependency propagation, global score semantics, and errors.
 - [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md): Burn-rate forecasting API, multi-window alerts, SRE workbook patterns, and TTEE calculations.
 - [docs/reference/advanced_alert_dispatch.md](../reference/advanced_alert_dispatch.md): Advanced alert dispatch API reference, retry policies, deduplication, circuit breaker, and escalation.
+- [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md): Dashboard and CLI TUI API reference, endpoints, data models, and integration patterns.
 
 ## Testing and Quality Gates
 
@@ -73,6 +77,7 @@ This index groups documentation by audience and workflow.
 - [examples/grafana/dashboards/composite-slo-dashboard.json](../../examples/grafana/dashboards/composite-slo-dashboard.json)
 - [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
 - [examples/python/webhook_alerting_config.json](../../examples/python/webhook_alerting_config.json)
+- [examples/python/dashboard_cli_examples.py](../../examples/python/dashboard_cli_examples.py)
 
 ## Suggested Reading Order
 
