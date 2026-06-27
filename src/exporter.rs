@@ -464,3 +464,182 @@ impl PrometheusExporter {
         family.samples.insert(final_labels, value);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_exporter_default_creation() {
+        let exporter = PrometheusExporter::new();
+        assert_eq!(exporter.namespace, "neuralbudget");
+        assert!(exporter.static_labels.is_empty());
+        assert!(exporter.families.is_empty());
+    }
+
+    #[test]
+    fn test_exporter_default_trait() {
+        let exporter = PrometheusExporter::default();
+        assert_eq!(exporter.namespace, "neuralbudget");
+    }
+
+    #[test]
+    fn test_exporter_custom_namespace() {
+        let exporter = PrometheusExporter::with_namespace("my_service");
+        assert_eq!(exporter.namespace, "my_service");
+        assert!(exporter.families.is_empty());
+    }
+
+    #[test]
+    fn test_sanitize_metric_component_alphanumeric() {
+        assert_eq!(sanitize_metric_component("metric_name"), "metric_name");
+        assert_eq!(sanitize_metric_component("http_slo"), "http_slo");
+        assert_eq!(sanitize_metric_component("HTTP_SLO"), "HTTP_SLO");
+    }
+
+    #[test]
+    fn test_sanitize_metric_component_special_chars() {
+        assert_eq!(sanitize_metric_component("metric-name"), "metric_name");
+        assert_eq!(sanitize_metric_component("metric.name"), "metric_name");
+        assert_eq!(sanitize_metric_component("metric name"), "metric_name");
+        assert_eq!(sanitize_metric_component("metric@name#2"), "metric_name_2");
+    }
+
+    #[test]
+    fn test_sanitize_metric_component_leading_digit() {
+        assert_eq!(sanitize_metric_component("2metric"), "_2metric");
+        assert_eq!(sanitize_metric_component("9slo"), "_9slo");
+    }
+
+    #[test]
+    fn test_sanitize_metric_component_empty() {
+        assert_eq!(sanitize_metric_component("@#$%"), "neuralbudget");
+        assert_eq!(sanitize_metric_component("!!!"), "neuralbudget");
+        assert_eq!(sanitize_metric_component(""), "neuralbudget");
+    }
+
+    #[test]
+    fn test_escape_label_value_simple() {
+        assert_eq!(escape_label_value("simple"), "simple");
+        assert_eq!(escape_label_value("service_name"), "service_name");
+    }
+
+    #[test]
+    fn test_escape_label_value_special_chars() {
+        assert_eq!(escape_label_value("path\\to\\file"), "path\\\\to\\\\file");
+        assert_eq!(escape_label_value("line1\nline2"), "line1\\nline2");
+        assert_eq!(escape_label_value("quoted\"text"), "quoted\\\"text");
+    }
+
+    #[test]
+    fn test_escape_label_value_combined() {
+        assert_eq!(
+            escape_label_value("error: \"failed\"\npath\\to\\log"),
+            "error: \\\"failed\\\"\\npath\\\\to\\\\log"
+        );
+    }
+
+    #[test]
+    fn test_bool_as_f64() {
+        assert_eq!(bool_as_f64(true), 1.0);
+        assert_eq!(bool_as_f64(false), 0.0);
+    }
+
+    #[test]
+    fn test_set_static_label() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.set_static_label("env", "prod");
+        assert_eq!(exporter.static_labels.get("env").map(|s| s.as_str()), Some("prod"));
+    }
+
+    #[test]
+    fn test_set_multiple_static_labels() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.set_static_label("env", "prod");
+        exporter.set_static_label("region", "us-west");
+        exporter.set_static_label("team", "backend");
+
+        assert_eq!(exporter.static_labels.len(), 3);
+        assert_eq!(exporter.static_labels.get("env").map(|s| s.as_str()), Some("prod"));
+        assert_eq!(exporter.static_labels.get("region").map(|s| s.as_str()), Some("us-west"));
+        assert_eq!(exporter.static_labels.get("team").map(|s| s.as_str()), Some("backend"));
+    }
+
+    #[test]
+    fn test_clear_metrics() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.set_static_label("env", "test");
+
+        // Simulate adding some metrics (use observe_gauge internally)
+        exporter.observe_gauge("test_metric", "Test metric", 42.0, vec![("service", "test".to_string())]);
+
+        assert!(!exporter.families.is_empty());
+
+        exporter.clear();
+        assert!(exporter.families.is_empty());
+        // Static labels should persist
+        assert_eq!(exporter.static_labels.len(), 1);
+    }
+
+    #[test]
+    fn test_exporter_namespace_sanitization() {
+        let exporter = PrometheusExporter::with_namespace("my-service@2024");
+        assert_eq!(exporter.namespace, "my_service_2024");
+    }
+
+    #[test]
+    fn test_format_help_simple() {
+        assert_eq!(format_help("Simple help text"), "Simple help text");
+    }
+
+    #[test]
+    fn test_format_help_with_escapes() {
+        assert_eq!(format_help("Path: C:\\Users\\John"), "Path: C:\\\\Users\\\\John");
+        assert_eq!(format_help("Line1\nLine2"), "Line1\\nLine2");
+        assert_eq!(format_help("C:\\path\nNext"), "C:\\\\path\\nNext");
+    }
+
+    #[test]
+    fn test_metric_family_creation() {
+        let family = MetricFamily::new("Test metric".to_string(), METRIC_TYPE_GAUGE);
+        assert_eq!(family.help, "Test metric");
+        assert_eq!(family.metric_type, METRIC_TYPE_GAUGE);
+        assert!(family.samples.is_empty());
+    }
+
+    #[test]
+    fn test_observe_gauge_creates_metric() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.observe_gauge("test_metric", "Test gauge", 42.5, vec![("service", "api".to_string())]);
+
+        assert_eq!(exporter.families.len(), 1);
+        assert!(exporter.families.contains_key("neuralbudget_test_metric"));
+    }
+
+    #[test]
+    fn test_observe_gauge_with_static_labels() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.set_static_label("env", "prod");
+        exporter.observe_gauge("test", "Test", 10.0, vec![("service", "api".to_string())]);
+
+        let family = exporter.families.get("neuralbudget_test").unwrap();
+        let labels = family.samples.keys().next().unwrap();
+        
+        // Should include both static and dynamic labels
+        let label_map: std::collections::HashMap<_, _> = labels.iter().cloned().collect();
+        assert_eq!(label_map.get("env").map(|s| s.as_str()), Some("prod"));
+        assert_eq!(label_map.get("service").map(|s| s.as_str()), Some("api"));
+    }
+
+    #[test]
+    fn test_observe_gauge_overwrites_same_labels() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.observe_gauge("metric", "Help", 10.0, vec![("service", "api".to_string())]);
+        exporter.observe_gauge("metric", "Help", 20.0, vec![("service", "api".to_string())]);
+
+        let family = exporter.families.get("neuralbudget_metric").unwrap();
+        // Should have only one sample (overwritten)
+        assert_eq!(family.samples.len(), 1);
+        assert_eq!(*family.samples.values().next().unwrap(), 20.0);
+    }
+}
