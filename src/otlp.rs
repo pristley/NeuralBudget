@@ -343,9 +343,10 @@ mod tests {
     }
 
     #[test]
-    fn test_nanos_to_seconds_overflow() {
-        // u64::MAX / 1_000_000_000 = 18446744073, which exceeds max i64
-        assert!(nanos_to_seconds(u64::MAX).is_err());
+    fn test_nanos_to_seconds_max_valid() {
+        // u64::MAX / 1_000_000_000 is within i64 range, so should succeed
+        let nanos = u64::MAX;
+        assert!(nanos_to_seconds(nanos).is_ok());
     }
 
     #[test]
