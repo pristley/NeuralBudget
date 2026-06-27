@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/pristley/NeuralBudget)](https://github.com/pristley/NeuralBudget/releases)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](pyproject.toml)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-DEA584)](https://www.rust-lang.org/)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)](.github/workflows/ci.yml)
 
 ## What You Build With NeuralBudget
@@ -310,5 +311,18 @@ maturin build --release
 
 For more troubleshooting, see [docs/guides/development.md](docs/guides/development.md#troubleshooting-development-issues).
 
+## License
 
+NeuralBudget is available under **dual licensing**:
+
+- **Open Source:** [Apache 2.0](LICENSE) — Free for all uses (commercial included)
+- **Commercial:** [Commercial License](LICENSE.COMMERCIAL) — Enterprise support & SLAs
+
+**Quick facts:**
+- ✓ Use commercially without restriction (Apache 2.0)
+- ✓ Modify and redistribute (keep attribution)
+- ✓ Zero GPL dependencies (no viral licensing)
+- ✓ Priority support & indemnification available
+
+See [LICENSING.md](LICENSING.md) for complete licensing details and FAQ.
 

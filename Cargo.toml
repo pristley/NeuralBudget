@@ -6,7 +6,7 @@ description = "Rust-first SLO data models and Python interop for availability, l
 readme = "README.md"
 repository = "https://github.com/pristley/NeuralBudget"
 homepage = "https://github.com/pristley/NeuralBudget"
-license = "LicenseRef-NeuralBudget-Source-Available-1.0"
+license = "Apache-2.0"
 
 [lib]
 name = "neuralbudget"
