@@ -37,6 +37,7 @@ New to NeuralBudget? Choose your path:
 ### Advanced Features
 
 - **Reference-Free Quality Evaluation** → [LLM-as-Judge Evaluator](llm-judge-eval.md) (GenAI quality SLOs with caching)
+- **Hallucination Detection** → [Hallucination Detection SLO](hallucination-detection-slo.md) (Detect when claims are grounded in documents)
 - **High-frequency metric collection** → [Phase 3: Streaming](../internal/phases/PHASE3_GETTING_STARTED.md)
 - **Parallel metric evaluation** → [Parallel API Reference](PARALLEL_SLO_API_REFERENCE.md)
 - **Adaptive memory management** → [Adaptive Windowing Design](../internal/design/ADAPTIVE_WINDOWING_DESIGN.md)

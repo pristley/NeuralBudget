@@ -726,6 +726,86 @@ pub struct DimensionScoreResult {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+/// Method for extracting claims from LLM response text
+pub enum HallucinationExtractionMethod {
+    /// Use simple rule-based extraction (split by sentences)
+    RuleBased,
+    /// Use LLM to extract claims
+    LlmBased,
+    /// Dependency parsing (future)
+    DependencyParsing,
+}
+
+impl Default for HallucinationExtractionMethod {
+    fn default() -> Self {
+        Self::RuleBased
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+/// Method for scoring claim-document similarity
+pub enum HallucinationScoringMethod {
+    /// Token overlap similarity
+    TokenOverlap,
+    /// Embedding-based similarity
+    EmbeddingSimilarity,
+    /// TF-IDF similarity
+    TfIdf,
+    /// Entailment (RTE) scoring
+    Entailment,
+}
+
+impl Default for HallucinationScoringMethod {
+    fn default() -> Self {
+        Self::TokenOverlap
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Hallucination detection configuration for GenAI SLOs
+pub struct HallucinationDetectionConfig {
+    /// Enable hallucination detection
+    pub enabled: bool,
+    /// Method for extracting claims
+    pub extraction_method: HallucinationExtractionMethod,
+    /// Method for scoring claim groundedness
+    pub scoring_method: HallucinationScoringMethod,
+    /// Minimum threshold for claim to be considered grounded [0.0-1.0]
+    pub groundedness_threshold: f64,
+    /// Minimum overall groundedness score required [0.0-1.0]
+    pub min_groundedness_score: f64,
+}
+
+impl Default for HallucinationDetectionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            extraction_method: HallucinationExtractionMethod::RuleBased,
+            scoring_method: HallucinationScoringMethod::TokenOverlap,
+            groundedness_threshold: 0.5,
+            min_groundedness_score: 0.75,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// GenAI quality evaluation result including hallucination detection
+pub struct GenAiQualityWithHallucinationEvaluation {
+    pub timestamp: i64,
+    pub cache_key: String,
+    pub from_cache: bool,
+    pub dimension_scores: Vec<DimensionScoreResult>,
+    pub weighted_score: f64,
+    pub groundedness_score: Option<f64>,
+    pub hallucination_rate: Option<f64>,
+    pub pass: bool,
+    pub total_cost_usd: f64,
+    pub total_tokens: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO policy for one service node in a dependency graph.
 pub struct CompositeServiceSlo {

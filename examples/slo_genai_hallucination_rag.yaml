@@ -1,0 +1,126 @@
+# GenAI SLO with Hallucination Detection (RAG Scenario)
+# Detects when LLM claims are grounded in retrieved documents
+
+mode: genai
+
+service: "rag-qa-assistant"
+description: "RAG-powered Q&A bot with hallucination detection"
+
+target: 0.95
+window: "7d"
+
+# LLM-as-Judge for quality dimensions
+quality_evaluator:
+  type: llm_judge
+  model: gpt-4-mini
+  provider: openai
+  cache_config:
+    redis_url: "redis://localhost:6379"
+    ttl_seconds: 86400
+
+  dimensions:
+    - name: helpfulness
+      prompt: |
+        Is this response helpful and directly answers the question?
+        Question: {query}
+        Response: {response}
+        Score 1-5.
+      weight: 0.4
+      threshold: 3.0
+      cost_per_call_usd: 0.0001
+    
+    - name: clarity
+      prompt: |
+        Is the response clear, concise, and well-structured?
+        Response: {response}
+        Score 1-5.
+      weight: 0.3
+      threshold: 3.0
+      cost_per_call_usd: 0.00005
+
+# Hallucination detection: check claims against retrieved docs
+hallucination_detection:
+  enabled: true
+  
+  # How to extract claims from response
+  extraction_method: rule_based  # or: llm_based
+  
+  # How to measure similarity of claim to documents
+  scoring_method: token_overlap  # or: embedding_similarity, tfidf, entailment
+  
+  # Minimum similarity score for a claim to be considered grounded
+  # Range: 0.0-1.0 (default: 0.5)
+  groundedness_threshold: 0.5
+  
+  # Minimum overall groundedness score required to pass
+  # Range: 0.0-1.0 (default: 0.75)
+  # This means: at least 75% of claims must be grounded
+  min_groundedness_score: 0.75
+
+# Sample data for testing
+sample:
+  timestamp: 1719518400
+  query: "What are the benefits of regular exercise?"
+  
+  response: |
+    Regular exercise provides numerous health benefits. It strengthens your 
+    cardiovascular system by improving heart and lung function. Physical activity 
+    releases endorphins that enhance mood and reduce stress. Additionally, 
+    resistance training builds muscle mass and increases bone density. Exercise 
+    also improves insulin sensitivity, helping with weight management.
+  
+  # Context documents retrieved from knowledge base (RAG)
+  context_docs:
+    - text: "Regular exercise strengthens the heart and improves cardiovascular health."
+      source: "cardiology-guide.pdf"
+    
+    - text: "Physical activity triggers the release of endorphins, which improve mood and reduce stress."
+      source: "mental-health-research.pdf"
+    
+    - text: "Resistance training increases muscle mass and improves bone density."
+      source: "sports-medicine.pdf"
+    
+    - text: "Regular physical activity improves insulin sensitivity and supports healthy weight."
+      source: "diabetes-prevention.pdf"
+
+# Expected evaluation:
+# Claims extracted:
+#   1. "strengthens your cardiovascular system" → ✓ grounded (doc 1: 0.85 similarity)
+#   2. "improves heart and lung function" → ✓ grounded (doc 1: 0.90 similarity)
+#   3. "releases endorphins that enhance mood" → ✓ grounded (doc 2: 0.92 similarity)
+#   4. "reduce stress" → ✓ grounded (doc 2: 0.88 similarity)
+#   5. "builds muscle mass" → ✓ grounded (doc 3: 0.95 similarity)
+#   6. "increases bone density" → ✓ grounded (doc 3: 0.91 similarity)
+#   7. "improves insulin sensitivity" → ✓ grounded (doc 4: 0.87 similarity)
+#   8. "helping with weight management" → ✓ grounded (doc 4: 0.85 similarity)
+#
+# Result:
+#   Grounded claims: 8/8 = 100%
+#   Hallucination rate: 0%
+#   Groundedness score: 1.0
+#   Pass: TRUE (1.0 >= 0.75 threshold)
+
+# Alerts for monitoring
+alerts:
+  - window: "1h"
+    condition: "hallucination_rate > 0.25"
+    severity: warning
+  
+  - window: "24h"
+    condition: "groundedness_score < 0.75"
+    severity: critical
+
+# Cost estimation
+cost_estimate:
+  quality_dimensions_cost: 0.00015  # 2 dimensions × ~$0.00007 each
+  hallucination_detection_cost: 0.0  # rule-based + token_overlap = free
+  monthly_queries: 10000
+  estimated_monthly_cost_usd: 1.50  # 10K queries × 0.00015 = $1.50
+  hallucination_detection_cost_note: "Zero cost - rule-based claim extraction and token overlap similarity"
+
+# Tags
+tags:
+  team: "ai-products"
+  use_case: "rag-qa"
+  evaluator: "combined-quality-and-hallucination"
+  environment: "production"

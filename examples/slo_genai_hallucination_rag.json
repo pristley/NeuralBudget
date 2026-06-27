@@ -1,0 +1,74 @@
+{
+  "mode": "genai",
+  "service": "rag-qa-assistant",
+  "description": "RAG-powered Q&A with hallucination detection",
+  "target": 0.95,
+  "window": "7d",
+  "quality_evaluator": {
+    "type": "llm_judge",
+    "model": "gpt-4-mini",
+    "provider": "openai",
+    "cache_config": {
+      "redis_url": "redis://localhost:6379",
+      "ttl_seconds": 86400
+    },
+    "dimensions": [
+      {
+        "name": "helpfulness",
+        "prompt": "Is this response helpful? Question: {query}\nResponse: {response}\nScore 1-5.",
+        "weight": 0.4,
+        "threshold": 3.0,
+        "cost_per_call_usd": 0.0001
+      },
+      {
+        "name": "clarity",
+        "prompt": "Is the response clear? Response: {response}\nScore 1-5.",
+        "weight": 0.3,
+        "threshold": 3.0,
+        "cost_per_call_usd": 0.00005
+      }
+    ]
+  },
+  "hallucination_detection": {
+    "enabled": true,
+    "extraction_method": "rule_based",
+    "scoring_method": "token_overlap",
+    "groundedness_threshold": 0.5,
+    "min_groundedness_score": 0.75
+  },
+  "sample": {
+    "timestamp": 1719518400,
+    "query": "What are the benefits of regular exercise?",
+    "response": "Regular exercise provides numerous health benefits. It strengthens your cardiovascular system by improving heart and lung function. Physical activity releases endorphins that enhance mood and reduce stress. Additionally, resistance training builds muscle mass and increases bone density. Exercise also improves insulin sensitivity, helping with weight management.",
+    "context_docs": [
+      {
+        "text": "Regular exercise strengthens the heart and improves cardiovascular health.",
+        "source": "cardiology-guide.pdf"
+      },
+      {
+        "text": "Physical activity triggers the release of endorphins, which improve mood and reduce stress.",
+        "source": "mental-health-research.pdf"
+      },
+      {
+        "text": "Resistance training increases muscle mass and improves bone density.",
+        "source": "sports-medicine.pdf"
+      },
+      {
+        "text": "Regular physical activity improves insulin sensitivity and supports healthy weight.",
+        "source": "diabetes-prevention.pdf"
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "window": "1h",
+      "condition": "hallucination_rate > 0.25",
+      "severity": "warning"
+    },
+    {
+      "window": "24h",
+      "condition": "groundedness_score < 0.75",
+      "severity": "critical"
+    }
+  ]
+}
