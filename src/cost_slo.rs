@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn test_cost_evaluation_under_budget() {
         let budget = CostBudget::gpt4_mini();
-        let sample = GenaiCostSample::new(1000, 50, 120);
+        let _sample = GenaiCostSample::new(1000, 50, 120);
 
         let input_cost = (50.0 / 1000.0) * 0.00015;
         let output_cost = (120.0 / 1000.0) * 0.0006;
@@ -468,7 +468,7 @@ mod tests {
     #[test]
     fn test_cost_calculation_accuracy() {
         // GPT-4 Mini: $0.00015 per 1K input, $0.0006 per 1K output
-        let budget = CostBudget::gpt4_mini();
+        let _budget = CostBudget::gpt4_mini();
         let _sample = GenaiCostSample::new(1000, 1000, 1000);
 
         let input_cost = (1000.0 / 1000.0) * 0.00015;
