@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod cost_slo_tests {
-    use neuralbudget::cost_slo::*;
+    use neuralbudget::{CostBudget, CostEvaluation, CostSloEvaluator, GenaiCostSample};
+    use serde_json;
 
     #[test]
     fn test_gpt4_mini_budget() {
@@ -91,8 +92,8 @@ mod cost_slo_tests {
     fn test_cost_calculation_exact() {
         // GPT-4 Mini: $0.00015 per 1K input, $0.0006 per 1K output
         // 50 input tokens, 120 output tokens
-        let input_cost = (50.0 / 1000.0) * 0.00015;
-        let output_cost = (120.0 / 1000.0) * 0.0006;
+        let input_cost: f64 = (50.0 / 1000.0) * 0.00015;
+        let output_cost: f64 = (120.0 / 1000.0) * 0.0006;
 
         assert!((input_cost - 0.0000075).abs() < 0.00000001);
         assert!((output_cost - 0.000072).abs() < 0.00000001);
@@ -144,10 +145,10 @@ mod cost_slo_tests {
 
     #[test]
     fn test_cost_score_calculation() {
-        let max_budget = 0.01;
-        let total_cost = 0.002;
+        let max_budget: f64 = 0.01;
+        let total_cost: f64 = 0.002;
 
-        let cost_score = (max_budget - total_cost) / max_budget;
+        let cost_score: f64 = (max_budget - total_cost) / max_budget;
         assert!((cost_score - 0.8).abs() < 0.001);  // 80% of budget remaining
     }
 
@@ -368,7 +369,7 @@ mod cost_slo_tests {
     fn test_precise_cost_calculation_gpt4_mini() {
         // Exact calculation for GPT-4 Mini
         let budget = CostBudget::gpt4_mini();
-        let sample = GenaiCostSample::new(1000, 1000, 1000);
+        let _sample = GenaiCostSample::new(1000, 1000, 1000);
 
         let input_cost = (1000.0 / 1000.0) * budget.input_cost_per_1k;
         let output_cost = (1000.0 / 1000.0) * budget.output_cost_per_1k;

@@ -180,9 +180,9 @@ impl CostEvaluation {
 
 /// Cost SLO evaluator.
 pub struct CostSloEvaluator {
-    budget: CostBudget,
-    cost_threshold: f64,
-    monthly_budget: Option<f64>,
+    pub budget: CostBudget,
+    pub cost_threshold: f64,
+    pub monthly_budget: Option<f64>,
 }
 
 impl CostSloEvaluator {
