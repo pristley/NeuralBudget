@@ -6,6 +6,7 @@ mod otlp;
 mod python;
 mod streaming;
 mod slo_graph;
+mod forecasting;
 
 // Export error types and result alias first
 pub use core::{NeuralBudgetError, Result};
@@ -15,5 +16,6 @@ pub use otlp::*;
 pub use python::*;
 pub use streaming::*;
 pub use slo_graph::*;
+pub use forecasting::*;
 
 

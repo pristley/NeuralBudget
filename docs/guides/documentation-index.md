@@ -15,6 +15,7 @@ This index groups documentation by audience and workflow.
 - I need production rollout guidance: [docs/guides/production-deployment.md](production-deployment.md)
 - I need Kubernetes runbooks: [docs/guides/kubernetes-integration.md](kubernetes-integration.md)
 - I need Prometheus scrape and alert patterns: [docs/guides/prometheus-scraping-examples.md](prometheus-scraping-examples.md)
+- I need SRE workbook burn-rate alerting: [docs/guides/burn-rate-forecasting.md](burn-rate-forecasting.md)
 - I need high-frequency metric collection: [../../PHASE3_GETTING_STARTED.md](../../PHASE3_GETTING_STARTED.md)
 - I need adaptive windowing details: [../../ADAPTIVE_WINDOWING_DESIGN.md](../../ADAPTIVE_WINDOWING_DESIGN.md)
 - I need streaming & performance implementation details: [../../PHASE3_STREAMING_IMPLEMENTATION.md](../../PHASE3_STREAMING_IMPLEMENTATION.md)
@@ -23,6 +24,7 @@ This index groups documentation by audience and workflow.
 - I need convenience-layer API details: [docs/reference/convenience-layer.md](../reference/convenience-layer.md)
 - I need webhook/incident alerting setup: [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
 - I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
+- I need burn-rate API reference: [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md)
 - I need release changes: [CHANGELOG.md](../../CHANGELOG.md)
 
 ## Feature Plans
@@ -42,6 +44,7 @@ This index groups documentation by audience and workflow.
 - [docs/reference/streaming-aggregator.md](../reference/streaming-aggregator.md): StreamingAggregator API, usage patterns, performance characteristics, and adaptive windowing behavior.
 - [docs/reference/convenience-layer.md](../reference/convenience-layer.md): Detailed reference for the Python convenience layer, typed dataclass returns, and profile presets.
 - [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md): Reference for Composite SLO DAG schemas, dependency propagation, global score semantics, and errors.
+- [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md): Burn-rate forecasting API, multi-window alerts, SRE workbook patterns, and TTEE calculations.
 
 ## Testing and Quality Gates
 

@@ -9,6 +9,12 @@ use crate::exporter::PrometheusExporter;
 use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
 use crate::streaming::StreamingAggregator;
 use crate::slo_graph::SloGraph;
+use crate::forecasting::{
+    BurnRateAlertResult, BurnRateAlertRule, BurnRateSeverity, BudgetExhaustionForecast,
+    MultiWindowBurnRate, calculate_burn_rate_for_window, calculate_multi_window_burn_rate,
+    determine_overall_severity, evaluate_burn_rate_alert, evaluate_multi_window_alerts,
+    forecast_budget_exhaustion,
+};
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -2549,6 +2555,424 @@ pub fn export_composite_slo_prometheus(
     exporter.render()
 }
 
+#[pyclass(name = "MultiWindowBurnRate")]
+#[derive(Clone)]
+pub struct PyMultiWindowBurnRate {
+    inner: MultiWindowBurnRate,
+}
+
+#[pymethods]
+impl PyMultiWindowBurnRate {
+    #[new]
+    fn new(timestamp: i64, burn_rate_5m: f64, burn_rate_30m: f64, burn_rate_1h: f64, burn_rate_6h: f64) -> Self {
+        Self {
+            inner: MultiWindowBurnRate {
+                timestamp,
+                burn_rate_5m,
+                burn_rate_30m,
+                burn_rate_1h,
+                burn_rate_6h,
+            },
+        }
+    }
+
+    #[staticmethod]
+    fn from_dict(data: &Bound<'_, PyDict>) -> PyResult<Self> {
+        Ok(Self {
+            inner: data.extract::<MultiWindowBurnRate>()?,
+        })
+    }
+
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn burn_rate_5m(&self) -> f64 {
+        self.inner.burn_rate_5m
+    }
+
+    #[getter]
+    fn burn_rate_30m(&self) -> f64 {
+        self.inner.burn_rate_30m
+    }
+
+    #[getter]
+    fn burn_rate_1h(&self) -> f64 {
+        self.inner.burn_rate_1h
+    }
+
+    #[getter]
+    fn burn_rate_6h(&self) -> f64 {
+        self.inner.burn_rate_6h
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("burn_rate_5m", self.inner.burn_rate_5m)?;
+        dict.set_item("burn_rate_30m", self.inner.burn_rate_30m)?;
+        dict.set_item("burn_rate_1h", self.inner.burn_rate_1h)?;
+        dict.set_item("burn_rate_6h", self.inner.burn_rate_6h)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+#[pyclass(name = "BurnRateAlertRule")]
+#[derive(Clone)]
+pub struct PyBurnRateAlertRule {
+    inner: BurnRateAlertRule,
+}
+
+#[pymethods]
+impl PyBurnRateAlertRule {
+    #[new]
+    fn new(
+        name: String,
+        short_window_threshold: f64,
+        long_window_threshold: f64,
+        short_window_seconds: u64,
+        long_window_seconds: u64,
+        severity: &str,
+    ) -> PyResult<Self> {
+        let severity = match severity {
+            "ok" => BurnRateSeverity::Ok,
+            "slow_burn" => BurnRateSeverity::SlowBurn,
+            "medium_burn" => BurnRateSeverity::MediumBurn,
+            "fast_burn" => BurnRateSeverity::FastBurn,
+            "critical_burn" => BurnRateSeverity::CriticalBurn,
+            _ => return Err(PyTypeError::new_err("Invalid severity level")),
+        };
+
+        Ok(Self {
+            inner: BurnRateAlertRule {
+                name,
+                short_window_threshold,
+                long_window_threshold,
+                short_window_seconds,
+                long_window_seconds,
+                severity,
+            },
+        })
+    }
+
+    #[staticmethod]
+    fn fast_burn() -> Self {
+        Self {
+            inner: BurnRateAlertRule::fast_burn(),
+        }
+    }
+
+    #[staticmethod]
+    fn medium_burn() -> Self {
+        Self {
+            inner: BurnRateAlertRule::medium_burn(),
+        }
+    }
+
+    #[staticmethod]
+    fn slow_burn() -> Self {
+        Self {
+            inner: BurnRateAlertRule::slow_burn(),
+        }
+    }
+
+    #[staticmethod]
+    fn standard_rules() -> Vec<PyBurnRateAlertRule> {
+        BurnRateAlertRule::standard_rules()
+            .into_iter()
+            .map(|inner| PyBurnRateAlertRule { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn name(&self) -> String {
+        self.inner.name.clone()
+    }
+
+    #[getter]
+    fn short_window_threshold(&self) -> f64 {
+        self.inner.short_window_threshold
+    }
+
+    #[getter]
+    fn long_window_threshold(&self) -> f64 {
+        self.inner.long_window_threshold
+    }
+
+    #[getter]
+    fn short_window_seconds(&self) -> u64 {
+        self.inner.short_window_seconds
+    }
+
+    #[getter]
+    fn long_window_seconds(&self) -> u64 {
+        self.inner.long_window_seconds
+    }
+
+    #[getter]
+    fn severity(&self) -> String {
+        self.inner.severity.as_str().to_string()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("name", self.inner.name.clone())?;
+        dict.set_item("short_window_threshold", self.inner.short_window_threshold)?;
+        dict.set_item("long_window_threshold", self.inner.long_window_threshold)?;
+        dict.set_item("short_window_seconds", self.inner.short_window_seconds)?;
+        dict.set_item("long_window_seconds", self.inner.long_window_seconds)?;
+        dict.set_item("severity", self.inner.severity.as_str())?;
+        Ok(dict)
+    }
+}
+
+#[pyclass(name = "BurnRateAlertResult")]
+#[derive(Clone)]
+pub struct PyBurnRateAlertResult {
+    inner: BurnRateAlertResult,
+}
+
+#[pymethods]
+impl PyBurnRateAlertResult {
+    #[getter]
+    fn triggered(&self) -> bool {
+        self.inner.triggered
+    }
+
+    #[getter]
+    fn short_burn_rate(&self) -> f64 {
+        self.inner.short_burn_rate
+    }
+
+    #[getter]
+    fn long_burn_rate(&self) -> f64 {
+        self.inner.long_burn_rate
+    }
+
+    #[getter]
+    fn message(&self) -> String {
+        self.inner.message.clone()
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("triggered", self.inner.triggered)?;
+        dict.set_item("short_burn_rate", self.inner.short_burn_rate)?;
+        dict.set_item("long_burn_rate", self.inner.long_burn_rate)?;
+        dict.set_item("message", self.inner.message.clone())?;
+        Ok(dict)
+    }
+}
+
+#[pyclass(name = "BudgetExhaustionForecast")]
+#[derive(Clone)]
+pub struct PyBudgetExhaustionForecast {
+    inner: BudgetExhaustionForecast,
+}
+
+#[pymethods]
+impl PyBudgetExhaustionForecast {
+    #[getter]
+    fn timestamp(&self) -> i64 {
+        self.inner.timestamp
+    }
+
+    #[getter]
+    fn current_burn_rate(&self) -> f64 {
+        self.inner.current_burn_rate
+    }
+
+    #[getter]
+    fn remaining_budget_seconds(&self) -> f64 {
+        self.inner.remaining_budget_seconds
+    }
+
+    #[getter]
+    fn time_to_exhaustion_seconds(&self) -> f64 {
+        self.inner.time_to_exhaustion_seconds
+    }
+
+    #[getter]
+    fn projected_exhaustion_timestamp(&self) -> i64 {
+        self.inner.projected_exhaustion_timestamp
+    }
+
+    #[getter]
+    fn will_exhaust(&self) -> bool {
+        self.inner.will_exhaust
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("timestamp", self.inner.timestamp)?;
+        dict.set_item("current_burn_rate", self.inner.current_burn_rate)?;
+        dict.set_item("remaining_budget_seconds", self.inner.remaining_budget_seconds)?;
+        dict.set_item("time_to_exhaustion_seconds", self.inner.time_to_exhaustion_seconds)?;
+        dict.set_item("projected_exhaustion_timestamp", self.inner.projected_exhaustion_timestamp)?;
+        dict.set_item("will_exhaust", self.inner.will_exhaust)?;
+        Ok(dict)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+
+    fn to_yaml(&self) -> PyResult<String> {
+        self.inner
+            .to_yaml_string()
+            .map_err(|err| PyTypeError::new_err(err.to_string()))
+    }
+}
+
+impl From<MultiWindowBurnRate> for PyMultiWindowBurnRate {
+    fn from(inner: MultiWindowBurnRate) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<BurnRateAlertResult> for PyBurnRateAlertResult {
+    fn from(inner: BurnRateAlertResult) -> Self {
+        Self { inner }
+    }
+}
+
+impl From<BudgetExhaustionForecast> for PyBudgetExhaustionForecast {
+    fn from(inner: BudgetExhaustionForecast) -> Self {
+        Self { inner }
+    }
+}
+
+/// Calculate burn rate for a specific window in seconds.
+#[pyfunction]
+#[pyo3(signature = (metric_stream, window_seconds))]
+pub fn py_calculate_burn_rate_for_window(
+    metric_stream: Vec<MetricPoint>,
+    window_seconds: u64,
+) -> f64 {
+    calculate_burn_rate_for_window(&metric_stream, window_seconds)
+}
+
+/// Calculate multi-window burn rates at standard intervals.
+#[pyfunction]
+pub fn py_calculate_multi_window_burn_rate(
+    metric_stream: Vec<MetricPoint>,
+) -> PyMultiWindowBurnRate {
+    PyMultiWindowBurnRate {
+        inner: calculate_multi_window_burn_rate(&metric_stream),
+    }
+}
+
+/// Evaluate if a burn rate alert rule should fire.
+#[pyfunction]
+pub fn py_evaluate_burn_rate_alert(
+    rule: PyBurnRateAlertRule,
+    short_burn: f64,
+    long_burn: f64,
+) -> PyBurnRateAlertResult {
+    PyBurnRateAlertResult {
+        inner: evaluate_burn_rate_alert(&rule.inner, short_burn, long_burn),
+    }
+}
+
+/// Evaluate multi-window burn rate alerts based on SRE workbook rules.
+#[pyfunction]
+pub fn py_evaluate_multi_window_alerts(
+    multi_window: PyMultiWindowBurnRate,
+    rules: Vec<PyBurnRateAlertRule>,
+) -> Vec<PyBurnRateAlertResult> {
+    let rules: Vec<_> = rules.iter().map(|r| r.inner.clone()).collect();
+    evaluate_multi_window_alerts(&multi_window.inner, &rules)
+        .into_iter()
+        .map(|inner| PyBurnRateAlertResult { inner })
+        .collect()
+}
+
+/// Determine overall severity from a list of alert results.
+#[pyfunction]
+pub fn py_determine_overall_severity(alerts: Vec<PyBurnRateAlertResult>) -> String {
+    let alerts: Vec<_> = alerts.iter().map(|a| a.inner.clone()).collect();
+    determine_overall_severity(&alerts).as_str().to_string()
+}
+
+/// Forecast when error budget will be exhausted.
+#[pyfunction]
+pub fn py_forecast_budget_exhaustion(
+    current_burn_rate: f64,
+    remaining_budget_seconds: f64,
+    now: i64,
+) -> PyBudgetExhaustionForecast {
+    PyBudgetExhaustionForecast {
+        inner: forecast_budget_exhaustion(current_burn_rate, remaining_budget_seconds, now),
+    }
+}
+
+impl<'py> FromPyObject<'py> for BurnRateAlertRule {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyBurnRateAlertRule>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| PyTypeError::new_err("Expected dict or BurnRateAlertRule"))?;
+        
+        let severity_str: String = extract_required(dict, "severity")?;
+        let severity = match severity_str.as_str() {
+            "ok" => BurnRateSeverity::Ok,
+            "slow_burn" => BurnRateSeverity::SlowBurn,
+            "medium_burn" => BurnRateSeverity::MediumBurn,
+            "fast_burn" => BurnRateSeverity::FastBurn,
+            "critical_burn" => BurnRateSeverity::CriticalBurn,
+            _ => return Err(PyTypeError::new_err("Invalid severity level")),
+        };
+
+        Ok(Self {
+            name: extract_required(dict, "name")?,
+            short_window_threshold: extract_required(dict, "short_window_threshold")?,
+            long_window_threshold: extract_required(dict, "long_window_threshold")?,
+            short_window_seconds: extract_required(dict, "short_window_seconds")?,
+            long_window_seconds: extract_required(dict, "long_window_seconds")?,
+            severity,
+        })
+    }
+}
+
+impl<'py> FromPyObject<'py> for MultiWindowBurnRate {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(wrapper) = obj.extract::<PyRef<'py, PyMultiWindowBurnRate>>() {
+            return Ok(wrapper.inner.clone());
+        }
+
+        let dict = obj
+            .downcast::<PyDict>()
+            .map_err(|_| PyTypeError::new_err("Expected dict or MultiWindowBurnRate"))?;
+        
+        Ok(Self {
+            timestamp: extract_required(dict, "timestamp")?,
+            burn_rate_5m: extract_required(dict, "burn_rate_5m")?,
+            burn_rate_30m: extract_required(dict, "burn_rate_30m")?,
+            burn_rate_1h: extract_required(dict, "burn_rate_1h")?,
+            burn_rate_6h: extract_required(dict, "burn_rate_6h")?,
+        })
+    }
+}
+
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
@@ -2618,6 +3042,17 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(coerce_composite_service_slo, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_composite_dependency_edge, module)?)?;
     module.add_function(wrap_pyfunction!(coerce_composite_slo_graph, module)?)?;
+    // Forecasting functions
+    module.add_class::<PyMultiWindowBurnRate>()?;
+    module.add_class::<PyBurnRateAlertRule>()?;
+    module.add_class::<PyBurnRateAlertResult>()?;
+    module.add_class::<PyBudgetExhaustionForecast>()?;
+    module.add_function(wrap_pyfunction!(py_calculate_burn_rate_for_window, module)?)?;
+    module.add_function(wrap_pyfunction!(py_calculate_multi_window_burn_rate, module)?)?;
+    module.add_function(wrap_pyfunction!(py_evaluate_burn_rate_alert, module)?)?;
+    module.add_function(wrap_pyfunction!(py_evaluate_multi_window_alerts, module)?)?;
+    module.add_function(wrap_pyfunction!(py_determine_overall_severity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_forecast_budget_exhaustion, module)?)?;
     Ok(())
 }
 
