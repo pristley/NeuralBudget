@@ -295,29 +295,27 @@ pub fn to_openslo_object(
         description: Some(format!("Availability SLO for {service_name}")),
     });
 
-    // Latency objective (if not default)
-    if (slo.latency_threshold_ms - 200.0).abs() > f64::EPSILON {
-        objectives.push(OpenSloObjective {
-            ratio_metrics: None,
-            threshold_metrics: Some(ThresholdMetrics {
-                threshold: slo.latency_threshold_ms,
-                metric_source: MetricSource::Prometheus {
-                    prometheus: PrometheusMetricSource {
-                        query: format!(
-                            "histogram_quantile({}, rate(http_request_duration_seconds_bucket{{service=\"{service_name}\"}}[5m]))",
-                            slo.latency_percentile
-                        ),
-                    },
+    // Latency objective
+    objectives.push(OpenSloObjective {
+        ratio_metrics: None,
+        threshold_metrics: Some(ThresholdMetrics {
+            threshold: slo.latency_threshold_ms,
+            metric_source: MetricSource::Prometheus {
+                prometheus: PrometheusMetricSource {
+                    query: format!(
+                        "histogram_quantile({}, rate(http_request_duration_seconds_bucket{{service=\"{service_name}\"}}[5m]))",
+                        slo.latency_percentile
+                    ),
                 },
-            }),
-            target: 0.99, // P99 latency target
-            window: "rolling_1d".to_string(),
-            description: Some(format!(
-                "P99 Latency SLO for {service_name} ({}ms)",
-                slo.latency_threshold_ms
-            )),
-        });
-    }
+            },
+        }),
+        target: 0.99, // P99 latency target
+        window: "rolling_1d".to_string(),
+        description: Some(format!(
+            "P99 Latency SLO for {service_name} ({}ms)",
+            slo.latency_threshold_ms
+        )),
+    });
 
     Ok(OpenSloObject {
         api_version: OPENSLO_API_VERSION.to_string(),
