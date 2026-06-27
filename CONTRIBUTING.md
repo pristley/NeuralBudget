@@ -469,7 +469,7 @@ See [`agentmap.md`](agentmap.md) for detailed architecture overview.
 ## Recognition
 
 Contributors are recognized in:
-1. **CHANGELOG.md** — For significant changes
+1. **docs/internal/CHANGELOG.md** — For significant changes
 2. **GitHub Contributors** — Automatically updated
 3. **Release notes** — For major releases
 

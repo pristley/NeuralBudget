@@ -193,7 +193,7 @@ neuralbudget check slo.yaml --strict
 - 📖 **[Full Documentation](docs/INDEX.md)** — Comprehensive guides, API reference, examples
 - 💬 **[Contributing](CONTRIBUTING.md)** — How to contribute
 - 📄 **[License](LICENSE)** — Apache 2.0
-- 📝 **[Changelog](CHANGELOG.md)** — Release notes
+- 📝 **[Changelog](docs/internal/CHANGELOG.md)** — Release notes
 
 ## Enterprise & SRE Use Cases
 
@@ -254,6 +254,6 @@ assert report['passed'] == previous_report['passed']  # Always true
 
 ---
 
-**Version:** 0.1.3 | **License:** [Apache 2.0](LICENSE) | **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+**Version:** 0.1.3 | **License:** [Apache 2.0](LICENSE) | **Changelog:** [docs/internal/CHANGELOG.md](docs/internal/CHANGELOG.md)
 
-**Enterprise Support:** [LICENSING.md](LICENSING.md) — Contact user
+**Enterprise Support:** [docs/internal/LICENSING.md](docs/internal/LICENSING.md) — Contact user
