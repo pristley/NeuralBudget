@@ -392,10 +392,10 @@ print(f"Pass: {eval['pass']}, TTFT: {eval['ttft_ms']:.0f}ms")
 
 ## Related Documentation
 
-- **[TTFT SLO Guide](docs/guides/ttft-slo.md)** - Complete feature documentation
-- **[GenAI Mode](docs/guides/user-guide.md#genai-mode)** - GenAI SLO overview
-- **[Agent SLO](docs/guides/agent-slo.md)** - Agent reliability tracking
-- **[Cost SLO](docs/guides/cost-slo.md)** - Token budget tracking
+- **[TTFT SLO Guide](../../docs/guides/ttft-slo.md)** - Complete feature documentation
+- **[GenAI Mode](../../docs/guides/user-guide.md#genai-mode)** - GenAI SLO overview
+- **[Agent SLO](../../docs/guides/agent-slo.md)** - Agent reliability tracking
+- **[Cost SLO](../../docs/guides/cost-slo.md)** - Token budget tracking
 
 ## Summary
 

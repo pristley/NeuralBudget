@@ -202,12 +202,12 @@ From cache: True
 
 ## Documentation
 
-- Full guide: [docs/guides/llm-judge-eval.md](docs/guides/llm-judge-eval.md)
-- Examples: [examples/slo_genai_llm_judge.yaml](examples/slo_genai_llm_judge.yaml)
-- Tests: [tests/genai_quality_evaluation_tests.rs](tests/genai_quality_evaluation_tests.rs)
+- Full guide: [docs/guides/llm-judge-eval.md](../../docs/guides/llm-judge-eval.md)
+- Examples: [examples/slo_genai_llm_judge.yaml](../../examples/slo_genai_llm_judge.yaml)
+- Tests: [tests/genai_quality_evaluation_tests.rs](../../tests/genai_quality_evaluation_tests.rs)
 
 ## Support
 
-- Configuration issues → Check [docs/guides/llm-judge-eval.md#troubleshooting](docs/guides/llm-judge-eval.md#troubleshooting)
-- Cost questions → See [docs/guides/llm-judge-eval.md#cost-estimation](docs/guides/llm-judge-eval.md#cost-estimation)
-- Provider setup → [docs/guides/llm-judge-eval.md#provider-setup](docs/guides/llm-judge-eval.md#provider-setup)
+- Configuration issues → Check [docs/guides/llm-judge-eval.md#troubleshooting](../../docs/guides/llm-judge-eval.md#troubleshooting)
+- Cost questions → See [docs/guides/llm-judge-eval.md#cost-estimation](../../docs/guides/llm-judge-eval.md#cost-estimation)
+- Provider setup → [docs/guides/llm-judge-eval.md#provider-setup](../../docs/guides/llm-judge-eval.md#provider-setup)

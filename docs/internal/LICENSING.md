@@ -125,7 +125,7 @@ We welcome contributions under Apache 2.0!
 1. **Open Source Contributors** — Submit PRs licensed under Apache 2.0
 2. All contributions must be compatible with Apache 2.0
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ---
 
