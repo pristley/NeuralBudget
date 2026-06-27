@@ -1,6 +1,10 @@
 // Comprehensive test suite for Agent SLO evaluation
 
-use neuralbudget::agent_slo::*;
+use neuralbudget::{
+    evaluate_agent_batch, evaluate_agent_slo, AgentAction, AgentEvaluation, AgentSloParams,
+    AgentTrajectory, FinalStatus, TrajectoryStep,
+};
+use serde_json;
 
 fn create_simple_trajectory(
     steps_data: Vec<(AgentAction, bool, Option<&str>)>,
