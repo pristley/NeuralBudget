@@ -58,10 +58,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-pip-
+          key: >
+            ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-      # Install required tools using pre-built binaries (faster than cargo install)
+      # Install build tools using pre-built binaries
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
@@ -73,9 +75,11 @@ jobs:
       # Run all Rust tests while collecting coverage
       # Exclude binary code (CLI commands) as they're not unit tested
       - name: Run tests with coverage
-        run: cargo llvm-cov --workspace --all-features --tests --lib --summary-only --fail-under-lines 75
+        run: >
+          cargo llvm-cov --workspace --all-features --tests --lib
+          --summary-only --fail-under-lines 75
 
-      # Run doc tests separately (without coverage collection to avoid conflicts)
+      # Run doc tests separately (without coverage collection)
       - name: Run doc tests
         run: cargo test --doc --all-features
 
