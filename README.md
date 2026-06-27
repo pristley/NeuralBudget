@@ -147,6 +147,7 @@ Perfect for resource-constrained environments: edge, embedded, serverless.
 ## Key Features
 
 - ✅ **5 SLO Modes** — HTTP, Stateful, ML, GenAI, Composite (all in one tool)
+- ✅ **GenAI Quality Features** — LLM-as-Judge (cached), hallucination detection, cost budgets
 - ✅ **CLI Tool** — eval, gen-rules, check subcommands with JSON output
 - ✅ **Streaming Aggregation** — 15k+ messages/sec with automatic memory adaptation
 - ✅ **Composite DAGs** — Model service dependencies and failure propagation (unique)
@@ -194,6 +195,7 @@ neuralbudget check slo.yaml --strict
 | **[Documentation](docs/INDEX.md)** | Complete docs organized by goal |
 | **[Architecture Map](agentmap.md)** | Module responsibilities & data flow |
 | **[CLI User Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
+| **[GenAI Quality Features](docs/guides/user-guide.md#genai-mode)** | LLM-as-Judge, hallucination detection, cost budgets |
 | **[Prometheus Rules](docs/guides/prometheus-rule-generation.md)** | Multi-burn-rate alerting, recording rules |
 | **[Multi-Burn-Rate Alerting](docs/guides/multi-burn-rate-alerting.md)** | Google SRE patterns, configuration, tuning |
 | **[OpenSLO Compatibility](docs/reference/openslo-compatibility.md)** | Vendor-neutral format, tool migration |

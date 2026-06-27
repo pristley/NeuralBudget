@@ -1,6 +1,7 @@
 // Re-exports of all public API types and functions from submodules
 
 mod core;
+mod cost_slo;
 mod exporter;
 mod forecasting;
 mod genai_evaluator;
@@ -14,6 +15,7 @@ mod streaming;
 // Export error types and result alias first
 pub use core::*;
 pub use core::{NeuralBudgetError, Result};
+pub use cost_slo::*;
 pub use exporter::*;
 pub use forecasting::*;
 pub use genai_evaluator::*;

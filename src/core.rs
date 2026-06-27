@@ -806,6 +806,71 @@ pub struct GenAiQualityWithHallucinationEvaluation {
     pub total_tokens: usize,
 }
 
+// ============================================================================
+// Cost-Based SLO Types (GenAI Token Usage and Cost Budgets)
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Cost budget configuration for GenAI SLOs
+pub struct CostBudgetConfig {
+    /// Cost per 1000 input tokens in USD
+    pub input_cost_per_1k: f64,
+    /// Cost per 1000 output tokens in USD
+    pub output_cost_per_1k: f64,
+    /// Maximum allowed cost per request in USD
+    pub max_per_request: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Cost SLO configuration for tracking and limiting token costs
+pub struct GenAiCostSloConfig {
+    /// Enable cost-based SLO evaluation
+    pub enabled: bool,
+    /// Cost budget configuration
+    pub budget: CostBudgetConfig,
+    /// Cost acceptability threshold (0.0-1.0, where 1.0 = free, 0.0 = at budget limit)
+    pub cost_threshold: f64,
+    /// Optional monthly cost limit in USD
+    pub monthly_limit: Option<f64>,
+    /// Weight of cost in hybrid scoring (combined with quality)
+    pub cost_weight: Option<f64>,
+}
+
+impl Default for GenAiCostSloConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            budget: CostBudgetConfig {
+                input_cost_per_1k: 0.00015,   // GPT-4 Mini default
+                output_cost_per_1k: 0.0006,
+                max_per_request: 0.015,
+            },
+            cost_threshold: 0.95,
+            monthly_limit: None,
+            cost_weight: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Cost evaluation result for a GenAI request
+pub struct GenAiCostEvaluation {
+    /// Input token cost in USD
+    pub input_cost: f64,
+    /// Output token cost in USD
+    pub output_cost: f64,
+    /// Total cost in USD
+    pub total_cost: f64,
+    /// Whether cost is within per-request budget
+    pub within_budget: bool,
+    /// Cost score (0.0-1.0)
+    pub cost_score: f64,
+    /// Whether cost passes SLO
+    pub pass: bool,
+}
+
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO policy for one service node in a dependency graph.
 pub struct CompositeServiceSlo {

@@ -1,0 +1,109 @@
+# GenAI SLO with Cost-Based Budgets
+# Tracks token usage and cost, enabling per-request and monthly spend budgets
+
+mode: genai
+
+service: "genai-api"
+description: "GenAI API with cost SLO and quality evaluation"
+
+target: 0.99
+window: "7d"
+
+# LLM-as-Judge for quality dimensions
+quality_evaluator:
+  type: llm_judge
+  model: gpt-4-mini
+  provider: openai
+  cache_config:
+    redis_url: "redis://localhost:6379"
+    ttl_seconds: 86400
+
+  dimensions:
+    - name: helpfulness
+      prompt: "Is this response helpful? {response}\nScore 1-5."
+      weight: 0.4
+      threshold: 3.0
+      cost_per_call_usd: 0.0001
+    
+    - name: accuracy
+      prompt: "Is this response accurate? {response}\nScore 1-5."
+      weight: 0.6
+      threshold: 3.0
+      cost_per_call_usd: 0.0001
+
+# Cost-based SLO: Token usage and spend budgets
+cost_slo:
+  enabled: true
+  
+  # Model pricing configuration
+  budget:
+    # OpenAI GPT-4 Mini pricing (as of June 2026)
+    input_cost_per_1k: 0.00015    # $0.15 per 1M input tokens
+    output_cost_per_1k: 0.0006    # $0.60 per 1M output tokens
+    max_per_request: 0.015         # 1.5 cents max per request
+  
+  # Cost acceptability threshold
+  # 0.95 = accept up to 95% of budget per request
+  cost_threshold: 0.95
+  
+  # Optional: monthly cost limit
+  monthly_limit: 10000             # $10k/month max
+  
+  # Weight of cost in hybrid scoring (combined with quality)
+  cost_weight: 0.1                 # 10% cost, 90% quality
+
+# Sample data for testing
+sample:
+  timestamp: 1719518400
+  input_tokens: 50
+  output_tokens: 120
+  inference_latency_ms: 750
+  ttft_ms: 200
+  quality_score: 0.92
+  model: "gpt-4-mini"
+
+# Expected evaluation:
+# - input_cost = (50 / 1000) * 0.00015 = $0.0000075
+# - output_cost = (120 / 1000) * 0.0006 = $0.000072
+# - total_cost = $0.0000795 (well within budget)
+# - cost_score = 1.0 (far from budget limit)
+# - hybrid_score = 0.1 * cost_score + 0.9 * 0.92 = 0.928
+# - pass = (cost_score >= 0.95 && quality_score >= 0.9) = TRUE
+
+# Alerts for cost monitoring
+alerts:
+  - window: "1h"
+    condition: "total_cost > 50"
+    severity: warning
+    message: "Hourly cost approaching limit ($50)"
+  
+  - window: "24h"
+    condition: "total_cost > 400"
+    severity: critical
+    message: "Daily cost exceeding budget ($400)"
+  
+  - window: "30d"
+    condition: "total_cost > 10000"
+    severity: critical
+    message: "Monthly cost limit reached ($10k)"
+
+# Cost optimization tips:
+# 1. Use cost_threshold: 0.99 for strict budgeting
+# 2. Monitor average tokens per request to forecast monthly spend
+# 3. Consider cheaper models (e.g., gpt-4-mini vs gpt-4-turbo) for non-critical paths
+# 4. Batch requests to amortize token cost (prepend many questions in context)
+# 5. Use caching (Redis) to reduce redundant API calls
+
+# Common model pricing (as of June 2026):
+# OpenAI:
+#   - GPT-4 Mini: $0.00015/1K input, $0.0006/1K output
+#   - GPT-4 Turbo: $0.01/1K input, $0.03/1K output
+# Anthropic:
+#   - Claude 3 Haiku: $0.00025/1K input, $0.00125/1K output
+#   - Claude 3 Sonnet: $0.003/1K input, $0.015/1K output
+
+tags:
+  team: "genai-platform"
+  use_case: "cost-constrained-inference"
+  slo_type: "hybrid-quality-cost"
+  environment: "production"

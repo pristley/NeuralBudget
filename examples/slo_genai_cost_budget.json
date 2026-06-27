@@ -1,0 +1,72 @@
+{
+  "mode": "genai",
+  "service": "genai-api",
+  "description": "GenAI API with cost SLO and quality evaluation",
+  "target": 0.99,
+  "window": "7d",
+  "quality_evaluator": {
+    "type": "llm_judge",
+    "model": "gpt-4-mini",
+    "provider": "openai",
+    "cache_config": {
+      "redis_url": "redis://localhost:6379",
+      "ttl_seconds": 86400
+    },
+    "dimensions": [
+      {
+        "name": "helpfulness",
+        "prompt": "Is this response helpful? {response}\nScore 1-5.",
+        "weight": 0.4,
+        "threshold": 3.0,
+        "cost_per_call_usd": 0.0001
+      },
+      {
+        "name": "accuracy",
+        "prompt": "Is this response accurate? {response}\nScore 1-5.",
+        "weight": 0.6,
+        "threshold": 3.0,
+        "cost_per_call_usd": 0.0001
+      }
+    ]
+  },
+  "cost_slo": {
+    "enabled": true,
+    "budget": {
+      "input_cost_per_1k": 0.00015,
+      "output_cost_per_1k": 0.0006,
+      "max_per_request": 0.015
+    },
+    "cost_threshold": 0.95,
+    "monthly_limit": 10000,
+    "cost_weight": 0.1
+  },
+  "sample": {
+    "timestamp": 1719518400,
+    "input_tokens": 50,
+    "output_tokens": 120,
+    "inference_latency_ms": 750,
+    "ttft_ms": 200,
+    "quality_score": 0.92,
+    "model": "gpt-4-mini"
+  },
+  "alerts": [
+    {
+      "window": "1h",
+      "condition": "total_cost > 50",
+      "severity": "warning",
+      "message": "Hourly cost approaching limit ($50)"
+    },
+    {
+      "window": "24h",
+      "condition": "total_cost > 400",
+      "severity": "critical",
+      "message": "Daily cost exceeding budget ($400)"
+    },
+    {
+      "window": "30d",
+      "condition": "total_cost > 10000",
+      "severity": "critical",
+      "message": "Monthly cost limit reached ($10k)"
+    }
+  ]
+}
