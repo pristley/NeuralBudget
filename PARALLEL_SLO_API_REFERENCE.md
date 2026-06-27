@@ -128,6 +128,73 @@ if agg.is_empty():
 
 The `ParallelMetricBatch` class evaluates whether a set of metrics meet their thresholds in parallel using all available CPU cores. Unlike `CompositeSloGraph`, this does **not** model dependencies. Each metric is checked against its own threshold independently and concurrently.
 
+### ⚠️ Thread Safety
+
+**IMPORTANT:** `ParallelMetricBatch` is **NOT safe for concurrent access** across threads.
+
+**Safe usage patterns:**
+```python
+# Pattern 1: Single-threaded use (SAFE)
+batch = ParallelMetricBatch([...])
+batch.evaluate()  # OK
+results = batch.all_pass()  # OK
+
+# Pattern 2: Protected with lock (SAFE)
+from threading import Lock
+batch_lock = Lock()
+with batch_lock:
+    batch.update_node("metric", new_value)
+    results = batch.evaluate()
+```
+
+**Unsafe usage patterns (will cause data races or crashes):**
+```python
+# Pattern 1: Concurrent mutations (UNSAFE)
+# Thread 1:
+batch.update_node("metric", 100.0)
+
+# Thread 2 (simultaneously):
+batch.evaluate()  # Data race! May see partial updates or crash
+
+# Pattern 2: Concurrent updates (UNSAFE)
+# Thread 1:
+batch.update_node("metric1", 100.0)
+
+# Thread 2 (simultaneously):
+batch.update_node("metric2", 200.0)  # Data race!
+```
+
+**If you need concurrent access:**
+- Synchronize externally with `threading.Lock()` or similar
+- Create separate `ParallelMetricBatch` instances per thread if possible
+- Consider wrapping in a thread-safe queue or API
+
+### Result Consistency Guarantee
+
+All query methods (`all_pass()`, `aggregate_score()`, `pass_count()`, `nodes_as_tuples()`) **compute results from the current node state on every call**. They do NOT cache results from `evaluate()`.
+
+This means:
+- Query methods always return results consistent with current node values
+- Calling a query method before `evaluate()` is valid and returns correct results
+- If you call `update_node()`, query methods immediately reflect the updated values
+- `evaluate()` is primarily used for **GIL release** to allow parallel computation; results are not cached
+
+**Example:**
+```python
+batch = ParallelMetricBatch([("metric", 100.0, 200.0)])
+
+# Before calling evaluate() - still works correctly
+print(batch.all_pass())  # False (100 < 200)
+
+# evaluate() computes and returns results
+results = batch.evaluate()  # Returns computed results
+
+# Query methods recompute from current state
+batch.update_node("metric", 250.0)
+print(batch.all_pass())  # True (updated value 250 >= 200)
+# Note: This is computed on-the-fly, not from cached evaluate() result
+```
+
 ### Constructor
 
 ```python
@@ -205,19 +272,26 @@ Check whether every metric passed (all values >= thresholds).
 
 **Parameters:** None
 
-**Returns:** True if all metrics pass; False if any metric fails.
+**Returns:** True if all metrics pass; False if any metric fails. Returns True for an empty batch (vacuous truth).
 
 **Behavior:**
-- Does not re-evaluate; uses results from the most recent `evaluate()` call.
-- If `evaluate()` has not been called, returns None or raises an error depending on implementation state.
+- **Computes results from current node state on every call** (does not use cached results from `evaluate()`).
+- Safe to call before `evaluate()` has been invoked.
+- Time complexity: O(n) where n = number of metrics.
 
 **Example:**
 ```python
-graph.evaluate()
-if graph.all_pass():
-    print("All metrics healthy")
-else:
-    print("At least one metric failed")
+batch = ParallelMetricBatch([
+    ("latency", 150.0, 200.0),  # Fails: 150 < 200
+    ("availability", 99.95, 99.9),  # Passes: 99.95 >= 99.9
+])
+
+# Works correctly before evaluate() is called
+print(batch.all_pass())  # False (latency fails)
+
+# After updating a metric
+batch.update_node("latency", 250.0)  # Now passes
+print(batch.all_pass())  # True (both metrics now pass)
 ```
 
 #### aggregate_score() → float
@@ -226,11 +300,14 @@ Calculate the mean score across all metrics.
 
 **Parameters:** None
 
-**Returns:** Float in range [0.0, 1.0], computed as the arithmetic mean of all per-metric scores.
+**Returns:** Float in range [0.0, 1.0], computed as the arithmetic mean of all per-metric scores. Returns 1.0 for an empty batch.
 
 **Behavior:**
+- **Computes results from current node state on every call** (does not use cached results from `evaluate()`).
+- Safe to call before `evaluate()` has been invoked.
+- Handles zero thresholds by treating score as 1.0 for that metric.
+- Time complexity: O(n) where n = number of metrics.
 - Equal weight for all metrics (no weighted aggregation).
-- Does not re-evaluate; uses results from the most recent `evaluate()` call.
 
 **Interpretation:**
 - 1.0 = all metrics at or exceed their thresholds
@@ -239,9 +316,18 @@ Calculate the mean score across all metrics.
 
 **Example:**
 ```python
-graph.evaluate()
-health = graph.aggregate_score()
-print(f"Composite health: {health:.1%}")  # Prints: "Composite health: 75.0%"
+batch = ParallelMetricBatch([
+    ("metric1", 100.0, 100.0),  # Score: 1.0
+    ("metric2", 50.0, 100.0),   # Score: 0.5
+])
+
+# Works correctly before evaluate() is called
+health = batch.aggregate_score()  # Returns 0.75 (mean of 1.0 and 0.5)
+print(f"Composite health: {health:.1%}")  # "Composite health: 75.0%"
+
+# After updating metrics
+batch.update_node("metric2", 75.0)  # New score: 0.75
+health = batch.aggregate_score()  # Returns 0.875 (mean of 1.0 and 0.75)
 ```
 
 #### pass_count() → int
@@ -253,14 +339,26 @@ Count how many metrics passed.
 **Returns:** Integer count of metrics where value >= threshold.
 
 **Behavior:**
-- Does not re-evaluate; uses results from the most recent `evaluate()` call.
+- **Computes results from current node state on every call** (does not use cached results from `evaluate()`).
+- Safe to call before `evaluate()` has been invoked.
+- Time complexity: O(n) where n = number of metrics.
 
 **Example:**
 ```python
-graph.evaluate()
-passed = graph.pass_count()
-total = graph.node_count
-print(f"Passed: {passed}/{total}")  # Prints: "Passed: 2/3"
+batch = ParallelMetricBatch([
+    ("metric1", 250.0, 200.0),  # Passes
+    ("metric2", 99.9, 99.0),    # Passes
+    ("metric3", 0.1, 0.5),      # Fails
+])
+
+# Works correctly before evaluate() is called
+passed = batch.pass_count()  # Returns 2
+total = batch.node_count     # Returns 3
+print(f"Passed: {passed}/{total}")  # "Passed: 2/3"
+
+# After updating a metric that failed
+batch.update_node("metric3", 1.0)  # Now passes
+passed = batch.pass_count()  # Returns 3
 ```
 
 #### get_node(node_id: str) → Tuple[str, float, float] | None
@@ -297,15 +395,53 @@ Change a metric's current value and keep the threshold unchanged.
 **Returns:** True if the update succeeded; False if the metric was not found.
 
 **Behavior:**
-- Modifies the graph in place; does not re-evaluate automatically.
+- Modifies the batch in place; does not re-evaluate automatically.
 - Threshold remains unchanged.
+- Time complexity: O(n) where n = number of metrics (linear search for the node).
 
-**Example:**
+**⚠️ Thread Safety:**
+- **DO NOT** call `update_node()` while `evaluate()` is running on another thread on the same batch instance.
+- **DO NOT** call `update_node()` from multiple threads concurrently on the same batch instance.
+- Use external synchronization (e.g., `threading.Lock()`) if you need concurrent access.
+- Creating separate batch instances per thread is the safest approach.
+
+**Example (Safe):**
 ```python
-success = graph.update_node("latency_p99", 180.0)
-if success:
-    print("Metric updated")
-    graph.evaluate()  # Re-evaluate after update
+from threading import Lock
+
+batch = ParallelMetricBatch([("latency", 100.0, 200.0)])
+batch_lock = Lock()
+
+# Safe pattern: protect with lock
+with batch_lock:
+    success = batch.update_node("latency", 150.0)
+    if success:
+        results = batch.evaluate()
+
+# Or: update before concurrent evaluations
+batch.update_node("latency", 150.0)
+results = batch.evaluate()  # Single evaluation (no lock needed)
+```
+
+**Example (Unsafe - avoid):**
+```python
+# UNSAFE: Concurrent mutation and evaluation
+import threading
+
+batch = ParallelMetricBatch([("latency", 100.0, 200.0)])
+
+def update_thread():
+    batch.update_node("latency", 150.0)  # Data race!
+
+def eval_thread():
+    batch.evaluate()  # Data race!
+
+t1 = threading.Thread(target=update_thread)
+t2 = threading.Thread(target=eval_thread)
+t1.start()
+t2.start()  # UNSAFE: Both run concurrently
+t1.join()
+t2.join()
 ```
 
 #### nodes_as_tuples() → List[Tuple[str, float, float, bool, float]]
@@ -314,18 +450,40 @@ Export all metrics with their current evaluation results.
 
 **Parameters:** None
 
-**Returns:** List of tuples identical in format to `evaluate()`; includes pass/fail and score for each metric.
+**Returns:** List of tuples identical in format to `evaluate()`; includes pass/fail and score for each metric. Each tuple contains (node_id, value, threshold, pass, score).
 
 **Behavior:**
-- Does not re-evaluate; uses results from the most recent `evaluate()` call.
-- If `evaluate()` has not been called, all metrics may show default pass/score values.
+- **Computes results from current node state on every call** (does not use cached results from `evaluate()`).
+- Safe to call before `evaluate()` has been invoked. Returns an empty list if the batch is empty.
+- Time complexity: O(n) where n = number of metrics.
 
 **Example:**
 ```python
-graph.evaluate()
-all_nodes = graph.nodes_as_tuples()
+batch = ParallelMetricBatch([
+    ("latency", 150.0, 200.0),
+    ("availability", 99.95, 99.9),
+])
+
+# Works correctly before evaluate() is called
+all_nodes = batch.nodes_as_tuples()
+# Returns:
+# [
+#   ("latency", 150.0, 200.0, False, 0.75),
+#   ("availability", 99.95, 99.9, True, 1.0),
+# ]
+
 for node_id, value, threshold, passed, score in all_nodes:
-    print(f"{node_id}: score={score:.2f}, passed={passed}")
+    status = "PASS" if passed else "FAIL"
+    print(f"{node_id}: {value:.2f} (threshold {threshold}) {status}")
+
+# After mutation, results reflect current state
+batch.update_node("latency", 250.0)
+updated_nodes = batch.nodes_as_tuples()
+# Returns:
+# [
+#   ("latency", 250.0, 200.0, True, 1.0),  # Now passes
+#   ("availability", 99.95, 99.9, True, 1.0),
+# ]
 ```
 
 ---

@@ -271,6 +271,88 @@ Do not try to configure these values. They are optimized for typical usage. If y
 
 ---
 
+## Thread Safety Best Practices
+
+`ParallelMetricBatch` evaluates metrics in parallel on multiple CPU cores (releasing the GIL), but it is **NOT thread-safe for concurrent access across Python threads**.
+
+### Safe Patterns
+
+**Pattern 1: Single-threaded use (simplest)**
+```python
+batch = ParallelMetricBatch([...])
+while True:
+    batch.update_node("latency", get_latest_latency())
+    results = batch.evaluate()
+    if not batch.all_pass():
+        alert()
+```
+
+**Pattern 2: Protect with a lock (for multi-threaded applications)**
+```python
+from threading import Lock
+
+batch = ParallelMetricBatch([...])
+batch_lock = Lock()
+
+def update_metrics():
+    with batch_lock:
+        batch.update_node("latency", get_latest_latency())
+
+def check_health():
+    with batch_lock:
+        results = batch.evaluate()
+        if not batch.all_pass():
+            alert()
+```
+
+**Pattern 3: Separate batches per thread (if possible)**
+```python
+import threading
+
+def worker_thread():
+    # Each thread gets its own batch instance
+    local_batch = ParallelMetricBatch([...])
+    while True:
+        local_batch.update_node("metric", get_value())
+        results = local_batch.evaluate()
+```
+
+### Unsafe Patterns (Avoid)
+
+**Pattern 1: Concurrent mutations**
+```python
+# UNSAFE - DO NOT DO THIS
+batch = ParallelMetricBatch([...])
+
+def thread_1():
+    batch.update_node("metric1", 100.0)  # Data race!
+
+def thread_2():
+    batch.update_node("metric2", 200.0)  # Data race!
+
+# Running these concurrently will cause crashes or silent corruption
+```
+
+**Pattern 2: Mutation while evaluating**
+```python
+# UNSAFE - DO NOT DO THIS
+batch = ParallelMetricBatch([...])
+
+def thread_1():
+    batch.evaluate()  # Data race!
+
+def thread_2():
+    batch.update_node("metric", 100.0)  # Data race!
+
+# Running these concurrently will cause crashes or silent corruption
+```
+
+### Important Reminder
+
+The GIL release in `evaluate()` allows Python code to run on other threads *while evaluation happens on Rust's thread pool*. This is safe. But updating the batch instance itself from multiple threads is NOT safe — synchronize with a lock.
+
+---
+
 ## What's Next
 
 - [API Reference](PARALLEL_SLO_API_REFERENCE.md) — Full method signatures and return types

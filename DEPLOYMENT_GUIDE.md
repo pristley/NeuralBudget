@@ -267,6 +267,122 @@ for metric_name, value in metrics.items():
 
 ---
 
+## Thread Safety and Concurrency
+
+### Important: ParallelMetricBatch is NOT Thread-Safe
+
+`ParallelMetricBatch` releases the GIL during `evaluate()` to allow parallel computation on multiple CPU cores. However, **the batch instance itself is not safe for concurrent access from multiple Python threads**.
+
+### Safe Production Patterns
+
+**Pattern 1: Single evaluation thread (recommended for most cases)**
+```python
+# One thread handles all batch updates and evaluations
+def monitoring_thread():
+    batch = ParallelMetricBatch([...])
+    while True:
+        # All mutations and evaluations happen in one thread
+        batch.update_node("metric1", get_metric1())
+        batch.update_node("metric2", get_metric2())
+        results = batch.evaluate()
+        
+        if not batch.all_pass():
+            send_alert(results)
+        
+        time.sleep(5)
+
+threading.Thread(target=monitoring_thread, daemon=True).start()
+```
+
+**Pattern 2: Thread-safe wrapper with Lock**
+```python
+from threading import Lock
+
+class ThreadSafeMetricBatch:
+    def __init__(self, metrics):
+        self.batch = ParallelMetricBatch(metrics)
+        self.lock = Lock()
+    
+    def update_and_evaluate(self, updates):
+        """Atomically update metrics and evaluate."""
+        with self.lock:
+            for metric_id, value in updates.items():
+                self.batch.update_node(metric_id, value)
+            return self.batch.evaluate()
+    
+    def query_health(self):
+        """Query health without mutation."""
+        with self.lock:
+            return {
+                "all_pass": self.batch.all_pass(),
+                "score": self.batch.aggregate_score(),
+                "passing": self.batch.pass_count(),
+            }
+
+# Usage
+safe_batch = ThreadSafeMetricBatch([...])
+
+def api_handler(request):
+    # Safe to call from multiple request threads
+    results = safe_batch.update_and_evaluate(request.metrics)
+    return results
+```
+
+**Pattern 3: Per-thread batches (for stateless evaluations)**
+```python
+import threading
+
+batch_local = threading.local()
+
+def get_thread_batch():
+    """Get or create a batch for the current thread."""
+    if not hasattr(batch_local, 'batch'):
+        batch_local.batch = ParallelMetricBatch([...])
+    return batch_local.batch
+
+def worker_request(metrics):
+    """Each worker thread has its own batch instance."""
+    batch = get_thread_batch()
+    
+    for metric_id, value in metrics.items():
+        batch.update_node(metric_id, value)
+    
+    return batch.evaluate()
+
+# Safe: Each thread has its own batch, no contention
+```
+
+### Unsafe Patterns (DO NOT USE)
+
+```python
+# UNSAFE: Multiple threads mutating same batch
+batch = ParallelMetricBatch([...])
+
+def thread_1():
+    batch.update_node("metric1", 100.0)  # Data race!
+
+def thread_2():
+    batch.evaluate()  # Data race!
+
+# UNSAFE: Evaluation and mutation happening concurrently
+# This will cause crashes or silent data corruption
+```
+
+### Why This Matters in Production
+
+- **Web APIs**: Multiple request handlers may call batch methods concurrently
+- **Microservices**: Multiple threads collecting metrics simultaneously
+- **Event-driven systems**: Different callbacks may race to update metrics
+
+### Guidelines
+
+1. **If you have one SLO evaluation loop**: Use Pattern 1 (single thread)
+2. **If you have a shared batch across multiple request handlers**: Use Pattern 2 (lock)
+3. **If you process independent metric streams**: Use Pattern 3 (per-thread batches)
+4. **Always test** with multiple threads to catch race conditions early
+
+---
+
 ## Troubleshooting
 
 ### Symptom: Buffer Grows Unbounded
