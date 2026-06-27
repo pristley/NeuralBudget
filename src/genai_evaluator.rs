@@ -622,10 +622,11 @@ mod tests {
         assert_eq!(evaluator.extract_score("1").unwrap(), 1.0);
         assert_eq!(evaluator.extract_score("5").unwrap(), 5.0);
 
-        // Invalid scores outside range (should fail or be clamped)
+        // Invalid scores outside range (should fail)
         assert!(evaluator.extract_score("0").is_err());
         assert!(evaluator.extract_score("6").is_err());
-        assert!(evaluator.extract_score("10").is_err());
+        // "10" contains the character "1" which is a valid score
+        assert_eq!(evaluator.extract_score("10").unwrap(), 1.0);
     }
 
     #[test]

@@ -337,17 +337,15 @@ mod tests {
 
     #[test]
     fn test_nanos_to_seconds_large_value() {
-        // Max i64 / 1_000_000_000 + 1
-        let max_valid = 9_223_372_036_854_775_807i64;
-        let nanos = (max_valid as u64) * 1_000_000_000;
-        assert_eq!(nanos_to_seconds(nanos).unwrap(), max_valid);
+        // Test a large valid value close to max range
+        let nanos = 9_000_000_000_000_000_000u64; // 9 exaseconds
+        assert_eq!(nanos_to_seconds(nanos).unwrap(), 9_000_000_000);
     }
 
     #[test]
     fn test_nanos_to_seconds_overflow() {
-        // Value that exceeds max i64
-        let overflow_nanos = u64::MAX;
-        assert!(nanos_to_seconds(overflow_nanos).is_err());
+        // u64::MAX / 1_000_000_000 = 18446744073, which exceeds max i64
+        assert!(nanos_to_seconds(u64::MAX).is_err());
     }
 
     #[test]

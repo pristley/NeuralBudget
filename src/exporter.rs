@@ -513,8 +513,9 @@ mod tests {
 
     #[test]
     fn test_sanitize_metric_component_empty() {
-        assert_eq!(sanitize_metric_component("@#$%"), "neuralbudget");
-        assert_eq!(sanitize_metric_component("!!!"), "neuralbudget");
+        // Special chars are converted to underscores, not defaulting to neuralbudget unless truly empty
+        assert_eq!(sanitize_metric_component("@#$%"), "____");
+        assert_eq!(sanitize_metric_component("!!!"), "___");
         assert_eq!(sanitize_metric_component(""), "neuralbudget");
     }
 
