@@ -566,14 +566,12 @@ mod tests {
             timestamp: 1234567890,
             cache_key: "llm_judge:abc123".to_string(),
             from_cache: false,
-            dimension_scores: vec![
-                DimensionScore {
-                    name: "correctness".to_string(),
-                    score: 4.0,
-                    reasoning: None,
-                    pass: true,
-                },
-            ],
+            dimension_scores: vec![DimensionScore {
+                name: "correctness".to_string(),
+                score: 4.0,
+                reasoning: None,
+                pass: true,
+            }],
             weighted_score: 0.75,
             pass: true,
             total_cost_usd: 0.0001,

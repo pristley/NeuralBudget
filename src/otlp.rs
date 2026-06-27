@@ -452,7 +452,10 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].value, 42.5);
         assert_eq!(result[0].timestamp, 1);
-        assert_eq!(result[0].labels.get("service").map(|s| s.as_str()), Some("api"));
+        assert_eq!(
+            result[0].labels.get("service").map(|s| s.as_str()),
+            Some("api")
+        );
     }
 
     #[test]
@@ -633,7 +636,9 @@ mod tests {
         let result = ingest_otlp_histogram_json(json, "http.request.duration");
         assert!(result.is_err());
         match result.unwrap_err() {
-            OtlpIngestError::InvalidHistogramBuckets(name) => assert_eq!(name, "http.request.duration"),
+            OtlpIngestError::InvalidHistogramBuckets(name) => {
+                assert_eq!(name, "http.request.duration")
+            }
             _ => panic!("Expected InvalidHistogramBuckets error"),
         }
     }

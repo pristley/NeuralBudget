@@ -550,7 +550,10 @@ mod tests {
     fn test_set_static_label() {
         let mut exporter = PrometheusExporter::new();
         exporter.set_static_label("env", "prod");
-        assert_eq!(exporter.static_labels.get("env").map(|s| s.as_str()), Some("prod"));
+        assert_eq!(
+            exporter.static_labels.get("env").map(|s| s.as_str()),
+            Some("prod")
+        );
     }
 
     #[test]
@@ -561,9 +564,18 @@ mod tests {
         exporter.set_static_label("team", "backend");
 
         assert_eq!(exporter.static_labels.len(), 3);
-        assert_eq!(exporter.static_labels.get("env").map(|s| s.as_str()), Some("prod"));
-        assert_eq!(exporter.static_labels.get("region").map(|s| s.as_str()), Some("us-west"));
-        assert_eq!(exporter.static_labels.get("team").map(|s| s.as_str()), Some("backend"));
+        assert_eq!(
+            exporter.static_labels.get("env").map(|s| s.as_str()),
+            Some("prod")
+        );
+        assert_eq!(
+            exporter.static_labels.get("region").map(|s| s.as_str()),
+            Some("us-west")
+        );
+        assert_eq!(
+            exporter.static_labels.get("team").map(|s| s.as_str()),
+            Some("backend")
+        );
     }
 
     #[test]
@@ -572,7 +584,12 @@ mod tests {
         exporter.set_static_label("env", "test");
 
         // Simulate adding some metrics (use observe_gauge internally)
-        exporter.observe_gauge("test_metric", "Test metric", 42.0, vec![("service", "test".to_string())]);
+        exporter.observe_gauge(
+            "test_metric",
+            "Test metric",
+            42.0,
+            vec![("service", "test".to_string())],
+        );
 
         assert!(!exporter.families.is_empty());
 
@@ -595,7 +612,10 @@ mod tests {
 
     #[test]
     fn test_format_help_with_escapes() {
-        assert_eq!(format_help("Path: C:\\Users\\John"), "Path: C:\\\\Users\\\\John");
+        assert_eq!(
+            format_help("Path: C:\\Users\\John"),
+            "Path: C:\\\\Users\\\\John"
+        );
         assert_eq!(format_help("Line1\nLine2"), "Line1\\nLine2");
         assert_eq!(format_help("C:\\path\nNext"), "C:\\\\path\\nNext");
     }
@@ -611,7 +631,12 @@ mod tests {
     #[test]
     fn test_observe_gauge_creates_metric() {
         let mut exporter = PrometheusExporter::new();
-        exporter.observe_gauge("test_metric", "Test gauge", 42.5, vec![("service", "api".to_string())]);
+        exporter.observe_gauge(
+            "test_metric",
+            "Test gauge",
+            42.5,
+            vec![("service", "api".to_string())],
+        );
 
         assert_eq!(exporter.families.len(), 1);
         assert!(exporter.families.contains_key("neuralbudget_test_metric"));
@@ -625,7 +650,7 @@ mod tests {
 
         let family = exporter.families.get("neuralbudget_test").unwrap();
         let labels = family.samples.keys().next().unwrap();
-        
+
         // Should include both static and dynamic labels
         let label_map: std::collections::HashMap<_, _> = labels.iter().cloned().collect();
         assert_eq!(label_map.get("env").map(|s| s.as_str()), Some("prod"));
