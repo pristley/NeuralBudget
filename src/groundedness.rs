@@ -226,7 +226,7 @@ impl GroundednessEvaluator {
     }
 
     /// Simple rule-based claim extraction: split by sentences
-    fn extract_claims_rule_based(&self, response: &str) -> Result<Vec<Claim>> {
+    pub fn extract_claims_rule_based(&self, response: &str) -> Result<Vec<Claim>> {
         let mut claims = Vec::new();
         let mut current_pos = 0;
 
@@ -302,7 +302,7 @@ impl GroundednessEvaluator {
     }
 
     /// Simple embedding-like similarity using character n-gram overlap
-    fn embedding_similarity(&self, claim: &str, doc: &str) -> f64 {
+    pub fn embedding_similarity(&self, claim: &str, doc: &str) -> f64 {
         let claim_lower = claim.to_lowercase();
         let doc_lower = doc.to_lowercase();
 
@@ -323,7 +323,7 @@ impl GroundednessEvaluator {
     }
 
     /// TF-IDF style similarity
-    fn tfidf_similarity(&self, claim: &str, doc: &str) -> f64 {
+    pub fn tfidf_similarity(&self, claim: &str, doc: &str) -> f64 {
         let claim_words: Vec<&str> = claim.split_whitespace().collect();
         let doc_words: Vec<&str> = doc.split_whitespace().collect();
 
@@ -346,7 +346,7 @@ impl GroundednessEvaluator {
     }
 
     /// Token overlap similarity
-    fn token_overlap(&self, claim: &str, doc: &str) -> f64 {
+    pub fn token_overlap(&self, claim: &str, doc: &str) -> f64 {
         let claim_tokens: std::collections::HashSet<&str> = claim.split_whitespace().collect();
         let doc_tokens: std::collections::HashSet<&str> = doc.split_whitespace().collect();
 

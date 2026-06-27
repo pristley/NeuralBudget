@@ -2,7 +2,12 @@
 
 #[cfg(test)]
 mod hallucination_detection_tests {
-    use neuralbudget::groundedness::*;
+    use neuralbudget::{
+        Claim, ClaimExtractionConfig, ClaimExtractionMethod, Document, GroundednessEvaluator,
+        GroundednessResult, HallucinationDetectionConfig, HallucinationExtractionMethod,
+        HallucinationScoringMethod, ScoredClaim, SimilarityMethod,
+    };
+    use serde_json;
 
     #[test]
     fn test_claim_extraction_rule_based() {
