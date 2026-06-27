@@ -70,12 +70,13 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install maturin
 
-      # Run all Rust tests *and* doc tests while collecting coverage in one go
+      # Run all Rust tests while collecting coverage
       - name: Run tests with coverage
-        run: |
-          cargo llvm-cov --workspace --all-features \
-            --tests --doc \
-            --summary-only --fail-under-lines 70
+        run: cargo llvm-cov --workspace --all-features --tests --summary-only --fail-under-lines 70
+
+      # Run doc tests separately (without coverage collection to avoid conflicts)
+      - name: Run doc tests
+        run: cargo test --doc --all-features
 
       # Build the Python wheel (now that tests pass)
       - name: Build wheel
