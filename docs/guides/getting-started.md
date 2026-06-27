@@ -63,11 +63,15 @@ Create a file named quick_eval.py.
 
 ~~~python
 from neuralbudget import NeuralBudgetClient
+import sys
 
-client = NeuralBudgetClient().load_config("slo.json")
-
-result = client.evaluate(
-    {
+try:
+    # Step 1: Create client and load config
+    client = NeuralBudgetClient()
+    client.load_config("slo.json")
+    
+    # Step 2: Prepare metric data
+    metric_data = {
         "timestamp": 1,
         "success": 9995,
         "total": 10000,
@@ -78,11 +82,29 @@ result = client.evaluate(
         ],
         "format": "prometheus_cumulative"
     }
-)
+    
+    # Step 3: Evaluate
+    result = client.evaluate(metric_data)
+    
+    # Step 4: Display results
+    is_pass = result.get("pass", result.get("global_pass"))
+    print("✓ Evaluation succeeded")
+    print("result:", result)
+    print("pass:", bool(is_pass))
 
-is_pass = result.get("pass", result.get("global_pass"))
-print("result:", result)
-print("pass:", bool(is_pass))
+except FileNotFoundError:
+    print("✗ ERROR: Config file 'slo.json' not found", file=sys.stderr)
+    print("  → Create slo.json first (see Step 2 above)", file=sys.stderr)
+    sys.exit(1)
+
+except ValueError as e:
+    print(f"✗ ERROR: Invalid config or metrics: {e}", file=sys.stderr)
+    print("  → Check slo.json format and metric_data structure", file=sys.stderr)
+    sys.exit(1)
+
+except RuntimeError as e:
+    print(f"✗ ERROR: Evaluation failed: {e}", file=sys.stderr)
+    sys.exit(1)
 ~~~
 
 Run it:
@@ -94,6 +116,11 @@ python3 quick_eval.py
 Expected outcome:
 - The script prints an evaluation object.
 - The pass line prints True for this sample input.
+
+**If you see an error:**
+- `✗ ERROR: Config file 'slo.json' not found` → Make sure you created slo.json in Step 2
+- `✗ ERROR: Invalid config or metrics` → Check your slo.json and metric_data match the format above
+- `✗ ERROR: Evaluation failed` → See [Troubleshooting Guide](troubleshooting.md) for help
 
 ## 4. Validate Local Quality Gates
 

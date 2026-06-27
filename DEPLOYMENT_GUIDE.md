@@ -71,12 +71,21 @@ maturin develop --release
 Test that both components are available:
 
 ```python
-from neuralbudget import StreamingAggregator, ParallelMetricBatch
+try:
+    from neuralbudget import StreamingAggregator, ParallelMetricBatch
 
-agg = StreamingAggregator()
-batch = ParallelMetricBatch([("test", 50.0, 100.0)])
-results = batch.evaluate()
-print(f"Installation verified. Evaluated {len(results)} metrics.")
+    agg = StreamingAggregator()
+    batch = ParallelMetricBatch([("test", 50.0, 100.0)])
+    results = batch.evaluate()
+    print(f"✓ Installation verified. Evaluated {len(results)} metrics.")
+    
+except ImportError as e:
+    print(f"✗ Import error: {e}")
+    print("  → Run: pip install neuralbudget")
+except ValueError as e:
+    print(f"✗ Batch creation failed: {e}")
+except RuntimeError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ---
@@ -163,28 +172,32 @@ Action:          Automatic; no code changes needed
 from neuralbudget import StreamingAggregator
 import time
 
-agg = StreamingAggregator()
+try:
+    agg = StreamingAggregator()
 
-# Normal ingestion
-for i in range(100):
-    agg.push(i * 100, 50.0 + (i % 10))
-    time.sleep(0.02)  # 50 Hz ingestion
+    # Normal ingestion
+    for i in range(100):
+        agg.push(i * 100, 50.0 + (i % 10))
+        time.sleep(0.02)  # 50 Hz ingestion
 
-print(f"Normal phase: {agg.len()} entries")  # ~100 entries
+    print(f"✓ Normal phase: {agg.len()} entries")  # ~100 entries
 
-# Traffic spike: 100x ingestion rate
-for i in range(100):
-    agg.push(10000 + i, 50.0 + (i % 10))
-    time.sleep(0.0002)  # 5,000 Hz ingestion (high-frequency phase)
+    # Traffic spike: 100x ingestion rate
+    for i in range(100):
+        agg.push(10000 + i, 50.0 + (i % 10))
+        time.sleep(0.0002)  # 5,000 Hz ingestion (high-frequency phase)
 
-print(f"During spike: {agg.len()} entries")  # Still ~100 entries (auto-pruned)
+    print(f"✓ During spike: {agg.len()} entries")  # Still ~100 entries (auto-pruned)
 
-# Spike subsides
-for i in range(50):
-    agg.push(20000 + i * 100, 50.0 + (i % 10))
-    time.sleep(0.02)  # Back to 50 Hz
+    # Spike subsides
+    for i in range(50):
+        agg.push(20000 + i * 100, 50.0 + (i % 10))
+        time.sleep(0.02)  # Back to 50 Hz
 
-print(f"After spike: {agg.len()} entries")  # Stabilized; normal operation resumed
+    print(f"✓ After spike: {agg.len()} entries")  # Stabilized; normal operation resumed
+    
+except TypeError as e:
+    print(f"✗ Error pushing metrics: {e}")
 ```
 
 ---
@@ -198,9 +211,14 @@ print(f"After spike: {agg.len()} entries")  # Stabilized; normal operation resum
 Monitor `agg.len()` to track memory usage:
 
 ```python
-current_size = agg.len()
-if current_size > 100000:
-    log.warning(f"Large aggregator buffer: {current_size} entries (~{current_size * 40} bytes)")
+try:
+    current_size = agg.len()
+    if current_size > 100000:
+        log.warning(f"Large aggregator buffer: {current_size} entries (~{current_size * 40} bytes)")
+    else:
+        log.info(f"Aggregator size: {current_size} entries")
+except Exception as e:
+    log.error(f"Error checking aggregator size: {e}")
 ```
 
 **Expected ranges:**
@@ -213,10 +231,17 @@ Measure how long `get_moving_average()` takes:
 
 ```python
 import time
-start = time.time()
-avg = agg.get_moving_average(current_ts, 5000)
-latency_us = (time.time() - start) * 1_000_000
-log.info(f"Moving average query: {latency_us:.0f} µs")
+
+try:
+    start = time.time()
+    avg = agg.get_moving_average(current_ts, 5000)
+    latency_us = (time.time() - start) * 1_000_000
+    log.info(f"Moving average query: {latency_us:.0f} µs")
+    
+    if latency_us > 100:
+        log.warning(f"Slow moving average query: {latency_us:.0f} µs")
+except TypeError as e:
+    log.error(f"Error querying moving average: {e}")
 ```
 
 **Expected:** < 50 microseconds for typical window sizes (100–5,000 samples).
@@ -230,14 +255,20 @@ Measure how many metrics ParallelMetricBatch evaluates per second:
 import time
 from neuralbudget import ParallelMetricBatch
 
-batch = ParallelMetricBatch([(f"metric_{i}", 50.0, 100.0) for i in range(1000)])
+try:
+    batch = ParallelMetricBatch([(f"metric_{i}", 50.0, 100.0) for i in range(1000)])
 
-start = time.time()
-for _ in range(10):
-    batch.evaluate()
-duration = time.time() - start
-throughput = (batch.node_count * 10) / duration
-log.info(f"Throughput: {throughput:.0f} metrics/sec")
+    start = time.time()
+    for _ in range(10):
+        batch.evaluate()
+    duration = time.time() - start
+    throughput = (batch.node_count * 10) / duration
+    log.info(f"Throughput: {throughput:.0f} metrics/sec")
+    
+    if throughput < 10000:
+        log.warning(f"Low throughput detected: {throughput:.0f} metrics/sec")
+except (ValueError, RuntimeError) as e:
+    log.error(f"Error measuring throughput: {e}")
 ```
 
 **Expected:** 50,000–100,000 metrics per second on modern hardware.

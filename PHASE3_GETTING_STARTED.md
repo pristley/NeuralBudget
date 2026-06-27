@@ -40,9 +40,13 @@ agg = StreamingAggregator()
 Call `push()` once per metric measurement. Provide the timestamp (in milliseconds) and the value:
 
 ```python
-agg.push(1000, 50.0)  # timestamp=1000ms, value=50.0
-agg.push(1050, 52.0)
-agg.push(1100, 51.0)
+try:
+    agg.push(1000, 50.0)  # timestamp=1000ms, value=50.0
+    agg.push(1050, 52.0)
+    agg.push(1100, 51.0)
+    print(f"✓ Pushed 3 metrics")
+except TypeError as e:
+    print(f"✗ Error: Push expects (int, float), got error: {e}")
 ```
 
 The aggregator stores each point in a queue. Processing speed: 20,000 metrics per second through Python's C interface.
@@ -52,9 +56,13 @@ The aggregator stores each point in a queue. Processing speed: 20,000 metrics pe
 Ask for the average over the last N milliseconds:
 
 ```python
-window_ms = 100  # Average over the past 100 milliseconds
-current_ts = 1100  # Current time
-avg = agg.get_moving_average(current_ts, window_ms)  # Returns: 51.33...
+try:
+    window_ms = 100  # Average over the past 100 milliseconds
+    current_ts = 1100  # Current time
+    avg = agg.get_moving_average(current_ts, window_ms)  # Returns: 51.33...
+    print(f"✓ Moving average: {avg:.2f}")
+except TypeError as e:
+    print(f"✗ Error: Expected (int, int), got error: {e}")
 ```
 
 This method returns a single number (average), not a Python object, so retrieval is fast (~10 microseconds per call).
@@ -64,7 +72,11 @@ This method returns a single number (average), not a Python object, so retrieval
 Remove data older than a cutoff timestamp to free memory:
 
 ```python
-agg.prune(900)  # Remove all points before timestamp 900
+try:
+    agg.prune(900)  # Remove all points before timestamp 900
+    print(f"✓ Pruned data before timestamp 900, remaining: {agg.len()} entries")
+except TypeError as e:
+    print(f"✗ Error: Prune expects int, got error: {e}")
 ```
 
 #### Automatic Cleanup During Traffic Spikes
@@ -90,11 +102,15 @@ Provide a list of (metric ID, current value, threshold) tuples:
 ```python
 from neuralbudget import ParallelMetricBatch
 
-batch = ParallelMetricBatch([
-    ("latency_p99", 150.0, 200.0),      # 150 ms < 200 ms threshold: PASS
-    ("availability", 99.95, 99.9),      # 99.95% > 99.9% threshold: PASS
-    ("error_rate", 0.1, 0.5),           # 0.1% < 0.5% threshold: PASS
-])
+try:
+    batch = ParallelMetricBatch([
+        ("latency_p99", 150.0, 200.0),      # 150 ms < 200 ms threshold: PASS
+        ("availability", 99.95, 99.9),      # 99.95% > 99.9% threshold: PASS
+        ("error_rate", 0.1, 0.5),           # 0.1% < 0.5% threshold: PASS
+    ])
+    print(f"✓ Created batch with {batch.node_count} metrics")
+except ValueError as e:
+    print(f"✗ Error creating batch: {e}")
 ```
 
 ### Evaluate Metrics in Parallel
@@ -102,12 +118,16 @@ batch = ParallelMetricBatch([
 Call `evaluate()` to check all metrics against their thresholds. This releases Python's Global Interpreter Lock, allowing evaluation to use multiple CPU cores:
 
 ```python
-results = batch.evaluate()
-# Returns a list: [
-#   ("latency_p99", 150.0, 200.0, True, 0.75),
-#   ("availability", 99.95, 99.9, True, 1.0),
-#   ("error_rate", 0.1, 0.5, True, 0.2),
-# ]
+try:
+    results = batch.evaluate()
+    # Returns a list: [
+    #   ("latency_p99", 150.0, 200.0, True, 0.75),
+    #   ("availability", 99.95, 99.9, True, 1.0),
+    #   ("error_rate", 0.1, 0.5, True, 0.2),
+    # ]
+    print(f"✓ Evaluated {len(results)} metrics in parallel")
+except RuntimeError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 **Result format:** (metric ID, value, threshold, pass, score)
@@ -127,10 +147,15 @@ Get aggregate statistics without re-evaluating:
 Compute overall health from the results:
 
 ```python
-all_pass = all(passed for _, _, _, passed, _ in results)       # True if every metric passed
-avg_score = sum(score for _, _, _, _, score in results) / len(results)  # Mean score
-pass_count = sum(1 for _, _, _, passed, _ in results if passed)  # Number of passing metrics
-total = batch.node_count                                         # Total metrics in batch
+try:
+    all_pass = all(passed for _, _, _, passed, _ in results)       # True if every metric passed
+    avg_score = sum(score for _, _, _, _, score in results) / len(results)  # Mean score
+    pass_count = sum(1 for _, _, _, passed, _ in results if passed)  # Number of passing metrics
+    total = batch.node_count                                         # Total metrics in batch
+    
+    print(f"✓ All pass: {all_pass}, Avg score: {avg_score:.3f}, Pass count: {pass_count}/{total}")
+except (ValueError, ZeroDivisionError) as e:
+    print(f"✗ Error aggregating results: {e}")
 ```
 
 ### Re-evaluate with New Values
@@ -138,12 +163,16 @@ total = batch.node_count                                         # Total metrics
 Create a new batch with updated metric values:
 
 ```python
-batch = ParallelMetricBatch([
-    ("latency_p99", 180.0, 200.0),  # Updated value
-    ("availability", 99.98, 99.9),  # Updated value
-    ("error_rate", 0.05, 0.5),      # Updated value
-])
-results = batch.evaluate()
+try:
+    batch = ParallelMetricBatch([
+        ("latency_p99", 180.0, 200.0),  # Updated value
+        ("availability", 99.98, 99.9),  # Updated value
+        ("error_rate", 0.05, 0.5),      # Updated value
+    ])
+    results = batch.evaluate()
+    print(f"✓ Re-evaluated batch: {len(results)} metrics")
+except (ValueError, RuntimeError) as e:
+    print(f"✗ Error: {e}")
 ```
 
 ---

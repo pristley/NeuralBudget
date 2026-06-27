@@ -182,70 +182,90 @@ Alerting security defaults (OWASP-oriented):
 ### HTTP histogram mode
 
 ```python
-client = NeuralBudgetClient().load_config("http_slo.yaml")
-result = client.evaluate(
-    {
-        "timestamp": 120,
-        "success": 4980,
-        "total": 5000,
-        "buckets": [
-            [50.0, 4200],
-            [100.0, 4700],
-            [200.0, 5000]
-        ],
-        "format": "open_telemetry_delta"
-    }
-)
-print(result["availability"], result["pass"])
+from neuralbudget import NeuralBudgetClient
+
+try:
+    client = NeuralBudgetClient().load_config("http_slo.yaml")
+    result = client.evaluate(
+        {
+            "timestamp": 120,
+            "success": 4980,
+            "total": 5000,
+            "buckets": [
+                [50.0, 4200],
+                [100.0, 4700],
+                [200.0, 5000]
+            ],
+            "format": "open_telemetry_delta"
+        }
+    )
+    print(f"✓ Availability: {result['availability']:.2%}, Pass: {result['pass']}")
+except ValueError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ### Stateful mode
 
 ```python
-client = NeuralBudgetClient().load_config("stateful_slo.json")
-result = client.evaluate(
-    {
-        "timestamp": 42,
-        "replication_lag_ms": 180.0,
-        "queue_depth": 700,
-        "connection_pool_saturation": 0.72,
-        "connection_wait_time_ms": 12.0
-    }
-)
-print(result["score"], result["pass"])
+from neuralbudget import NeuralBudgetClient
+
+try:
+    client = NeuralBudgetClient().load_config("stateful_slo.json")
+    result = client.evaluate(
+        {
+            "timestamp": 42,
+            "replication_lag_ms": 180.0,
+            "queue_depth": 700,
+            "connection_pool_saturation": 0.72,
+            "connection_wait_time_ms": 12.0
+        }
+    )
+    print(f"✓ Score: {result['score']:.3f}, Pass: {result['pass']}")
+except ValueError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ### ML mode
 
 ```python
-client = NeuralBudgetClient().load_config("ml_slo.json")
-result = client.evaluate(
-    {
-        "timestamp": 7,
-        "inference_latency_ms": 190.0,
-        "gpu_utilization": 0.76,
-        "feature_drift": 0.08,
-        "prediction_confidence": 0.91
-    }
-)
-print(result["hybrid_score"], result["pass"])
+from neuralbudget import NeuralBudgetClient
+
+try:
+    client = NeuralBudgetClient().load_config("ml_slo.json")
+    result = client.evaluate(
+        {
+            "timestamp": 7,
+            "inference_latency_ms": 190.0,
+            "gpu_utilization": 0.76,
+            "feature_drift": 0.08,
+            "prediction_confidence": 0.91
+        }
+    )
+    print(f"✓ Hybrid Score: {result['hybrid_score']:.3f}, Pass: {result['pass']}")
+except ValueError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ### GenAI mode
 
 ```python
-client = NeuralBudgetClient().load_config("genai_slo.yaml")
-result = client.evaluate(
-    {
-        "timestamp": 2,
-        "tokens_generated": 350,
-        "generation_duration_ms": 14000,
-        "time_to_first_token_ms": 820,
-        "reference_text": "The release passed reliability criteria.",
-        "generated_text": "Reliability criteria were met for this release."
-    }
-)
-print(result["tokens_per_second"], result["semantic_similarity"], result["pass"])
+from neuralbudget import NeuralBudgetClient
+
+try:
+    client = NeuralBudgetClient().load_config("genai_slo.yaml")
+    result = client.evaluate(
+        {
+            "timestamp": 2,
+            "tokens_generated": 350,
+            "generation_duration_ms": 14000,
+            "time_to_first_token_ms": 820,
+            "reference_text": "The release passed reliability criteria.",
+            "generated_text": "Reliability criteria were met for this release."
+        }
+    )
+    print(f"✓ TPS: {result['tokens_per_second']:.1f}, Similarity: {result['semantic_similarity']:.2f}, Pass: {result['pass']}")
+except ValueError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ### Composite dependency DAG mode
@@ -255,36 +275,38 @@ Composite mode models upstream and downstream service impact.
 ```python
 from neuralbudget import NeuralBudgetClient
 
-client = NeuralBudgetClient().load_config("composite_slo.json")
+try:
+    client = NeuralBudgetClient().load_config("composite_slo.json")
 
-result = client.evaluate(
-    {
-        "services": [
-            {
-                "service": "gateway",
-                "local_score": 0.94,
-                "min_pass_score": 0.9,
-                "impact_weight": 2.0
-            },
-            {
-                "service": "checkout",
-                "local_score": 0.88,
-                "min_pass_score": 0.9,
-                "impact_weight": 3.0
-            }
-        ],
-        "dependencies": [
-            {
-                "dependency": "gateway",
-                "dependent": "checkout",
-                "failure_penalty": 0.15
-            }
-        ],
-        "global_min_pass_score": 0.9
-    }
-)
-
-print(result["global_slo"], result["global_pass"])
+    result = client.evaluate(
+        {
+            "services": [
+                {
+                    "service": "gateway",
+                    "local_score": 0.94,
+                    "min_pass_score": 0.9,
+                    "impact_weight": 2.0
+                },
+                {
+                    "service": "checkout",
+                    "local_score": 0.88,
+                    "min_pass_score": 0.9,
+                    "impact_weight": 3.0
+                }
+            ],
+            "dependencies": [
+                {
+                    "dependency": "gateway",
+                    "dependent": "checkout",
+                    "failure_penalty": 0.15
+                }
+            ],
+            "global_min_pass_score": 0.9
+        }
+    )
+    print(f"✓ Global SLO: {result['global_slo']:.3f}, Pass: {result['global_pass']}")
+except ValueError as e:
+    print(f"✗ Evaluation failed: {e}")
 ```
 
 ## Jupyter Notebook Workflow
@@ -298,15 +320,31 @@ Typical notebook pattern:
 ```python
 import pandas as pd
 from neuralbudget import NeuralBudgetClient
+import sys
 
-client = NeuralBudgetClient().load_config("http_slo.yaml")
-rows = []
+try:
+    client = NeuralBudgetClient().load_config("http_slo.yaml")
+    rows = []
 
-for sample in metric_samples:
-    rows.append(client.evaluate(sample))
+    for sample in metric_samples:
+        try:
+            rows.append(client.evaluate(sample))
+        except ValueError as e:
+            print(f"⚠️  Skipping sample: {e}")
+            continue
 
-df = pd.DataFrame(rows)
-df[["timestamp", "availability", "percentile_latency_ms", "pass"]].tail()
+    if not rows:
+        print("✗ No valid samples to evaluate")
+        sys.exit(1)
+    
+    df = pd.DataFrame(rows)
+    print(f"✓ Evaluated {len(df)} samples")
+    print(df[["timestamp", "availability", "percentile_latency_ms", "pass"]].tail())
+    
+except FileNotFoundError:
+    print("✗ Config file not found")
+except ValueError as e:
+    print(f"✗ Invalid config: {e}")
 ```
 
 ## CI/CD Pipeline Workflow
@@ -325,15 +363,43 @@ from neuralbudget import NeuralBudgetClient
 config_path = Path("slo.yaml")
 metrics_path = Path("metrics.json")
 
-client = NeuralBudgetClient().load_config(config_path)
-metric_data = json.loads(metrics_path.read_text(encoding="utf-8"))
-result = client.evaluate(metric_data)
-
-passed = bool(result.get("pass", result.get("global_pass", False)))
-print(json.dumps(result, indent=2, sort_keys=True))
-
-if not passed:
-    sys.exit("SLO gate failed")
+try:
+    # Load config
+    client = NeuralBudgetClient()
+    client.load_config(config_path)
+    
+    # Load metrics
+    if not metrics_path.exists():
+        print(f"✗ ERROR: Metrics file not found: {metrics_path}")
+        sys.exit(1)
+    
+    metric_data = json.loads(metrics_path.read_text(encoding="utf-8"))
+    
+    # Evaluate
+    result = client.evaluate(metric_data)
+    
+    # Report results
+    passed = bool(result.get("pass", result.get("global_pass", False)))
+    print(json.dumps(result, indent=2, sort_keys=True))
+    
+    if not passed:
+        print(f"\n✗ SLO gate FAILED (pass={passed})")
+        sys.exit(1)
+    else:
+        print(f"\n✓ SLO gate PASSED")
+        
+except FileNotFoundError as e:
+    print(f"✗ ERROR: Config file not found: {config_path}")
+    sys.exit(1)
+except ValueError as e:
+    print(f"✗ ERROR: Invalid config or metrics: {e}")
+    sys.exit(1)
+except json.JSONDecodeError as e:
+    print(f"✗ ERROR: Invalid JSON in metrics: {e}")
+    sys.exit(1)
+except RuntimeError as e:
+    print(f"✗ ERROR: Evaluation failed: {e}")
+    sys.exit(1)
 ```
 
 Example GitHub Actions step:
@@ -377,20 +443,32 @@ Python example:
 ```python
 import neuralbudget
 
-slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
-sample = neuralbudget.HistogramSample(
+try:
+    # Create SLO and sample data
+    slo = neuralbudget.HttpSlo(200.0, 0.99, 0.999)
+    sample = neuralbudget.HistogramSample(
         timestamp=1,
         success=100,
         total=100,
         buckets=[neuralbudget.HistogramBucket(100.0, 100)],
         format="prometheus_cumulative",
-)
-evaluation = slo.evaluate_histogram(sample)
-
-exporter = neuralbudget.PrometheusExporter("neuralbudget")
-exporter.set_static_label("team", "platform")
-exporter.observe_http_slo("api-gateway", evaluation)
-print(exporter.render())
+    )
+    
+    # Evaluate and export
+    evaluation = slo.evaluate_histogram(sample)
+    
+    exporter = neuralbudget.PrometheusExporter("neuralbudget")
+    exporter.set_static_label("team", "platform")
+    exporter.observe_http_slo("api-gateway", evaluation)
+    
+    prometheus_text = exporter.render()
+    print("✓ Prometheus metrics generated:")
+    print(prometheus_text)
+    
+except ValueError as e:
+    print(f"✗ Error creating SLO: {e}")
+except Exception as e:
+    print(f"✗ Error exporting metrics: {e}")
 ```
 
 ## OpenTelemetry (OTLP) Metric Ingestion
