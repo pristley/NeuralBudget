@@ -1,5 +1,6 @@
 // Re-exports of all public API types and functions from submodules
 
+mod agent_slo;
 mod core;
 mod cost_slo;
 mod exporter;
@@ -13,6 +14,7 @@ mod slo_graph;
 mod streaming;
 
 // Export error types and result alias first
+pub use agent_slo::*;
 pub use core::*;
 pub use core::{NeuralBudgetError, Result};
 pub use cost_slo::*;

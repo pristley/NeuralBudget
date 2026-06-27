@@ -870,6 +870,70 @@ pub struct GenAiCostEvaluation {
 }
 
 // ============================================================================
+// Agent SLO Configuration Types
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Trajectory metrics configuration for agent SLO evaluation
+pub struct TrajectoryMetricConfig {
+    /// Maximum number of steps agent should take
+    pub max_steps: u32,
+    /// Minimum acceptable tool call success rate (0.0-1.0)
+    pub tool_success_threshold: f64,
+    /// Maximum times the same action can repeat
+    pub max_repeated_actions: u32,
+    /// Minimum acceptable overall success rate (0.0-1.0)
+    pub success_threshold: f64,
+}
+
+impl Default for TrajectoryMetricConfig {
+    fn default() -> Self {
+        Self {
+            max_steps: 10,
+            tool_success_threshold: 0.95,
+            max_repeated_actions: 2,
+            success_threshold: 0.90,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Agent SLO configuration for tracking agent execution reliability
+pub struct AgentSloConfig {
+    /// Enable agent SLO evaluation
+    pub enabled: bool,
+    /// Trajectory metrics thresholds
+    pub trajectory_metrics: TrajectoryMetricConfig,
+    /// Enable loop detection
+    pub loop_detection_enabled: bool,
+}
+
+impl Default for AgentSloConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            trajectory_metrics: TrajectoryMetricConfig::default(),
+            loop_detection_enabled: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Agent evaluation result
+pub struct AgentEvaluationResult {
+    /// Number of steps taken
+    pub steps_taken: u32,
+    /// Tool call success rate (0.0-1.0)
+    pub tool_success_rate: f64,
+    /// Whether loop was detected
+    pub loop_detected: bool,
+    /// Whether final status was success
+    pub success: bool,
+    /// Overall SLO pass/fail
+    pub pass: bool,
+}
+
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO policy for one service node in a dependency graph.
