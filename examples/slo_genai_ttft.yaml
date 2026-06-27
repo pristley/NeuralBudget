@@ -1,0 +1,46 @@
+mode: genai
+
+ttft_slo:
+  enabled: true
+  
+  # Time to First Token: When does the user see their first response?
+  ttft_threshold_ms: 500      # First token within 500ms (good for streaming)
+  ttft_percentile: 0.99       # P99 requirement (99% of requests must meet threshold)
+  
+  # Inter-Token Latency: How smooth is the token stream?
+  inter_token_latency_threshold_ms: 50  # 50ms between tokens (smooth streaming)
+  inter_token_percentile: 0.95           # P95 requirement
+
+# Sample streaming response for evaluation
+sample:
+  timestamp: 1719446400  # Unix timestamp
+  request_id: "streaming_req_123"
+  
+  # Actual measurements from this request
+  time_to_first_token_ms: 450      # First token arrived in 450ms ✓
+  inter_token_latency_ms: 45       # Average 45ms between tokens ✓
+  total_tokens: 250                # Generated 250 tokens
+  total_response_time_ms: 13000    # Completed in 13 seconds
+  model: "gpt-4"
+
+# Evaluation breakdown:
+# - TTFT: 450ms < 500ms ✓ (90% of budget used)
+# - Inter-token: 45ms < 50ms ✓ (90% of budget used)
+# - Pass: true ✓
+
+# Typical values by use case:
+# Chat Assistant (conversational):
+#   - TTFT: 300ms-500ms (perceived responsiveness critical)
+#   - Inter-token: 30-50ms (smooth streaming expected)
+#
+# Code Generation:
+#   - TTFT: 500-800ms (acceptable delay for complex output)
+#   - Inter-token: 40-60ms (steady throughput)
+#
+# Summarization:
+#   - TTFT: 400-700ms (depends on input length)
+#   - Inter-token: 30-40ms (can be faster for summaries)
+#
+# Batch Processing (non-streaming):
+#   - TTFT: 1000-5000ms (batch aggregation latency)
+#   - Not applicable for TTFT (single response)

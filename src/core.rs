@@ -934,6 +934,52 @@ pub struct AgentEvaluationResult {
 }
 
 // ============================================================================
+// TTFT (Time to First Token) SLO Configuration Types
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Configuration for TTFT (Time to First Token) SLO evaluation
+pub struct TtftSloConfig {
+    /// Enable TTFT SLO evaluation
+    pub enabled: bool,
+    /// Maximum acceptable TTFT in milliseconds (e.g., 500ms)
+    pub ttft_threshold_ms: f64,
+    /// Percentile for TTFT threshold (e.g., 0.99 for P99)
+    pub ttft_percentile: f64,
+    /// Maximum acceptable inter-token latency in milliseconds
+    pub inter_token_latency_threshold_ms: f64,
+    /// Percentile for inter-token latency (e.g., 0.95 for P95)
+    pub inter_token_percentile: f64,
+}
+
+impl Default for TtftSloConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            ttft_threshold_ms: 500.0,
+            ttft_percentile: 0.99,
+            inter_token_latency_threshold_ms: 50.0,
+            inter_token_percentile: 0.95,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// TTFT evaluation result for configuration compatibility
+pub struct TtftEvaluationResult {
+    /// Whether TTFT meets threshold
+    pub ttft_pass: bool,
+    /// Actual TTFT in milliseconds
+    pub ttft_ms: f64,
+    /// Whether inter-token latency meets threshold
+    pub inter_token_pass: bool,
+    /// Actual inter-token latency in milliseconds
+    pub inter_token_latency_ms: f64,
+    /// Overall SLO pass/fail
+    pub pass: bool,
+}
+
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Composite SLO policy for one service node in a dependency graph.

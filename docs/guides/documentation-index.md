@@ -40,6 +40,7 @@ New to NeuralBudget? Choose your path:
 - **Hallucination Detection** → [Hallucination Detection SLO](hallucination-detection-slo.md) (Detect when claims are grounded in documents)
 - **Cost-Based SLOs** → [Cost SLO Guide](cost-slo.md) (Token usage budgets and cost control)
 - **Agent Reliability Tracking** → [Agent SLO Guide](agent-slo.md) (Track steps, tools, loops, and agent success rates)
+- **Streaming First-Token Latency** → [TTFT SLO Guide](ttft-slo.md) (Time to first token for streaming GenAI responses)
 - **High-frequency metric collection** → [Phase 3: Streaming](../internal/phases/PHASE3_GETTING_STARTED.md)
 - **Parallel metric evaluation** → [Parallel API Reference](PARALLEL_SLO_API_REFERENCE.md)
 - **Adaptive memory management** → [Adaptive Windowing Design](../internal/design/ADAPTIVE_WINDOWING_DESIGN.md)
