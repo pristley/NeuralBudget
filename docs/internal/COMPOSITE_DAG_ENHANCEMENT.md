@@ -9,7 +9,7 @@
 The Composite SLO DAG feature—NeuralBudget's most powerful and unique capability—has been significantly enhanced with:
 
 ### 1. **Enhanced Reference Documentation**
-📄 **File:** [docs/reference/composite-slo-dag.md](../docs/reference/composite-slo-dag.md)
+📄 **File:** [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
 
 **Additions:**
 - ✅ **Unique Value Proposition Table** - Direct comparison with parallel SLO evaluation
@@ -39,7 +39,7 @@ The Composite SLO DAG feature—NeuralBudget's most powerful and unique capabili
 ```
 
 ### 2. **Comprehensive Python Examples File**
-📄 **File:** [examples/python/composite_slo_dag_examples.py](../examples/python/composite_slo_dag_examples.py)
+📄 **File:** [examples/python/composite_slo_dag_examples.py](../../examples/python/composite_slo_dag_examples.py)
 
 **Features:**
 - ✅ **5 Production-Ready Examples** (600+ lines)
@@ -54,7 +54,7 @@ The Composite SLO DAG feature—NeuralBudget's most powerful and unique capabili
 - ✅ **Detailed Output** - Expected results shown inline
 
 ### 3. **5-Minute Quickstart Guide**
-📄 **File:** [docs/quickstart/5-minute-composite-dag-slo.md](../docs/quickstart/5-minute-composite-dag-slo.md)
+📄 **File:** [docs/quickstart/5-minute-composite-dag-slo.md](../quickstart/5-minute-composite-dag-slo.md)
 
 **Sections:**
 - ✅ **What is Composite DAG?** - Visual explanation
@@ -67,7 +67,7 @@ The Composite SLO DAG feature—NeuralBudget's most powerful and unique capabili
 - ✅ **FAQ** - Common questions answered
 
 ### 4. **Quickstart Example Directory**
-📁 **Path:** [examples/quickstart/composite-dag/](../examples/quickstart/composite-dag/)
+📁 **Path:** [examples/quickstart/composite-dag/](../../examples/quickstart/composite-dag/)
 
 **Files Created:**
 - ✅ **slo.yaml** - E-commerce checkout pipeline config
@@ -75,7 +75,7 @@ The Composite SLO DAG feature—NeuralBudget's most powerful and unique capabili
 - ✅ **README.md** - Detailed scenario guide with experiments
 
 ### 5. **Updated Quickstart INDEX**
-📄 **File:** [docs/quickstart/INDEX.md](../docs/quickstart/INDEX.md)
+📄 **File:** [docs/quickstart/INDEX.md](../quickstart/INDEX.md)
 
 **Changes:**
 - ✅ Added Composite DAG as 6th use case option
@@ -181,16 +181,16 @@ System correctly reported → "Global: 0.71 FAIL" (correct!)
 ## Integration Points
 
 ### Updated Files
-- [docs/reference/composite-slo-dag.md](../docs/reference/composite-slo-dag.md) - ENHANCED
-- [docs/quickstart/INDEX.md](../docs/quickstart/INDEX.md) - UPDATED
-- [examples/quickstart/](../examples/quickstart/) - NEW composite-dag/ subdirectory
+- [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md) - ENHANCED
+- [docs/quickstart/INDEX.md](../quickstart/INDEX.md) - UPDATED
+- [examples/quickstart/](../../examples/quickstart/) - NEW composite-dag/ subdirectory
 
 ### New Files
-- [docs/quickstart/5-minute-composite-dag-slo.md](../docs/quickstart/5-minute-composite-dag-slo.md)
-- [examples/python/composite_slo_dag_examples.py](../examples/python/composite_slo_dag_examples.py)
-- [examples/quickstart/composite-dag/slo.yaml](../examples/quickstart/composite-dag/slo.yaml)
-- [examples/quickstart/composite-dag/sample.json](../examples/quickstart/composite-dag/sample.json)
-- [examples/quickstart/composite-dag/README.md](../examples/quickstart/composite-dag/README.md)
+- [docs/quickstart/5-minute-composite-dag-slo.md](../quickstart/5-minute-composite-dag-slo.md)
+- [examples/python/composite_slo_dag_examples.py](../../examples/python/composite_slo_dag_examples.py)
+- [examples/quickstart/composite-dag/slo.yaml](../../examples/quickstart/composite-dag/slo.yaml)
+- [examples/quickstart/composite-dag/sample.json](../../examples/quickstart/composite-dag/sample.json)
+- [examples/quickstart/composite-dag/README.md](../../examples/quickstart/composite-dag/README.md)
 
 ---
 
