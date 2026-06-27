@@ -104,12 +104,12 @@ fn evaluate_http_slo(config: &Value, sample: &Value) -> Result<Value> {
 
     // Calculate actual metrics
     let availability = calculate_availability(successful_requests, total_requests);
-    let timestamp = sample["timestamp"]
-        .as_i64()
-        .unwrap_or(std::time::SystemTime::now()
+    let timestamp = sample["timestamp"].as_i64().unwrap_or(
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() as i64);
+            .as_secs() as i64,
+    );
 
     // Evaluate SLO criteria (using strict > for availability, <= for latency)
     let availability_ok = availability > availability_threshold;
@@ -210,17 +210,11 @@ fn print_human_result(result: &Value) {
     if let Some(requests) = result["requests"].as_object() {
         let total = requests["total"].as_u64().unwrap_or(0);
         let successful = requests["successful"].as_u64().unwrap_or(0);
-        println!(
-            "  • Requests:     {}/{} successful",
-            successful, total
-        );
+        println!("  • Requests:     {}/{} successful", successful, total);
     }
 
     if let Some(error_budget) = result["error_budget_remaining_seconds"].as_f64() {
-        println!(
-            "  • Error Budget:  {:.1} seconds remaining",
-            error_budget
-        );
+        println!("  • Error Budget:  {:.1} seconds remaining", error_budget);
     }
 
     println!();
