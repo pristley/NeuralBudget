@@ -188,21 +188,12 @@ neuralbudget check slo.yaml --strict
 📊 **[Prometheus Rule Generation](docs/guides/prometheus-rule-generation.md)** — Multi-burn-rate alerting strategy  
 🛠️ **[CLI Development](docs/cli/DEVELOPMENT.md)** — Building, cross-compilation, extending
 
-## More Information
+## Next Steps
 
-| Resource | Purpose |
-|----------|---------|  
-| **[Documentation](docs/INDEX.md)** | Complete docs organized by goal |
-| **[Architecture Map](agentmap.md)** | Module responsibilities & data flow |
-| **[CLI User Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
-| **[GenAI Quality Features](docs/guides/user-guide.md#genai-mode)** | TTFT SLOs, Composite GenAI SLOs, LLM-as-Judge, hallucination detection, cost budgets, agent SLOs |
-| **[Prometheus Rules](docs/guides/prometheus-rule-generation.md)** | Multi-burn-rate alerting, recording rules |
-| **[Multi-Burn-Rate Alerting](docs/guides/multi-burn-rate-alerting.md)** | Google SRE patterns, configuration, tuning |
-| **[OpenSLO Compatibility](docs/reference/openslo-compatibility.md)** | Vendor-neutral format, tool migration |
-| **[Glossary](docs/reference/glossary.md)** | Key terms & acronyms |
-| **[API Reference](docs/reference/api.md)** | Full Python API |
-| **[Examples](examples/)** | Grafana, Kubernetes, Python examples |
-| **[License](LICENSE)** | Apache 2.0 |
+- 📖 **[Full Documentation](docs/INDEX.md)** — Comprehensive guides, API reference, examples
+- 💬 **[Contributing](CONTRIBUTING.md)** — How to contribute
+- 📄 **[License](LICENSE)** — Apache 2.0
+- 📝 **[Changelog](CHANGELOG.md)** — Release notes
 
 ## Enterprise & SRE Use Cases
 
