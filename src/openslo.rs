@@ -61,17 +61,11 @@ pub struct OpenSloMetadata {
 #[serde(untagged)]
 pub enum MetricSource {
     /// Prometheus metric query
-    Prometheus {
-        prometheus: PrometheusMetricSource,
-    },
+    Prometheus { prometheus: PrometheusMetricSource },
     /// Datadog metric query
-    Datadog {
-        datadog: DatadogMetricSource,
-    },
+    Datadog { datadog: DatadogMetricSource },
     /// CloudWatch metric query
-    CloudWatch {
-        cloudwatch: CloudWatchMetricSource,
-    },
+    CloudWatch { cloudwatch: CloudWatchMetricSource },
 }
 
 /// Prometheus-specific metric source
@@ -207,15 +201,15 @@ pub fn parse_openslo_yaml(input: &str) -> Result<HttpSlo> {
         .map_err(|e| NeuralBudgetError::FormatError(format!("Failed to parse OpenSLO: {e}")))?;
 
     // Extract first objective as primary SLO
-    let objective = openslo
-        .spec
-        .objectives
-        .first()
-        .ok_or_else(|| NeuralBudgetError::ConfigError("No objectives found in OpenSLO".to_string()))?;
+    let objective = openslo.spec.objectives.first().ok_or_else(|| {
+        NeuralBudgetError::ConfigError("No objectives found in OpenSLO".to_string())
+    })?;
 
     // Build HttpSlo from objective
-    let mut slo = HttpSlo::default();
-    slo.availability_threshold = objective.target;
+    let mut slo = HttpSlo {
+        availability_threshold: objective.target,
+        ..Default::default()
+    };
 
     // If there are multiple objectives, try to extract latency from second one
     if openslo.spec.objectives.len() > 1 {
@@ -266,7 +260,11 @@ pub fn to_openslo_json(slo: &HttpSlo, service_name: &str, slo_name: &str) -> Res
 }
 
 /// Convert HttpSlo to OpenSloObject
-pub fn to_openslo_object(slo: &HttpSlo, service_name: &str, slo_name: &str) -> Result<OpenSloObject> {
+pub fn to_openslo_object(
+    slo: &HttpSlo,
+    service_name: &str,
+    slo_name: &str,
+) -> Result<OpenSloObject> {
     let mut objectives = vec![];
 
     // Availability objective

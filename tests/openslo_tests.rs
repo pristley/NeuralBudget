@@ -6,7 +6,6 @@
 /// - Multi-objective handling
 /// - Service name extraction
 /// - Format validation
-
 #[cfg(test)]
 mod openslo_tests {
     use neuralbudget::{
@@ -187,11 +186,7 @@ spec:
 
     #[test]
     fn test_openslo_metadata_preservation() {
-        let result = to_openslo_yaml(
-            &HttpSlo::default(),
-            "my-service",
-            "my-slo-name",
-        );
+        let result = to_openslo_yaml(&HttpSlo::default(), "my-service", "my-slo-name");
         assert!(result.is_ok());
 
         let yaml = result.unwrap();
@@ -231,10 +226,10 @@ spec:
     #[test]
     fn test_latency_threshold_variations() {
         let test_cases = vec![
-            100.0,   // Fast service
-            200.0,   // Standard latency
-            500.0,   // Slower service
-            2000.0,  // Batch processing
+            100.0,  // Fast service
+            200.0,  // Standard latency
+            500.0,  // Slower service
+            2000.0, // Batch processing
         ];
 
         for latency in test_cases {

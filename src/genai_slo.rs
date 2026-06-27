@@ -3,7 +3,6 @@
 /// Tracks streaming performance metrics specifically relevant to user perception:
 /// - Time to First Token (TTFT): Latency until first token arrives (perceived responsiveness)
 /// - Inter-Token Latency: Average time between successive tokens (perceived streaming smoothness)
-
 use crate::{NeuralBudgetError, Result};
 use serde::{Deserialize, Serialize};
 
@@ -95,7 +94,10 @@ pub struct TtftEvaluationDetails {
 ///
 /// # Returns
 /// * `Result<TtftEvaluation>` - Evaluation results with pass/fail determination
-pub fn evaluate_ttft_slo(sample: &GenaiStreamSample, params: &TtftSloParams) -> Result<TtftEvaluation> {
+pub fn evaluate_ttft_slo(
+    sample: &GenaiStreamSample,
+    params: &TtftSloParams,
+) -> Result<TtftEvaluation> {
     // Validate inputs
     if sample.time_to_first_token_ms < 0.0 || sample.inter_token_latency_ms < 0.0 {
         return Err(NeuralBudgetError::ConfigError(
@@ -108,9 +110,9 @@ pub fn evaluate_ttft_slo(sample: &GenaiStreamSample, params: &TtftSloParams) -> 
     let ttft_utilization = sample.time_to_first_token_ms / params.ttft_threshold_ms;
 
     // Check inter-token threshold
-    let inter_token_pass =
-        sample.inter_token_latency_ms <= params.inter_token_latency_threshold_ms;
-    let inter_token_utilization = sample.inter_token_latency_ms / params.inter_token_latency_threshold_ms;
+    let inter_token_pass = sample.inter_token_latency_ms <= params.inter_token_latency_threshold_ms;
+    let inter_token_utilization =
+        sample.inter_token_latency_ms / params.inter_token_latency_threshold_ms;
 
     // Calculate additional metrics
     let ttft_fraction_of_total = if sample.total_response_time_ms > 0.0 {
@@ -494,7 +496,10 @@ mod tests {
         let deserialized: GenaiStreamSample = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.request_id, sample.request_id);
-        assert_eq!(deserialized.time_to_first_token_ms, sample.time_to_first_token_ms);
+        assert_eq!(
+            deserialized.time_to_first_token_ms,
+            sample.time_to_first_token_ms
+        );
     }
 
     #[test]
@@ -704,7 +709,7 @@ impl CompositeGenAiDimensions {
         ];
 
         for (name, score) in dimensions {
-            if score < 0.0 || score > 1.0 {
+            if !(0.0..=1.0).contains(&score) {
                 return Err(NeuralBudgetError::EvaluationError(format!(
                     "{} score {:.2} must be between 0.0 and 1.0",
                     name, score
@@ -818,10 +823,18 @@ pub struct CompositeGenAiThresholds {
     pub success_rate_min: f64,
 }
 
-fn default_ttft_min() -> f64 { 0.90 }
-fn default_quality_min() -> f64 { 0.85 }
-fn default_groundedness_min() -> f64 { 0.95 }
-fn default_success_rate_min() -> f64 { 0.99 }
+fn default_ttft_min() -> f64 {
+    0.90
+}
+fn default_quality_min() -> f64 {
+    0.85
+}
+fn default_groundedness_min() -> f64 {
+    0.95
+}
+fn default_success_rate_min() -> f64 {
+    0.99
+}
 
 impl Default for CompositeGenAiThresholds {
     fn default() -> Self {
@@ -845,7 +858,7 @@ impl CompositeGenAiThresholds {
         ];
 
         for (name, threshold) in thresholds {
-            if threshold < 0.0 || threshold > 1.0 {
+            if !(0.0..=1.0).contains(&threshold) {
                 return Err(NeuralBudgetError::ConfigError(format!(
                     "{}_min threshold {:.2} must be between 0.0 and 1.0",
                     name, threshold

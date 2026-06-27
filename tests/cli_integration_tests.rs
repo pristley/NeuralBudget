@@ -1,5 +1,4 @@
 /// Integration tests for neuralbudget CLI tool
-
 use std::fs;
 use std::path::Path;
 

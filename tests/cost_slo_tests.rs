@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod cost_slo_tests {
     use neuralbudget::{CostBudget, CostEvaluation, CostSloEvaluator, GenaiCostSample};
-    use serde_json;
 
     #[test]
     fn test_gpt4_mini_budget() {
@@ -42,33 +41,28 @@ mod cost_slo_tests {
 
     #[test]
     fn test_cost_sample_builder_latency() {
-        let sample = GenaiCostSample::new(1000, 50, 100)
-            .with_latency(750);
+        let sample = GenaiCostSample::new(1000, 50, 100).with_latency(750);
         assert_eq!(sample.inference_latency_ms, Some(750));
     }
 
     #[test]
     fn test_cost_sample_builder_ttft() {
-        let sample = GenaiCostSample::new(1000, 50, 100)
-            .with_ttft(200);
+        let sample = GenaiCostSample::new(1000, 50, 100).with_ttft(200);
         assert_eq!(sample.ttft_ms, Some(200));
     }
 
     #[test]
     fn test_cost_sample_builder_quality() {
-        let sample = GenaiCostSample::new(1000, 50, 100)
-            .with_quality(0.92);
+        let sample = GenaiCostSample::new(1000, 50, 100).with_quality(0.92);
         assert_eq!(sample.quality_score, Some(0.92));
     }
 
     #[test]
     fn test_cost_sample_quality_clamping() {
-        let sample1 = GenaiCostSample::new(1000, 50, 100)
-            .with_quality(-0.5);
+        let sample1 = GenaiCostSample::new(1000, 50, 100).with_quality(-0.5);
         assert_eq!(sample1.quality_score, Some(0.0));
 
-        let sample2 = GenaiCostSample::new(1000, 50, 100)
-            .with_quality(1.5);
+        let sample2 = GenaiCostSample::new(1000, 50, 100).with_quality(1.5);
         assert_eq!(sample2.quality_score, Some(1.0));
     }
 
@@ -128,13 +122,13 @@ mod cost_slo_tests {
         let eval = CostEvaluation::new(0.004, 0.006, total_cost, budget.max_per_request, 0.95);
 
         assert!(eval.within_budget);
-        assert!(eval.cost_score.abs() < 0.001);  // Near zero
+        assert!(eval.cost_score.abs() < 0.001); // Near zero
     }
 
     #[test]
     fn test_cost_evaluation_over_budget() {
-        let budget = CostBudget::new(0.001, 0.001, 0.005);  // Small budget
-        let total_cost = 0.01;  // Over budget
+        let budget = CostBudget::new(0.001, 0.001, 0.005); // Small budget
+        let total_cost = 0.01; // Over budget
 
         let eval = CostEvaluation::new(0.005, 0.005, total_cost, budget.max_per_request, 0.95);
 
@@ -150,7 +144,7 @@ mod cost_slo_tests {
         let total_cost: f64 = 0.002;
 
         let cost_score: f64 = (max_budget - total_cost) / max_budget;
-        assert!((cost_score - 0.8).abs() < 0.001);  // 80% of budget remaining
+        assert!((cost_score - 0.8).abs() < 0.001); // 80% of budget remaining
     }
 
     #[test]
@@ -161,26 +155,22 @@ mod cost_slo_tests {
 
     #[test]
     fn test_cost_slo_evaluator_with_threshold() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_cost_threshold(0.80);
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_cost_threshold(0.80);
         assert_eq!(evaluator.cost_threshold, 0.80);
     }
 
     #[test]
     fn test_cost_slo_evaluator_with_monthly_limit() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(5000.0);
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_monthly_limit(5000.0);
         assert_eq!(evaluator.monthly_budget, Some(5000.0));
     }
 
     #[test]
     fn test_cost_threshold_clamping() {
-        let evaluator1 = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_cost_threshold(-0.5);
+        let evaluator1 = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_cost_threshold(-0.5);
         assert_eq!(evaluator1.cost_threshold, 0.0);
 
-        let evaluator2 = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_cost_threshold(1.5);
+        let evaluator2 = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_cost_threshold(1.5);
         assert_eq!(evaluator2.cost_threshold, 1.0);
     }
 
@@ -213,8 +203,7 @@ mod cost_slo_tests {
 
     #[test]
     fn test_evaluate_batch_monthly_ok() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(100.0);
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_monthly_limit(100.0);
 
         let samples = vec![
             GenaiCostSample::new(1000, 50, 120),
@@ -227,8 +216,8 @@ mod cost_slo_tests {
 
     #[test]
     fn test_evaluate_batch_monthly_exceeded() {
-        let evaluator = CostSloEvaluator::new(CostBudget::new(0.1, 0.1, 0.1))
-            .with_monthly_limit(0.001);  // Tiny budget
+        let evaluator =
+            CostSloEvaluator::new(CostBudget::new(0.1, 0.1, 0.1)).with_monthly_limit(0.001); // Tiny budget
 
         let samples = vec![
             GenaiCostSample::new(1000, 1000, 1000),
@@ -341,17 +330,21 @@ mod cost_slo_tests {
     #[test]
     fn test_large_batch_evaluation() {
         let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini());
-        
+
         // Simulate 1000 requests
         let mut samples = Vec::new();
         for i in 0..1000 {
-            samples.push(GenaiCostSample::new(i as u64, 50 + (i % 100) as u32, 100 + (i % 200) as u32));
+            samples.push(GenaiCostSample::new(
+                i as u64,
+                50 + (i % 100) as u32,
+                100 + (i % 200) as u32,
+            ));
         }
 
         let result = evaluator.evaluate_batch(&samples).unwrap();
 
         assert_eq!(result.request_count, 1000);
-        assert!(result.pass_rate > 0.98);  // Most should pass
+        assert!(result.pass_rate > 0.98); // Most should pass
     }
 
     #[test]
@@ -383,8 +376,7 @@ mod cost_slo_tests {
 
     #[test]
     fn test_monthly_budget_exact() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(10.0);
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_monthly_limit(10.0);
 
         // Approximately 9500 requests at ~0.00105 each = ~$9.975 total
         // GPT-4 Mini: input $0.00015/1k, output $0.0006/1k
@@ -395,6 +387,6 @@ mod cost_slo_tests {
 
         let result = evaluator.evaluate_batch(&samples).unwrap();
 
-        assert!(result.total_cost <= 10.0 * 1.01);  // Allow 1% rounding error
+        assert!(result.total_cost <= 10.0 * 1.01); // Allow 1% rounding error
     }
 }

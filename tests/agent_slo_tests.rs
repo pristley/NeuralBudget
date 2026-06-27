@@ -4,7 +4,6 @@ use neuralbudget::{
     evaluate_agent_batch, evaluate_agent_slo, AgentAction, AgentEvaluation, AgentSloParams,
     AgentTrajectory, FinalStatus, TrajectoryStep,
 };
-use serde_json;
 
 fn create_simple_trajectory(
     steps_data: Vec<(AgentAction, bool, Option<&str>)>,
@@ -534,7 +533,7 @@ fn test_coding_agent_scenario() {
     let params = AgentSloParams {
         max_steps: 10,
         tool_success_threshold: 0.80, // Tolerate some test failures (4/5 = 0.8)
-        max_repeated_actions: 5,       // Allow test-fix cycles
+        max_repeated_actions: 5,      // Allow test-fix cycles
         success_threshold: 0.90,
         loop_detection_enabled: true,
     };

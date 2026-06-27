@@ -1,5 +1,4 @@
 /// Convert between SLO formats (NeuralBudget ↔ OpenSLO)
-
 use anyhow::{anyhow, Result};
 use neuralbudget::openslo::to_openslo_yaml;
 use neuralbudget::HttpSlo;
@@ -20,7 +19,10 @@ impl Format {
         match s.to_lowercase().as_str() {
             "neuralbudget" | "nb" => Ok(Self::NeuralBudget),
             "openslo" | "slo" => Ok(Self::OpenSlo),
-            _ => Err(anyhow!("Unknown format: {}. Expected 'neuralbudget' or 'openslo'", s)),
+            _ => Err(anyhow!(
+                "Unknown format: {}. Expected 'neuralbudget' or 'openslo'",
+                s
+            )),
         }
     }
 }
@@ -44,20 +46,16 @@ pub fn run(
     slo_name: &str,
 ) -> Result<String> {
     // Read input file
-    let input_content = fs::read_to_string(input_path)
-        .map_err(|e| anyhow!("Failed to read input file: {}", e))?;
+    let input_content =
+        fs::read_to_string(input_path).map_err(|e| anyhow!("Failed to read input file: {}", e))?;
 
     // Convert based on format combination
     match (from_format, to_format) {
-        (Format::OpenSlo, Format::NeuralBudget) => {
-            convert_openslo_to_neuralbudget(&input_content)
-        }
+        (Format::OpenSlo, Format::NeuralBudget) => convert_openslo_to_neuralbudget(&input_content),
         (Format::NeuralBudget, Format::OpenSlo) => {
             convert_neuralbudget_to_openslo(&input_content, service_name, slo_name)
         }
-        (fmt1, fmt2) if fmt1 == fmt2 => {
-            Err(anyhow!("Source and target formats are the same"))
-        }
+        (fmt1, fmt2) if fmt1 == fmt2 => Err(anyhow!("Source and target formats are the same")),
         _ => Err(anyhow!("Unsupported format conversion")),
     }
 }
@@ -96,9 +94,7 @@ fn convert_neuralbudget_to_openslo(
         availability_threshold: slo_data["availability_threshold"]
             .as_f64()
             .ok_or_else(|| anyhow!("Missing or invalid availability_threshold"))?,
-        latency_threshold_ms: slo_data["latency_threshold_ms"]
-            .as_f64()
-            .unwrap_or(200.0),
+        latency_threshold_ms: slo_data["latency_threshold_ms"].as_f64().unwrap_or(200.0),
         latency_percentile: slo_data["latency_percentile"].as_f64().unwrap_or(0.99),
     };
 
@@ -114,7 +110,10 @@ mod tests {
     fn test_format_parsing() {
         assert_eq!(Format::from_str("openslo").unwrap(), Format::OpenSlo);
         assert_eq!(Format::from_str("slo").unwrap(), Format::OpenSlo);
-        assert_eq!(Format::from_str("neuralbudget").unwrap(), Format::NeuralBudget);
+        assert_eq!(
+            Format::from_str("neuralbudget").unwrap(),
+            Format::NeuralBudget
+        );
         assert_eq!(Format::from_str("nb").unwrap(), Format::NeuralBudget);
     }
 

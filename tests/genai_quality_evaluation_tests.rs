@@ -9,7 +9,6 @@ mod genai_quality_evaluation_tests {
         CacheConfig, DimensionScoreResult, EvaluationResult, LlmJudgeDimension, LlmJudgeEvaluator,
         LlmProvider,
     };
-    use tokio;
 
     #[test]
     fn test_cache_key_determinism() {
@@ -55,13 +54,8 @@ mod genai_quality_evaluation_tests {
     #[test]
     fn test_score_normalization() {
         // Score 1 → 0.0, Score 5 → 1.0
-        let test_cases: Vec<(f64, f64)> = vec![
-            (1.0, 0.0),
-            (2.0, 0.25),
-            (3.0, 0.5),
-            (4.0, 0.75),
-            (5.0, 1.0),
-        ];
+        let test_cases: &[(f64, f64)] =
+            &[(1.0, 0.0), (2.0, 0.25), (3.0, 0.5), (4.0, 0.75), (5.0, 1.0)];
 
         for (raw_score, expected_normalized) in test_cases {
             let normalized = (raw_score - 1.0) / 4.0;
@@ -105,12 +99,14 @@ mod genai_quality_evaluation_tests {
 
     #[test]
     fn test_pass_fail_with_multiple_dimensions() {
-        let dimensions = vec![
-            ("correctness", 0.75, 0.6, true),  // 0.75 >= 0.6 → pass
-            ("safety", 0.4, 0.8, false),       // 0.4 < 0.8 → fail
+        let dimensions = [
+            ("correctness", 0.75, 0.6, true), // 0.75 >= 0.6 → pass
+            ("safety", 0.4, 0.8, false),      // 0.4 < 0.8 → fail
         ];
 
-        let all_pass = dimensions.iter().all(|(_, score, threshold, _)| score >= threshold);
+        let all_pass = dimensions
+            .iter()
+            .all(|(_, score, threshold, _)| score >= threshold);
         assert!(!all_pass, "Should fail because safety dimension fails");
     }
 
@@ -203,7 +199,7 @@ mod genai_quality_evaluation_tests {
 
     #[test]
     fn test_cost_calculation_multiple_dimensions() {
-        let costs = vec![0.0001, 0.0001, 0.00005];
+        let costs = &[0.0001, 0.0001, 0.00005];
         let total_cost: f64 = costs.iter().sum();
 
         assert!((total_cost - 0.00025).abs() < 0.000001);
@@ -237,7 +233,7 @@ mod genai_quality_evaluation_tests {
             let mut found = false;
             for c in response.chars() {
                 if let Ok(score) = c.to_string().parse::<f64>() {
-                    if score >= 1.0 && score <= 5.0 {
+                    if (1.0..=5.0).contains(&score) {
                         assert_eq!(score, expected_score);
                         found = true;
                         break;
@@ -260,7 +256,7 @@ mod genai_quality_evaluation_tests {
             let mut found = false;
             for c in response.chars() {
                 if let Ok(score) = c.to_string().parse::<f64>() {
-                    if score >= 1.0 && score <= 5.0 {
+                    if (1.0..=5.0).contains(&score) {
                         found = true;
                         break;
                     }
@@ -277,13 +273,12 @@ mod genai_quality_evaluation_tests {
         // tone: 0.5 (3/5), weight 0.25 → 0.125
         // Total: 0.775
 
-        let dimensions = vec![
-            (0.75, 0.4),
-            (1.0, 0.35),
-            (0.5, 0.25),
-        ];
+        let dimensions = [(0.75, 0.4), (1.0, 0.35), (0.5, 0.25)];
 
-        let weighted_sum: f64 = dimensions.iter().map(|(score, weight)| score * weight).sum();
+        let weighted_sum: f64 = dimensions
+            .iter()
+            .map(|(score, weight)| score * weight)
+            .sum();
         let weight_sum: f64 = dimensions.iter().map(|(_, weight)| weight).sum();
         let final_score = weighted_sum / weight_sum;
 
@@ -298,10 +293,7 @@ mod genai_quality_evaluation_tests {
 
         let key1 = LlmJudgeEvaluator::generate_cache_key(query, response);
         let key2 = LlmJudgeEvaluator::generate_cache_key(query, response);
-        let key3 = LlmJudgeEvaluator::generate_cache_key(
-            query,
-            "Different response",
-        );
+        let key3 = LlmJudgeEvaluator::generate_cache_key(query, "Different response");
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
@@ -329,9 +321,8 @@ mod genai_quality_evaluation_tests {
         // - OPENAI_API_KEY environment variable
         // - Redis running on localhost:6379
         // Run with: cargo test test_openai_integration_with_cache -- --ignored --nocapture
-        
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .expect("OPENAI_API_KEY env var not set");
+
+        let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY env var not set");
 
         let dimensions = vec![LlmJudgeDimension {
             name: "test".to_string(),

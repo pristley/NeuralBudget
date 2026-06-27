@@ -403,7 +403,8 @@ impl MultiWindowAlertConfig {
             if self.windows[i].burn_rate < self.windows[i + 1].burn_rate {
                 return Err(NeuralBudgetError::ConfigError(format!(
                     "Burn rate windows must be in descending order by burn_rate: {} < {}",
-                    self.windows[i].burn_rate, self.windows[i + 1].burn_rate
+                    self.windows[i].burn_rate,
+                    self.windows[i + 1].burn_rate
                 )));
             }
         }
@@ -726,11 +727,12 @@ pub struct DimensionScoreResult {
     pub pass: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 /// Method for extracting claims from LLM response text
 pub enum HallucinationExtractionMethod {
     /// Use simple rule-based extraction (split by sentences)
+    #[default]
     RuleBased,
     /// Use LLM to extract claims
     LlmBased,
@@ -738,17 +740,12 @@ pub enum HallucinationExtractionMethod {
     DependencyParsing,
 }
 
-impl Default for HallucinationExtractionMethod {
-    fn default() -> Self {
-        Self::RuleBased
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 /// Method for scoring claim-document similarity
 pub enum HallucinationScoringMethod {
     /// Token overlap similarity
+    #[default]
     TokenOverlap,
     /// Embedding-based similarity
     EmbeddingSimilarity,
@@ -756,12 +753,6 @@ pub enum HallucinationScoringMethod {
     TfIdf,
     /// Entailment (RTE) scoring
     Entailment,
-}
-
-impl Default for HallucinationScoringMethod {
-    fn default() -> Self {
-        Self::TokenOverlap
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -841,7 +832,7 @@ impl Default for GenAiCostSloConfig {
         Self {
             enabled: false,
             budget: CostBudgetConfig {
-                input_cost_per_1k: 0.00015,   // GPT-4 Mini default
+                input_cost_per_1k: 0.00015, // GPT-4 Mini default
                 output_cost_per_1k: 0.0006,
                 max_per_request: 0.015,
             },
@@ -1009,14 +1000,30 @@ pub struct CompositeGenAiWeights {
 }
 
 // Default weight functions
-fn default_throughput_weight() -> f64 { 0.15 }
-fn default_ttft_weight() -> f64 { 0.15 }
-fn default_quality_weight() -> f64 { 0.30 }
-fn default_groundedness_weight() -> f64 { 0.15 }
-fn default_cost_weight() -> f64 { 0.10 }
-fn default_retrieval_weight() -> f64 { 0.10 }
-fn default_success_rate_weight() -> f64 { 0.05 }
-fn default_min_target() -> f64 { 0.85 }
+fn default_throughput_weight() -> f64 {
+    0.15
+}
+fn default_ttft_weight() -> f64 {
+    0.15
+}
+fn default_quality_weight() -> f64 {
+    0.30
+}
+fn default_groundedness_weight() -> f64 {
+    0.15
+}
+fn default_cost_weight() -> f64 {
+    0.10
+}
+fn default_retrieval_weight() -> f64 {
+    0.10
+}
+fn default_success_rate_weight() -> f64 {
+    0.05
+}
+fn default_min_target() -> f64 {
+    0.85
+}
 
 impl Default for CompositeGenAiWeights {
     fn default() -> Self {
@@ -1043,7 +1050,7 @@ impl CompositeGenAiWeights {
             + self.cost_weight
             + self.retrieval_weight
             + self.success_rate_weight;
-        
+
         // Allow 1% tolerance for floating-point math
         if (sum - 1.0).abs() > 0.01 {
             return Err(NeuralBudgetError::ConfigError(format!(
@@ -1051,13 +1058,13 @@ impl CompositeGenAiWeights {
                 sum
             )));
         }
-        
+
         if self.min_target_score < 0.0 || self.min_target_score > 1.0 {
             return Err(NeuralBudgetError::ConfigError(
                 "min_target_score must be between 0.0 and 1.0".to_string(),
             ));
         }
-        
+
         Ok(())
     }
 }
@@ -2058,7 +2065,8 @@ impl HttpSlo {
             return 0.0; // 100% SLO: no budget, no burn
         }
 
-        let allowed_error_in_window = allowed_error * (window_seconds as f64 / slo_window_seconds as f64);
+        let allowed_error_in_window =
+            allowed_error * (window_seconds as f64 / slo_window_seconds as f64);
         if allowed_error_in_window <= 0.0 {
             return 0.0;
         }

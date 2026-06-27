@@ -1,7 +1,6 @@
 /// NeuralBudget CLI Tool
-/// 
+///
 /// Command-line interface for SLO evaluation, configuration validation, and rule generation.
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -176,6 +175,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("\nFor more help, run: neuralbudget --help");
         process::exit(1);
     }
-    
+
     Ok(())
 }

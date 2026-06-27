@@ -12,7 +12,6 @@
 /// Alerting Rules:
 /// - Multi-burn-rate alerts that warn early before budget exhaustion
 /// - Contextualized with current burn rate, time to exhaustion, etc.
-
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fs;
@@ -36,25 +35,20 @@ struct SloMetrics {
 /// Run the gen-rules command
 pub fn run(config_path: &Path, kubernetes: bool, namespace: &str) -> Result<()> {
     // Load and parse YAML config
-    let config_content = fs::read_to_string(config_path)
-        .context(format!("Failed to read config file: {}", config_path.display()))?;
+    let config_content = fs::read_to_string(config_path).context(format!(
+        "Failed to read config file: {}",
+        config_path.display()
+    ))?;
 
-    let config: Value = serde_yaml::from_str(&config_content)
-        .context("Failed to parse YAML config")?;
+    let config: Value =
+        serde_yaml::from_str(&config_content).context("Failed to parse YAML config")?;
 
     // Extract SLO metrics from config
-    let service_name = config["service"]
-        .as_str()
-        .unwrap_or("unknown")
-        .to_string();
+    let service_name = config["service"].as_str().unwrap_or("unknown").to_string();
 
-    let availability_target = config["availability_threshold"]
-        .as_f64()
-        .unwrap_or(0.999);
+    let availability_target = config["availability_threshold"].as_f64().unwrap_or(0.999);
 
-    let latency_threshold_ms = config["latency_threshold_ms"]
-        .as_f64()
-        .unwrap_or(200.0);
+    let latency_threshold_ms = config["latency_threshold_ms"].as_f64().unwrap_or(200.0);
 
     // Extract job label (default to service name in lowercase with dashes)
     let job_label = config["job_label"]
@@ -66,10 +60,9 @@ pub fn run(config_path: &Path, kubernetes: bool, namespace: &str) -> Result<()> 
     let mut burn_rate_windows = Vec::new();
     if let Some(alerts) = config["alerts"].as_array() {
         for alert in alerts {
-            if let (Some(window), Some(threshold)) = (
-                alert["window"].as_str(),
-                alert["threshold"].as_f64(),
-            ) {
+            if let (Some(window), Some(threshold)) =
+                (alert["window"].as_str(), alert["threshold"].as_f64())
+            {
                 burn_rate_windows.push(BurnRateWindow {
                     window: window.to_string(),
                     threshold_percent: threshold * 100.0, // Convert to percentage
@@ -183,8 +176,8 @@ groups:
 
     for window in &metrics.burn_rate_windows {
         let window_prom = convert_window_to_prometheus(&window.window);
-        let _burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
-            * (window.threshold_percent / 100.0);
+        let _burn_rate_threshold = metrics.availability_target
+            + (1.0 - metrics.availability_target) * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
             "      - record: \"neuralbudget:slo:burn_rate_{}\"\n",
@@ -209,8 +202,7 @@ groups:
     // Generate multi-burn-rate alerting rules
     for window in &metrics.burn_rate_windows {
         let (_duration, for_duration) = get_alert_timing(&window.window);
-        let threshold = (1.0 - metrics.availability_target)
-            * (window.threshold_percent / 100.0);
+        let threshold = (1.0 - metrics.availability_target) * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
             "      - alert: \"SloErrorBudgetBurnRate{}\"\n",
@@ -294,7 +286,7 @@ fn get_alert_timing(window: &str) -> (&'static str, &'static str) {
 
 /// Format window name for alert naming (e.g., "1h" -> "1h", "24h" -> "24h")
 fn format_window_name(window: &str) -> String {
-    window.replace("d", "d").replace("h", "h")
+    window.to_string()
 }
 
 fn generate_kubernetes_rules(metrics: &SloMetrics, namespace: &str) -> String {
@@ -357,8 +349,8 @@ spec:
     rules.push_str("        # Multi-window burn rate indicators\n");
     for window in &metrics.burn_rate_windows {
         let window_prom = convert_window_to_prometheus(&window.window);
-        let _burn_rate_threshold = metrics.availability_target + (1.0 - metrics.availability_target)
-            * (window.threshold_percent / 100.0);
+        let _burn_rate_threshold = metrics.availability_target
+            + (1.0 - metrics.availability_target) * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
             "        - record: \"neuralbudget:slo:burn_rate_{}\"\n",
@@ -383,8 +375,7 @@ spec:
     // Generate multi-burn-rate alerting rules
     for window in &metrics.burn_rate_windows {
         let (_duration, for_duration) = get_alert_timing(&window.window);
-        let threshold = (1.0 - metrics.availability_target)
-            * (window.threshold_percent / 100.0);
+        let threshold = (1.0 - metrics.availability_target) * (window.threshold_percent / 100.0);
 
         rules.push_str(&format!(
             "        - alert: \"SloErrorBudgetBurnRate{}\"\n",
@@ -408,9 +399,7 @@ spec:
             "            description: \"Service {{{{ $labels.job }}}} has error rate of {{{{ $value | humanizePercentage }}}} over {} window, consuming error budget at {{{{ $value }}}}x rate. Budget exhaustion in ~{{{{ div 1 $value | humanizeDuration }}}}.\"\n",
             window.window
         ));
-        rules.push_str(&format!(
-            "            dashboard: \"https://neuralbudget.io/dashboard?service={{{{ $labels.job }}}}\"\n\n"
-        ));
+        rules.push_str("            dashboard: \"https://neuralbudget.io/dashboard?service={{{{ $labels.job }}}}\"\n\n");
     }
 
     // Add latency alert

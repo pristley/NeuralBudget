@@ -19,11 +19,7 @@ pub struct CostBudget {
 
 impl CostBudget {
     /// Create a new cost budget.
-    pub fn new(
-        input_cost_per_1k: f64,
-        output_cost_per_1k: f64,
-        max_per_request: f64,
-    ) -> Self {
+    pub fn new(input_cost_per_1k: f64, output_cost_per_1k: f64, max_per_request: f64) -> Self {
         CostBudget {
             input_cost_per_1k,
             output_cost_per_1k,
@@ -190,7 +186,7 @@ impl CostSloEvaluator {
     pub fn new(budget: CostBudget) -> Self {
         CostSloEvaluator {
             budget,
-            cost_threshold: 0.95,  // Default: 95% budget utilization is acceptable
+            cost_threshold: 0.95, // Default: 95% budget utilization is acceptable
             monthly_budget: None,
         }
     }
@@ -211,7 +207,10 @@ impl CostSloEvaluator {
     }
 
     /// Evaluate cost for a single request.
-    pub fn evaluate_request(&self, sample: &GenaiCostSample) -> Result<CostEvaluation, NeuralBudgetError> {
+    pub fn evaluate_request(
+        &self,
+        sample: &GenaiCostSample,
+    ) -> Result<CostEvaluation, NeuralBudgetError> {
         let input_cost = (sample.input_tokens as f64 / 1000.0) * self.budget.input_cost_per_1k;
         let output_cost = (sample.output_tokens as f64 / 1000.0) * self.budget.output_cost_per_1k;
         let total_cost = input_cost + output_cost;
@@ -345,7 +344,13 @@ mod tests {
         let output_cost = (120.0 / 1000.0) * 0.0006;
         let total_cost = input_cost + output_cost;
 
-        let eval = CostEvaluation::new(input_cost, output_cost, total_cost, budget.max_per_request, 0.95);
+        let eval = CostEvaluation::new(
+            input_cost,
+            output_cost,
+            total_cost,
+            budget.max_per_request,
+            0.95,
+        );
 
         assert!(eval.within_budget);
         assert!(eval.pass);
@@ -354,14 +359,20 @@ mod tests {
 
     #[test]
     fn test_cost_evaluation_over_budget() {
-        let budget = CostBudget::new(0.001, 0.001, 0.005);  // max_per_request = 0.005
-        let _sample = GenaiCostSample::new(1000, 5000, 5000);  // 5000 input + 5000 output tokens
+        let budget = CostBudget::new(0.001, 0.001, 0.005); // max_per_request = 0.005
+        let _sample = GenaiCostSample::new(1000, 5000, 5000); // 5000 input + 5000 output tokens
 
-        let input_cost = (5000.0 / 1000.0) * 0.001;  // 0.005
+        let input_cost = (5000.0 / 1000.0) * 0.001; // 0.005
         let output_cost = (5000.0 / 1000.0) * 0.001; // 0.005
-        let total_cost = input_cost + output_cost;   // 0.01 > 0.005 budget
+        let total_cost = input_cost + output_cost; // 0.01 > 0.005 budget
 
-        let eval = CostEvaluation::new(input_cost, output_cost, total_cost, budget.max_per_request, 0.95);
+        let eval = CostEvaluation::new(
+            input_cost,
+            output_cost,
+            total_cost,
+            budget.max_per_request,
+            0.95,
+        );
 
         assert!(!eval.within_budget);
         assert!(!eval.pass);
@@ -379,8 +390,7 @@ mod tests {
 
     #[test]
     fn test_cost_slo_evaluator_batch() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(10.0);
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_monthly_limit(10.0);
 
         let samples = vec![
             GenaiCostSample::new(1000, 50, 120),
@@ -405,7 +415,7 @@ mod tests {
 
         // 10% cost weight + 90% quality weight
         // Expected: 0.1 * cost_score + 0.9 * quality_score
-        assert!(hybrid > 0.8);  // Should be close to quality score
+        assert!(hybrid > 0.8); // Should be close to quality score
     }
 
     #[test]
@@ -425,41 +435,40 @@ mod tests {
         let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini());
 
         let samples = vec![
-            GenaiCostSample::new(1000, 50, 120),    // Under budget
-            GenaiCostSample::new(2000, 50, 120),    // Under budget
-            GenaiCostSample::new(3000, 50, 120),    // Under budget
+            GenaiCostSample::new(1000, 50, 120), // Under budget
+            GenaiCostSample::new(2000, 50, 120), // Under budget
+            GenaiCostSample::new(3000, 50, 120), // Under budget
         ];
 
         let result = evaluator.evaluate_batch(&samples).unwrap();
-        assert_eq!(result.pass_rate, 1.0);  // All passed
+        assert_eq!(result.pass_rate, 1.0); // All passed
     }
 
     #[test]
     fn test_monthly_budget_tracking() {
-        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_monthly_limit(1.0);  // $1 monthly budget
+        let evaluator = CostSloEvaluator::new(CostBudget::gpt4_mini()).with_monthly_limit(1.0); // $1 monthly budget
 
         let samples = vec![
             // Each with 500K output tokens costs ~$0.30
             // Need at least 4 samples to exceed $1.0 limit
-            GenaiCostSample::new(1000, 1000, 500_000),   // ~$0.30
-            GenaiCostSample::new(2000, 1000, 500_000),   // ~$0.30
-            GenaiCostSample::new(3000, 1000, 500_000),   // ~$0.30
-            GenaiCostSample::new(4000, 1000, 500_000),   // ~$0.30
-            // Total: ~$1.20, exceeding $1.0 limit
+            GenaiCostSample::new(1000, 1000, 500_000), // ~$0.30
+            GenaiCostSample::new(2000, 1000, 500_000), // ~$0.30
+            GenaiCostSample::new(3000, 1000, 500_000), // ~$0.30
+            GenaiCostSample::new(4000, 1000, 500_000), // ~$0.30
+                                                       // Total: ~$1.20, exceeding $1.0 limit
         ];
 
         let result = evaluator.evaluate_batch(&samples).unwrap();
-        assert!(!result.monthly_budget_ok);  // Total cost should exceed $1 limit
+        assert!(!result.monthly_budget_ok); // Total cost should exceed $1 limit
     }
 
     #[test]
     fn test_cost_threshold_configuration() {
-        let evaluator_strict = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_cost_threshold(0.5);
+        let evaluator_strict =
+            CostSloEvaluator::new(CostBudget::gpt4_mini()).with_cost_threshold(0.5);
 
-        let evaluator_lenient = CostSloEvaluator::new(CostBudget::gpt4_mini())
-            .with_cost_threshold(0.99);
+        let evaluator_lenient =
+            CostSloEvaluator::new(CostBudget::gpt4_mini()).with_cost_threshold(0.99);
 
         assert!(evaluator_strict.cost_threshold == 0.5);
         assert!(evaluator_lenient.cost_threshold == 0.99);

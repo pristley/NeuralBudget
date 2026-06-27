@@ -40,20 +40,11 @@ use std::sync::Arc;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LlmProvider {
     /// OpenAI API (GPT-4, GPT-4-mini)
-    OpenAI {
-        api_key: String,
-        model: String,
-    },
+    OpenAI { api_key: String, model: String },
     /// Anthropic API (Claude 3, etc.)
-    Anthropic {
-        api_key: String,
-        model: String,
-    },
+    Anthropic { api_key: String, model: String },
     /// Local model via LM Studio or similar
-    Local {
-        base_url: String,
-        model: String,
-    },
+    Local { base_url: String, model: String },
 }
 
 impl LlmProvider {
@@ -150,13 +141,10 @@ impl LlmJudgeEvaluator {
     }
 
     /// Add Redis caching to the evaluator
-    pub async fn with_redis_cache(
-        mut self,
-        redis_url: &str,
-        ttl_seconds: u64,
-    ) -> Result<Self> {
-        let client = redis::Client::open(redis_url)
-            .map_err(|e| NeuralBudgetError::ConfigError(format!("Redis connection failed: {}", e)))?;
+    pub async fn with_redis_cache(mut self, redis_url: &str, ttl_seconds: u64) -> Result<Self> {
+        let client = redis::Client::open(redis_url).map_err(|e| {
+            NeuralBudgetError::ConfigError(format!("Redis connection failed: {}", e))
+        })?;
 
         let manager = redis::aio::ConnectionManager::new(client)
             .await
@@ -206,8 +194,9 @@ impl LlmJudgeEvaluator {
     async fn store_cache(&self, cache_key: &str, result: &EvaluationResult) -> Result<()> {
         if let Some(manager) = &self.cache_client {
             if let Some(config) = &self.cache_config {
-                let json = serde_json::to_string(result)
-                    .map_err(|e| NeuralBudgetError::FormatError(format!("JSON serialization failed: {}", e)))?;
+                let json = serde_json::to_string(result).map_err(|e| {
+                    NeuralBudgetError::FormatError(format!("JSON serialization failed: {}", e))
+                })?;
 
                 let mut conn = manager.as_ref().clone();
                 redis::cmd("SET")
@@ -217,7 +206,9 @@ impl LlmJudgeEvaluator {
                     .arg(config.ttl_seconds)
                     .query_async::<_, ()>(&mut conn)
                     .await
-                    .map_err(|e| NeuralBudgetError::ConfigError(format!("Cache storage failed: {}", e)))?;
+                    .map_err(|e| {
+                        NeuralBudgetError::ConfigError(format!("Cache storage failed: {}", e))
+                    })?;
             }
         }
         Ok(())
@@ -258,7 +249,7 @@ impl LlmJudgeEvaluator {
             total_tokens += tokens;
 
             // Normalize score to 0-1
-            let normalized_score = (score.min(5.0).max(1.0) - 1.0) / 4.0;
+            let normalized_score = (score.clamp(1.0, 5.0) - 1.0) / 4.0;
 
             let pass = score >= dimension.threshold;
             dimension_scores.push(DimensionScore {
@@ -298,11 +289,7 @@ impl LlmJudgeEvaluator {
     }
 
     /// Call the LLM and extract score
-    async fn call_llm(
-        &self,
-        prompt: &str,
-        _dimension: &LlmJudgeDimension,
-    ) -> Result<(f64, usize)> {
+    async fn call_llm(&self, prompt: &str, _dimension: &LlmJudgeDimension) -> Result<(f64, usize)> {
         match &self.provider {
             LlmProvider::OpenAI { api_key, model } => {
                 self.call_openai(api_key, model, prompt).await
@@ -370,12 +357,9 @@ impl LlmJudgeEvaluator {
                 NeuralBudgetError::EvaluationError(format!("OpenAI API call failed: {}", e))
             })?;
 
-        let data: OpenAIResponse = response
-            .json()
-            .await
-            .map_err(|e| {
-                NeuralBudgetError::FormatError(format!("Failed to parse OpenAI response: {}", e))
-            })?;
+        let data: OpenAIResponse = response.json().await.map_err(|e| {
+            NeuralBudgetError::FormatError(format!("Failed to parse OpenAI response: {}", e))
+        })?;
 
         let content = &data.choices[0].message.content;
         let score = self.extract_score(content)?;
@@ -384,7 +368,12 @@ impl LlmJudgeEvaluator {
     }
 
     /// Call Anthropic API
-    async fn call_anthropic(&self, api_key: &str, model: &str, prompt: &str) -> Result<(f64, usize)> {
+    async fn call_anthropic(
+        &self,
+        api_key: &str,
+        model: &str,
+        prompt: &str,
+    ) -> Result<(f64, usize)> {
         #[derive(Serialize)]
         struct AnthropicRequest {
             model: String,
@@ -437,12 +426,9 @@ impl LlmJudgeEvaluator {
                 NeuralBudgetError::EvaluationError(format!("Anthropic API call failed: {}", e))
             })?;
 
-        let data: AnthropicResponse = response
-            .json()
-            .await
-            .map_err(|e| {
-                NeuralBudgetError::FormatError(format!("Failed to parse Anthropic response: {}", e))
-            })?;
+        let data: AnthropicResponse = response.json().await.map_err(|e| {
+            NeuralBudgetError::FormatError(format!("Failed to parse Anthropic response: {}", e))
+        })?;
 
         let content = &data.content[0].text;
         let score = self.extract_score(content)?;
@@ -483,12 +469,9 @@ impl LlmJudgeEvaluator {
                 NeuralBudgetError::EvaluationError(format!("Local LLM API call failed: {}", e))
             })?;
 
-        let data: LocalResponse = response
-            .json()
-            .await
-            .map_err(|e| {
-                NeuralBudgetError::FormatError(format!("Failed to parse local LLM response: {}", e))
-            })?;
+        let data: LocalResponse = response.json().await.map_err(|e| {
+            NeuralBudgetError::FormatError(format!("Failed to parse local LLM response: {}", e))
+        })?;
 
         let score = self.extract_score(&data.response)?;
 
@@ -503,7 +486,7 @@ impl LlmJudgeEvaluator {
         // Try to find a number between 1 and 5
         for word in response.split_whitespace() {
             if let Ok(score) = word.parse::<f64>() {
-                if score >= 1.0 && score <= 5.0 {
+                if (1.0..=5.0).contains(&score) {
                     return Ok(score);
                 }
             }
@@ -512,7 +495,7 @@ impl LlmJudgeEvaluator {
         // Try to find a number anywhere in the response
         for ch in response.chars() {
             if let Ok(score) = ch.to_string().parse::<f64>() {
-                if score >= 1.0 && score <= 5.0 {
+                if (1.0..=5.0).contains(&score) {
                     return Ok(score);
                 }
             }
@@ -565,7 +548,10 @@ mod tests {
         );
 
         assert_eq!(evaluator.extract_score("Score: 4").unwrap(), 4.0);
-        assert_eq!(evaluator.extract_score("I give this a 3 out of 5").unwrap(), 3.0);
+        assert_eq!(
+            evaluator.extract_score("I give this a 3 out of 5").unwrap(),
+            3.0
+        );
         assert!(evaluator.extract_score("no score here").is_err());
     }
 

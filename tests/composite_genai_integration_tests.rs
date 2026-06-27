@@ -2,12 +2,11 @@
 ///
 /// Tests weighted scoring, dimension thresholds, and real-world scenarios
 /// across different weight profiles.
-
 #[cfg(test)]
 mod composite_genai_integration_tests {
     use neuralbudget::{
-        CompositeGenAiDimensions, CompositeGenAiThresholds,
-        CompositeGenAiWeights, evaluate_composite_genai_slo,
+        evaluate_composite_genai_slo, CompositeGenAiDimensions, CompositeGenAiThresholds,
+        CompositeGenAiWeights,
     };
 
     fn create_dimensions(
@@ -233,8 +232,10 @@ mod composite_genai_integration_tests {
         let weights = CompositeGenAiWeights::default();
         let thresholds = CompositeGenAiThresholds::default();
 
-        let eval_high = evaluate_composite_genai_slo(&dims_high_quality, &weights, &thresholds).unwrap();
-        let eval_low = evaluate_composite_genai_slo(&dims_low_quality, &weights, &thresholds).unwrap();
+        let eval_high =
+            evaluate_composite_genai_slo(&dims_high_quality, &weights, &thresholds).unwrap();
+        let eval_low =
+            evaluate_composite_genai_slo(&dims_low_quality, &weights, &thresholds).unwrap();
 
         // High quality should significantly outperform
         let diff = eval_high.composite_score - eval_low.composite_score;

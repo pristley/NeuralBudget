@@ -171,7 +171,11 @@ impl GroundednessEvaluator {
     }
 
     /// Evaluate groundedness of response against context documents
-    pub async fn evaluate(&self, response: &str, context_docs: &[Document]) -> Result<GroundednessResult> {
+    pub async fn evaluate(
+        &self,
+        response: &str,
+        context_docs: &[Document],
+    ) -> Result<GroundednessResult> {
         if context_docs.is_empty() {
             return Err(NeuralBudgetError::ConfigError(
                 "No context documents provided for groundedness evaluation".to_string(),
@@ -217,11 +221,9 @@ impl GroundednessEvaluator {
         match self.extraction_method {
             ClaimExtractionMethod::RuleBased => self.extract_claims_rule_based(response),
             ClaimExtractionMethod::LlmBased => self.extract_claims_llm_based(response).await,
-            ClaimExtractionMethod::DependencyParsing => {
-                Err(NeuralBudgetError::ConfigError(
-                    "Dependency parsing not yet implemented".to_string(),
-                ))
-            }
+            ClaimExtractionMethod::DependencyParsing => Err(NeuralBudgetError::ConfigError(
+                "Dependency parsing not yet implemented".to_string(),
+            )),
         }
     }
 
@@ -435,7 +437,8 @@ mod tests {
         assert!(score > 0.5);
 
         // Some words present
-        let score = evaluator.embedding_similarity("exercise benefits mood", "exercise helps health");
+        let score =
+            evaluator.embedding_similarity("exercise benefits mood", "exercise helps health");
         assert!(score > 0.0 && score < 1.0);
     }
 
@@ -443,17 +446,15 @@ mod tests {
     fn test_groundedness_result_pass_fail() {
         // All claims grounded
         let result = GroundednessResult {
-            claims: vec![
-                ScoredClaim {
-                    claim: Claim {
-                        text: "claim1".into(),
-                        span: None,
-                    },
-                    similarity_score: 0.9,
-                    grounded: true,
-                    supporting_doc_index: Some(0),
+            claims: vec![ScoredClaim {
+                claim: Claim {
+                    text: "claim1".into(),
+                    span: None,
                 },
-            ],
+                similarity_score: 0.9,
+                grounded: true,
+                supporting_doc_index: Some(0),
+            }],
             grounded_count: 1,
             hallucinated_count: 0,
             groundedness_score: 1.0,

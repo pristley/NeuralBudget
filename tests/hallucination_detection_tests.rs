@@ -7,7 +7,6 @@ mod hallucination_detection_tests {
         GroundednessResult, HallucinationDetectionConfig, HallucinationExtractionMethod,
         HallucinationScoringMethod, ScoredClaim, SimilarityMethod,
     };
-    use serde_json;
 
     #[test]
     fn test_claim_extraction_rule_based() {
@@ -90,7 +89,7 @@ mod hallucination_detection_tests {
 
         let score = evaluator.token_overlap("exercise is healthy", "exercise is good");
         // 2 matching tokens (exercise, is) / 4 total = 0.5
-        assert!(score >= 0.4 && score <= 0.6);
+        assert!((0.4..=0.6).contains(&score));
     }
 
     #[test]
@@ -118,7 +117,8 @@ mod hallucination_detection_tests {
         assert_eq!(score, 1.0);
 
         // Some words in document
-        let score = evaluator.embedding_similarity("exercise benefits mood", "exercise helps health");
+        let score =
+            evaluator.embedding_similarity("exercise benefits mood", "exercise helps health");
         assert!(score > 0.0 && score < 1.0);
 
         // No words in document
@@ -219,7 +219,7 @@ mod hallucination_detection_tests {
             claims: vec![],
             grounded_count: 0,
             hallucinated_count: 0,
-            groundedness_score: 1.0,  // No claims = no hallucinations
+            groundedness_score: 1.0, // No claims = no hallucinations
             hallucination_rate: 0.0,
             pass: true,
         };
@@ -352,7 +352,7 @@ mod hallucination_detection_tests {
         let response = "Exercise improves cardiovascular health and increases muscle strength.";
         let claims = evaluator.extract_claims_rule_based(response).unwrap();
 
-        let _docs = vec![
+        let _docs = [
             Document {
                 text: "Exercise strengthens the cardiovascular system".into(),
                 source: "cardio.pdf".into(),
@@ -364,7 +364,7 @@ mod hallucination_detection_tests {
         ];
 
         // Verify claims were extracted
-        assert!(claims.len() >= 1);
+        assert!(!claims.is_empty());
         assert!(claims.iter().any(|c| c.text.contains("cardiovascular")));
     }
 

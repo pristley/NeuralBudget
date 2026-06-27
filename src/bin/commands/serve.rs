@@ -1,5 +1,4 @@
 /// HTTP server mode for SLO evaluation (lower priority)
-
 use anyhow::Result;
 
 /// Run the serve command
@@ -9,6 +8,6 @@ pub fn run(_bind: &str, _port: u16) -> Result<()> {
     eprintln!();
     eprintln!("For now, use the 'eval' subcommand:");
     eprintln!("  neuralbudget eval slo.yaml sample.json");
-    
+
     Err(anyhow::anyhow!("HTTP server mode not yet implemented"))
 }

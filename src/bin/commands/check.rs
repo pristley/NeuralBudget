@@ -1,5 +1,4 @@
 /// Validate SLO configuration and check for common mistakes
-
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fs;
@@ -13,11 +12,13 @@ struct ValidationIssue {
 /// Run the check command
 pub fn run(config_path: &Path, strict: bool) -> Result<()> {
     // Load and parse YAML config
-    let config_content = fs::read_to_string(config_path)
-        .context(format!("Failed to read config file: {}", config_path.display()))?;
+    let config_content = fs::read_to_string(config_path).context(format!(
+        "Failed to read config file: {}",
+        config_path.display()
+    ))?;
 
-    let config: Value = serde_yaml::from_str(&config_content)
-        .context("Failed to parse YAML config")?;
+    let config: Value =
+        serde_yaml::from_str(&config_content).context("Failed to parse YAML config")?;
 
     // Run validation checks
     let issues = validate_config(&config);
@@ -55,7 +56,9 @@ pub fn run(config_path: &Path, strict: bool) -> Result<()> {
 
     if has_warnings && strict {
         println!("⚠️  Configuration has warnings. Use --strict mode. Failing.");
-        return Err(anyhow::anyhow!("Configuration validation failed (strict mode)"));
+        return Err(anyhow::anyhow!(
+            "Configuration validation failed (strict mode)"
+        ));
     }
 
     println!("✅ Configuration is valid!\n");
@@ -85,19 +88,25 @@ fn validate_config(config: &Value) -> Vec<ValidationIssue> {
         if latency < 10.0 {
             issues.push(ValidationIssue {
                 level: "warning".to_string(),
-                message: format!("Latency threshold {}ms is unrealistically low (min: 10ms)", latency),
+                message: format!(
+                    "Latency threshold {}ms is unrealistically low (min: 10ms)",
+                    latency
+                ),
             });
         }
         if latency > 30000.0 {
             issues.push(ValidationIssue {
                 level: "warning".to_string(),
-                message: format!("Latency threshold {}ms is unusually high (max: 30000ms)", latency),
+                message: format!(
+                    "Latency threshold {}ms is unusually high (max: 30000ms)",
+                    latency
+                ),
             });
         }
     }
 
     if let Some(target) = config["target"].as_f64() {
-        if target < 0.5 || target > 100.0 {
+        if !(0.5..=100.0).contains(&target) {
             issues.push(ValidationIssue {
                 level: "error".to_string(),
                 message: format!("SLO target {}% is out of valid range (0.5-100)", target),
@@ -106,7 +115,10 @@ fn validate_config(config: &Value) -> Vec<ValidationIssue> {
         if target < 90.0 {
             issues.push(ValidationIssue {
                 level: "warning".to_string(),
-                message: format!("SLO target {}% is quite low; consider 99%+ for production", target),
+                message: format!(
+                    "SLO target {}% is quite low; consider 99%+ for production",
+                    target
+                ),
             });
         }
     }
@@ -115,7 +127,9 @@ fn validate_config(config: &Value) -> Vec<ValidationIssue> {
     if config["alerts"].is_null() {
         issues.push(ValidationIssue {
             level: "warning".to_string(),
-            message: "No alert configuration found. Recommend setting up multi-window burn rate alerts.".to_string(),
+            message:
+                "No alert configuration found. Recommend setting up multi-window burn rate alerts."
+                    .to_string(),
         });
     }
 

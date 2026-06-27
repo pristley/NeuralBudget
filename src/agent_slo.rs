@@ -2,7 +2,6 @@
 ///
 /// Tracks agent trajectories, tool call success, loop detection, and final outcomes
 /// to provide reliability metrics for autonomous AI agents.
-
 use crate::{NeuralBudgetError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -624,7 +623,10 @@ mod tests {
         let mut trajectories = Vec::new();
         for i in 0..100 {
             let steps = if i % 10 == 0 {
-                vec![(AgentAction::ToolCall, false), (AgentAction::Response, true)]
+                vec![
+                    (AgentAction::ToolCall, false),
+                    (AgentAction::Response, true),
+                ]
             } else {
                 vec![(AgentAction::ToolCall, true), (AgentAction::Response, true)]
             };
@@ -716,7 +718,7 @@ mod tests {
         let params = AgentSloParams {
             max_steps: 5,
             tool_success_threshold: 0.9,
-            max_repeated_actions: 2,  // Allow up to 2 repeated ToolCall actions
+            max_repeated_actions: 2, // Allow up to 2 repeated ToolCall actions
             success_threshold: 0.8,
             loop_detection_enabled: true,
         };

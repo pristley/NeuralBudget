@@ -13,7 +13,7 @@ fn create_sample(
 ) -> GenaiStreamSample {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-    
+
     GenaiStreamSample {
         request_id: format!("req_{}", id),
         timestamp: 1000,
@@ -264,8 +264,14 @@ fn test_serialization_stream_sample() {
     let json = serde_json::to_string(&sample).unwrap();
     let deserialized: GenaiStreamSample = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(deserialized.time_to_first_token_ms, sample.time_to_first_token_ms);
-    assert_eq!(deserialized.inter_token_latency_ms, sample.inter_token_latency_ms);
+    assert_eq!(
+        deserialized.time_to_first_token_ms,
+        sample.time_to_first_token_ms
+    );
+    assert_eq!(
+        deserialized.inter_token_latency_ms,
+        sample.inter_token_latency_ms
+    );
 }
 
 #[test]
