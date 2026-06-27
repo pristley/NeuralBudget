@@ -147,6 +147,7 @@ Perfect for resource-constrained environments: edge, embedded, serverless.
 ## Key Features
 
 - ✅ **5 SLO Modes** — HTTP, Stateful, ML, GenAI, Composite (all in one tool)
+- ✅ **CLI Tool** — eval, gen-rules, check subcommands with JSON output
 - ✅ **Streaming Aggregation** — 15k+ messages/sec with automatic memory adaptation
 - ✅ **Composite DAGs** — Model service dependencies and failure propagation (unique)
 - ✅ **Prometheus + OpenTelemetry** — Native exporters, zero vendor lock-in
@@ -157,15 +158,34 @@ Perfect for resource-constrained environments: edge, embedded, serverless.
 - ✅ **Zero-Allocation Streaming** — Memory-bounded high-frequency ingestion
 - ✅ **Deterministic Scoring** — Audit-trail ready, compliance-friendly
 
+## Command-Line Tool
+
+Manage SLOs from the command line:
+
+```bash
+# Evaluate an SLO configuration
+neuralbudget eval slo.yaml sample.json
+
+# Generate Prometheus alerting rules
+neuralbudget gen-rules slo.yaml --kubernetes
+
+# Validate SLO configuration
+neuralbudget check slo.yaml --strict
+```
+
+📖 **[CLI User Guide](docs/cli/USER_GUIDE.md)** — Installation, commands, examples  
+🛠️ **[CLI Development](docs/cli/DEVELOPMENT.md)** — Building, cross-compilation, extending
+
 ## More Information
 
 | Resource | Purpose |
-|----------|---------|
-| **[Docs](docs/INDEX.md)** | Complete documentation organized by goal |
+|----------|---------|  
+| **[Documentation](docs/INDEX.md)** | Complete docs organized by goal |
+| **[Architecture Map](agentmap.md)** | Module responsibilities & data flow |
 | **[Glossary](docs/reference/glossary.md)** | Key terms & acronyms |
 | **[API Reference](docs/reference/api.md)** | Full Python API |
 | **[Examples](examples/)** | Grafana, Kubernetes, Python examples |
-| **[Architecture](docs/reference/architecture.md)** | Design decisions & system diagram |
+| **[CLI Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
 | **[License](LICENSING.md)** | Apache 2.0 + commercial options |
 
 ## Enterprise & SRE Use Cases

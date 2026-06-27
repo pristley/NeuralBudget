@@ -92,12 +92,28 @@ python3 -c "import neuralbudget; print(neuralbudget.__version__ if hasattr(neura
 ```bash
 # Run all tests
 cargo test --all-features
+cargo test --test cli_integration_tests
 python3 tests/python_convenience_tests.py
 python3 tests/python_client_tests.py
 
 # Run linting
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
+```
+
+### 4. Build and Test the CLI Tool
+
+```bash
+# Build the CLI binary
+cargo build --bin neuralbudget
+
+# Test the CLI
+./target/debug/neuralbudget --help
+./target/debug/neuralbudget eval examples/slo_http.yaml examples/sample_http.json
+./target/debug/neuralbudget check examples/slo_http.yaml --strict
+
+# Run CLI integration tests
+cargo test --test cli_integration_tests
 ```
 
 ---
@@ -159,8 +175,9 @@ Closes #42
 ### Run All Tests
 
 ```bash
-# Full test suite with coverage
+# Full test suite including CLI tests
 cargo test --all-features
+cargo test --test cli_integration_tests
 python3 tests/python_convenience_tests.py
 python3 tests/python_client_tests.py
 ```
@@ -176,6 +193,9 @@ cargo test http_slo
 
 # Rust: run integration tests only
 cargo test --tests
+
+# Rust: run CLI integration tests
+cargo test --test cli_integration_tests
 
 # Python: run with verbose output
 python3 -m pytest tests/python_client_tests.py -v
@@ -203,6 +223,19 @@ fn test_new_feature_behavior() {
     let input = SloConfig::new(99.9, "7d");
     let result = input.evaluate_sample(&sample);
     assert!(result.passed);
+}
+```
+
+**CLI Tests:** Add integration tests in `tests/cli_integration_tests.rs`:
+
+```rust
+#[test]
+fn test_eval_command_with_valid_files() {
+    let config = /* create temp config */;
+    let sample = /* create temp sample */;
+    
+    // Test would run neuralbudget eval command
+    // and verify output format and exit codes
 }
 ```
 
@@ -406,17 +439,26 @@ Provide:
 See [`agentmap.md`](agentmap.md) for detailed architecture overview.
 
 **Key directories:**
-- `src/` — Rust core implementation
+- `src/` — Rust core implementation (core, exporter, otlp, python)
+  - `bin/main.rs` — CLI entry point
+  - `bin/commands/` — CLI subcommands (eval, gen-rules, check, serve)
 - `python/` — Python bindings and convenience layer
-- `tests/` — Test suites
+- `tests/` — Test suites (Rust functional/integration/CLI, Python unit/integration)
 - `docs/` — User documentation
+  - `docs/cli/` — CLI tool documentation (USER_GUIDE, DEVELOPMENT, IMPLEMENTATION_SUMMARY)
+  - `docs/guides/` — Feature guides and deployment instructions
+  - `docs/internal/` — Internal architecture and design documents
+  - `docs/reference/` — API references
 - `examples/` — Example scripts and configurations
+- `benches/` — Performance benchmarks
 
 ---
 
 ## Getting Help
 
-- **Documentation**: Check [`docs/guides/`](docs/guides/documentation-index.md)
+- **Documentation**: Check [`docs/guides/`](docs/guides/documentation-index.md) and [`docs/cli/`](docs/cli/)
+- **Architecture**: See [`agentmap.md`](agentmap.md) for module overview
+- **CLI Development**: See [`docs/cli/DEVELOPMENT.md`](docs/cli/DEVELOPMENT.md)
 - **Examples**: See [`examples/`](examples/)
 - **Discussions**: Use GitHub Discussions
 - **Issues**: Search existing issues before creating new ones

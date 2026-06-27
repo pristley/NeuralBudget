@@ -8,6 +8,24 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 
 ### Added
 
+- **Command-Line Interface (CLI Tool)**
+  - Added `neuralbudget` binary with 4 subcommands: `eval`, `gen-rules`, `check`, `serve`
+  - `eval` subcommand: Evaluate SLO against metrics with human-readable and JSON output
+  - `gen-rules` subcommand: Generate Prometheus alerting rules in YAML and Kubernetes CRD formats
+  - `check` subcommand: Validate SLO configurations with strict mode and detailed error reporting
+  - `serve` subcommand: Placeholder for HTTP server mode (planned for future release)
+  - Multi-platform builds: Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), Windows
+  - Docker support: Multi-stage Dockerfile for optimized binary distribution
+  - Comprehensive CLI tests: 13 integration test scenarios in `tests/cli_integration_tests.rs`
+  - CI/CD automation: `.github/workflows/cli-build.yml` for cross-platform builds and releases
+
+- **Documentation Organization**
+  - Created `docs/cli/` directory with all CLI documentation
+  - Moved `agentmap.md` to root for easy architecture discovery
+  - Created `docs/cli/USER_GUIDE.md` with installation, commands, and workflows
+  - Created `docs/cli/DEVELOPMENT.md` with building, testing, and cross-compilation guide
+  - Created `docs/cli/IMPLEMENTATION_SUMMARY.md` with feature matrix and status
+
 - **Phase 3: Adaptive Streaming & Parallel SLO Evaluation**
   - Added `StreamingAggregator` struct with velocity-based adaptive windowing for high-frequency metric ingestion
   - Implements automatic buffer pruning at >15,000 samples/sec with 5-second retention window

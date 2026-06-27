@@ -1,0 +1,51 @@
+# Example SLO Configuration for HTTP API
+# Usage: neuralbudget eval slo.yaml sample.json
+
+service: "payment-api"
+description: "Payment processing API for e-commerce platform"
+
+# SLO Target: 99.95% availability
+target: 99.95
+
+# Time window for error budget calculation (default: 30d)
+window: "30d"
+
+# HTTP-specific thresholds
+latency_threshold_ms: 200  # P99 latency must be < 200ms
+availability_threshold: 0.9995  # Availability must be > 99.95%
+
+# Percentile for latency evaluation
+latency_percentile: 0.99  # Use P99
+
+# Alert configuration
+alerts:
+  # Multi-window burn rates (recommended by Google SRE)
+  - window: "1h"    # Fast burn (1hr)
+    threshold: 0.10 # If burning > 10% of monthly budget/hour
+  - window: "6h"    # Medium burn (6hr)
+    threshold: 0.05 # If burning > 5% of monthly budget/hour
+  - window: "24h"   # Slow burn (24hr)
+    threshold: 0.02 # If burning > 2% of monthly budget/day
+  - window: "3d"    # Slowest burn (3 days)
+    threshold: 0.01 # If burning > 1% of monthly budget/day
+
+# Notification channels
+notifications:
+  - channel: "slack"
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    severity: ["warning", "critical"]
+  - channel: "pagerduty"
+    integration_key: "${PAGERDUTY_KEY}"
+    severity: ["critical"]
+
+# Optional: Custom filters for outliers
+outlier_filter:
+  enabled: true
+  mad_threshold: 3.5  # Median Absolute Deviation threshold
+  min_samples: 3      # Minimum samples required
+
+# Tags for organization
+tags:
+  team: "platform"
+  service_type: "payment"
+  environment: "production"

@@ -1,0 +1,30 @@
+{
+  "timestamp": 1704067200,
+  "service": "payment-api",
+  "measurement_window": "5m",
+  "requests": {
+    "total": 50000,
+    "successful": 49975,
+    "failed": 25,
+    "timeout": 0
+  },
+  "latency": {
+    "p50_ms": 45.2,
+    "p90_ms": 125.8,
+    "p99_ms": 187.5,
+    "p99_9_ms": 250.3,
+    "max_ms": 892.1
+  },
+  "errors": {
+    "connection_refused": 5,
+    "timeout": 0,
+    "service_unavailable": 15,
+    "auth_failed": 5,
+    "other": 0
+  },
+  "annotations": {
+    "deployment_window": false,
+    "load_spike": false,
+    "network_incident": false
+  }
+}

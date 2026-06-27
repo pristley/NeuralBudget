@@ -1,0 +1,49 @@
+# Example SLO Configuration for Machine Learning Service
+# Usage: neuralbudget eval ml_slo.yaml ml_sample.json
+
+service: "recommendation-engine"
+description: "ML-based recommendation service with model serving"
+
+# SLO Target: 99.9% uptime with quality metrics
+target: 99.90
+
+window: "7d"
+
+# ML-specific thresholds
+inference_latency_threshold_ms: 150  # Model inference must be fast
+min_model_confidence: 0.85           # Minimum confidence score
+max_feature_drift: 0.15              # Acceptable data drift
+
+# GPU utilization monitoring
+gpu_utilization_threshold: 0.90      # Alert if > 90% saturated
+
+# Quality metrics
+quality_gates:
+  - metric: "f1_score"
+    threshold: 0.92
+  - metric: "prediction_accuracy"
+    threshold: 0.94
+  - metric: "false_positive_rate"
+    threshold: 0.05
+
+# Burn rate alerts (adapted for batch + online evaluation)
+alerts:
+  - window: "1h"
+    threshold: 0.10
+  - window: "12h"
+    threshold: 0.05
+  - window: "7d"
+    threshold: 0.02
+
+# Model-specific settings
+model:
+  name: "recommendation-v3"
+  version: "3.2.1"
+  retraining_schedule: "weekly"  # When model gets updated
+  canary_deployment: true        # Gradually roll out new model
+
+tags:
+  team: "data-science"
+  service_type: "ml-inference"
+  environment: "production"
+  sla_tier: "premium"
