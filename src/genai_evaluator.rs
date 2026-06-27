@@ -523,6 +523,13 @@ mod tests {
     }
 
     #[test]
+    fn test_cache_key_different_order() {
+        let key1 = LlmJudgeEvaluator::generate_cache_key("query", "response");
+        let key2 = LlmJudgeEvaluator::generate_cache_key("response", "query");
+        assert_ne!(key1, key2);
+    }
+
+    #[test]
     fn test_dimension_creation() {
         let dim = LlmJudgeDimension {
             name: "correctness".to_string(),
@@ -535,6 +542,50 @@ mod tests {
         assert_eq!(dim.name, "correctness");
         assert_eq!(dim.weight, 0.5);
         assert_eq!(dim.threshold, 3.0);
+        assert_eq!(dim.cost_per_call_usd, 0.0001);
+    }
+
+    #[test]
+    fn test_dimension_score_structure() {
+        let score = DimensionScore {
+            name: "tone".to_string(),
+            score: 4.5,
+            reasoning: Some("Professional and clear".to_string()),
+            pass: true,
+        };
+
+        assert_eq!(score.name, "tone");
+        assert_eq!(score.score, 4.5);
+        assert_eq!(score.reasoning, Some("Professional and clear".to_string()));
+        assert!(score.pass);
+    }
+
+    #[test]
+    fn test_evaluation_result_structure() {
+        let result = EvaluationResult {
+            timestamp: 1234567890,
+            cache_key: "llm_judge:abc123".to_string(),
+            from_cache: false,
+            dimension_scores: vec![
+                DimensionScore {
+                    name: "correctness".to_string(),
+                    score: 4.0,
+                    reasoning: None,
+                    pass: true,
+                },
+            ],
+            weighted_score: 0.75,
+            pass: true,
+            total_cost_usd: 0.0001,
+            total_tokens: 50,
+        };
+
+        assert_eq!(result.timestamp, 1234567890);
+        assert!(!result.from_cache);
+        assert_eq!(result.weighted_score, 0.75);
+        assert!(result.pass);
+        assert_eq!(result.total_cost_usd, 0.0001);
+        assert_eq!(result.total_tokens, 50);
     }
 
     #[test]
@@ -552,16 +603,191 @@ mod tests {
             evaluator.extract_score("I give this a 3 out of 5").unwrap(),
             3.0
         );
+        assert_eq!(evaluator.extract_score("The answer is 5.").unwrap(), 5.0);
+        assert_eq!(evaluator.extract_score("1 star").unwrap(), 1.0);
         assert!(evaluator.extract_score("no score here").is_err());
     }
 
     #[test]
-    fn test_llm_provider_model() {
+    fn test_score_extraction_edge_cases() {
+        let evaluator = LlmJudgeEvaluator::new(
+            LlmProvider::Local {
+                base_url: "http://localhost:11434".to_string(),
+                model: "llama2".to_string(),
+            },
+            vec![],
+        );
+
+        // Score at boundaries
+        assert_eq!(evaluator.extract_score("1").unwrap(), 1.0);
+        assert_eq!(evaluator.extract_score("5").unwrap(), 5.0);
+
+        // Invalid scores outside range (should fail or be clamped)
+        assert!(evaluator.extract_score("0").is_err());
+        assert!(evaluator.extract_score("6").is_err());
+        assert!(evaluator.extract_score("10").is_err());
+    }
+
+    #[test]
+    fn test_llm_provider_openai() {
         let provider = LlmProvider::OpenAI {
-            api_key: "key".to_string(),
-            model: "gpt-4-mini".to_string(),
+            api_key: "sk-test123".to_string(),
+            model: "gpt-4".to_string(),
         };
-        assert_eq!(provider.model(), "gpt-4-mini");
-        assert_eq!(provider.api_key(), Some("key"));
+        assert_eq!(provider.model(), "gpt-4");
+        assert_eq!(provider.api_key(), Some("sk-test123"));
+    }
+
+    #[test]
+    fn test_llm_provider_anthropic() {
+        let provider = LlmProvider::Anthropic {
+            api_key: "ant-test123".to_string(),
+            model: "claude-3".to_string(),
+        };
+        assert_eq!(provider.model(), "claude-3");
+        assert_eq!(provider.api_key(), Some("ant-test123"));
+    }
+
+    #[test]
+    fn test_llm_provider_local() {
+        let provider = LlmProvider::Local {
+            base_url: "http://localhost:11434".to_string(),
+            model: "llama2".to_string(),
+        };
+        assert_eq!(provider.model(), "llama2");
+        assert_eq!(provider.api_key(), None);
+    }
+
+    #[test]
+    fn test_evaluator_creation() {
+        let dimensions = vec![
+            LlmJudgeDimension {
+                name: "correctness".to_string(),
+                prompt: "Score this: {response}".to_string(),
+                weight: 0.6,
+                threshold: 3.0,
+                cost_per_call_usd: 0.001,
+            },
+            LlmJudgeDimension {
+                name: "clarity".to_string(),
+                prompt: "Is it clear? {response}".to_string(),
+                weight: 0.4,
+                threshold: 2.5,
+                cost_per_call_usd: 0.0005,
+            },
+        ];
+
+        let evaluator = LlmJudgeEvaluator::new(
+            LlmProvider::OpenAI {
+                api_key: "test".to_string(),
+                model: "gpt-4-mini".to_string(),
+            },
+            dimensions,
+        );
+
+        assert_eq!(evaluator.dimensions.len(), 2);
+        assert_eq!(evaluator.dimensions[0].name, "correctness");
+        assert_eq!(evaluator.dimensions[1].name, "clarity");
+        assert!(evaluator.cache_config.is_none());
+    }
+
+    #[test]
+    fn test_cache_key_deterministic() {
+        // Same inputs should always produce same key
+        let keys: Vec<_> = (0..5)
+            .map(|_| LlmJudgeEvaluator::generate_cache_key("q", "r"))
+            .collect();
+
+        assert!(keys.iter().all(|k| k == &keys[0]));
+    }
+
+    #[test]
+    fn test_dimension_score_pass_fail() {
+        let pass_score = DimensionScore {
+            name: "test".to_string(),
+            score: 4.0,
+            reasoning: None,
+            pass: true,
+        };
+
+        let fail_score = DimensionScore {
+            name: "test".to_string(),
+            score: 2.0,
+            reasoning: None,
+            pass: false,
+        };
+
+        assert!(pass_score.pass);
+        assert!(!fail_score.pass);
+    }
+
+    #[test]
+    fn test_evaluation_result_all_pass() {
+        let result = EvaluationResult {
+            timestamp: 0,
+            cache_key: "key".to_string(),
+            from_cache: false,
+            dimension_scores: vec![
+                DimensionScore {
+                    name: "d1".to_string(),
+                    score: 4.0,
+                    reasoning: None,
+                    pass: true,
+                },
+                DimensionScore {
+                    name: "d2".to_string(),
+                    score: 5.0,
+                    reasoning: None,
+                    pass: true,
+                },
+            ],
+            weighted_score: 0.9,
+            pass: true,
+            total_cost_usd: 0.002,
+            total_tokens: 100,
+        };
+
+        assert!(result.pass);
+        assert_eq!(result.dimension_scores.len(), 2);
+    }
+
+    #[test]
+    fn test_evaluation_result_one_fail() {
+        let result = EvaluationResult {
+            timestamp: 0,
+            cache_key: "key".to_string(),
+            from_cache: false,
+            dimension_scores: vec![
+                DimensionScore {
+                    name: "d1".to_string(),
+                    score: 4.0,
+                    reasoning: None,
+                    pass: true,
+                },
+                DimensionScore {
+                    name: "d2".to_string(),
+                    score: 2.0,
+                    reasoning: None,
+                    pass: false,
+                },
+            ],
+            weighted_score: 0.5,
+            pass: false,
+            total_cost_usd: 0.002,
+            total_tokens: 100,
+        };
+
+        assert!(!result.pass);
+    }
+
+    #[test]
+    fn test_cache_config_structure() {
+        let config = CacheConfig {
+            redis_url: "redis://localhost:6379".to_string(),
+            ttl_seconds: 3600,
+        };
+
+        assert_eq!(config.redis_url, "redis://localhost:6379");
+        assert_eq!(config.ttl_seconds, 3600);
     }
 }
