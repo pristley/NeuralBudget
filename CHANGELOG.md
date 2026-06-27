@@ -19,12 +19,35 @@ Release entries are maintained automatically by the CD workflow on tagged releas
   - Comprehensive CLI tests: 13 integration test scenarios in `tests/cli_integration_tests.rs`
   - CI/CD automation: `.github/workflows/cli-build.yml` for cross-platform builds and releases
 
+- **Prometheus Rule Generation (Multi-Burn-Rate Alerting)**
+  - Enhanced `gen-rules` with sophisticated multi-burn-rate alerting strategy (Google SRE-based)
+  - Auto-generates recording rules:
+    - `neuralbudget:slo:availability` - Availability SLI (% successful requests)
+    - `neuralbudget:slo:latency_p99_ms` - P99 latency in milliseconds
+    - `neuralbudget:slo:error_rate` - Error rate (5xx / total)
+    - `neuralbudget:slo:error_budget_remaining` - Error budget % available
+    - `neuralbudget:slo:burn_rate_*` - Multi-window burn rates (1h, 6h, 24h, 3d)
+  - Auto-generates alerting rules with configurable burn rate windows:
+    - `SloErrorBudgetBurnRate{1h,6h,24h,3d}` - Multi-window burn rate alerts
+    - `SloLatencyExceeded` - P99 latency SLI violation
+    - `SloErrorBudgetExhausted` - Complete budget consumption
+  - Burn rate thresholds are dynamically calculated from SLO target and alert config
+  - Alert duration and evaluation intervals optimized per window (1m-1h)
+  - Full Kubernetes PrometheusRule CRD support with namespace configuration
+  - PromQL expressions validated for Prometheus compatibility
+
 - **Documentation Organization**
   - Created `docs/cli/` directory with all CLI documentation
+  - Created `docs/guides/prometheus-rule-generation.md` with comprehensive burn rate guide
+  - Created `docs/guides/prometheus-rules-example.md` with generated rules examples
+  - Created `docs/guides/applying-prometheus-rules.md` with real-world deployment scenarios
+  - Created `tests/test_prometheus_rules.py` with rule generation validation tests
   - Moved `agentmap.md` to root for easy architecture discovery
   - Created `docs/cli/USER_GUIDE.md` with installation, commands, and workflows
   - Created `docs/cli/DEVELOPMENT.md` with building, testing, and cross-compilation guide
   - Created `docs/cli/IMPLEMENTATION_SUMMARY.md` with feature matrix and status
+  - Updated `docs/guides/documentation-index.md` to include Prometheus rules guide
+  - Updated README.md with Prometheus rule generation feature and documentation links
 
 - **Phase 3: Adaptive Streaming & Parallel SLO Evaluation**
   - Added `StreamingAggregator` struct with velocity-based adaptive windowing for high-frequency metric ingestion

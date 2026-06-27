@@ -166,14 +166,25 @@ Manage SLOs from the command line:
 # Evaluate an SLO configuration
 neuralbudget eval slo.yaml sample.json
 
-# Generate Prometheus alerting rules
-neuralbudget gen-rules slo.yaml --kubernetes
+# Generate Prometheus alerting rules (multi-burn-rate strategy)
+neuralbudget gen-rules slo.yaml > rules.yaml
+neuralbudget gen-rules slo.yaml --kubernetes | kubectl apply -f -
 
 # Validate SLO configuration
 neuralbudget check slo.yaml --strict
 ```
 
+**Key Features:**
+- `eval` — Evaluate SLO against sample data with detailed results
+- `gen-rules` — Auto-generate production Prometheus rules with:
+  - Recording rules for availability, latency, error budget
+  - Multi-burn-rate alerting (1h/6h/24h/3d windows)
+  - Kubernetes PrometheusRule CRD support
+- `check` — Validate SLO config and warn on unrealistic thresholds
+- `serve` — HTTP server mode for on-demand evaluation (coming soon)
+
 📖 **[CLI User Guide](docs/cli/USER_GUIDE.md)** — Installation, commands, examples  
+📊 **[Prometheus Rule Generation](docs/guides/prometheus-rule-generation.md)** — Multi-burn-rate alerting strategy  
 🛠️ **[CLI Development](docs/cli/DEVELOPMENT.md)** — Building, cross-compilation, extending
 
 ## More Information
@@ -182,11 +193,12 @@ neuralbudget check slo.yaml --strict
 |----------|---------|  
 | **[Documentation](docs/INDEX.md)** | Complete docs organized by goal |
 | **[Architecture Map](agentmap.md)** | Module responsibilities & data flow |
+| **[CLI User Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
+| **[Prometheus Rules](docs/guides/prometheus-rule-generation.md)** | Multi-burn-rate alerting, recording rules |
 | **[Glossary](docs/reference/glossary.md)** | Key terms & acronyms |
 | **[API Reference](docs/reference/api.md)** | Full Python API |
 | **[Examples](examples/)** | Grafana, Kubernetes, Python examples |
-| **[CLI Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
-| **[License](LICENSING.md)** | Apache 2.0 + commercial options |
+| **[License](LICENSE)** | Apache 2.0 |
 
 ## Enterprise & SRE Use Cases
 

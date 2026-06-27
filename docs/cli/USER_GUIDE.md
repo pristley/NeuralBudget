@@ -120,7 +120,7 @@ neuralbudget eval slo.yaml sample.json --verbose
 
 ### gen-rules - Generate Prometheus Rules
 
-Generate Prometheus alerting and recording rules from an SLO configuration.
+Generate production-ready Prometheus alerting and recording rules from an SLO configuration.
 
 **Usage:**
 ```bash
@@ -134,20 +134,94 @@ neuralbudget gen-rules <CONFIG> [OPTIONS]
 - `--kubernetes`: Output as Kubernetes PrometheusRule CRD
 - `--namespace <NAMESPACE>`: Kubernetes namespace (default: monitoring)
 
+**What it generates:**
+
+1. **Recording Rules** (updated every 30 seconds):
+   - `neuralbudget:slo:availability` - Availability SLI (%)
+   - `neuralbudget:slo:latency_p99_ms` - P99 latency (milliseconds)
+   - `neuralbudget:slo:error_rate` - Error rate (percentage)
+   - `neuralbudget:slo:error_budget_remaining` - Error budget available (%)
+   - `neuralbudget:slo:burn_rate_*` - Multi-window burn rates
+
+2. **Alerting Rules** (evaluated every 1 minute):
+   - `SloErrorBudgetBurnRate{1h,6h,24h,3d}` - Multi-burn-rate alerts
+   - `SloLatencyExceeded` - Latency SLI violation
+   - `SloErrorBudgetExhausted` - Budget fully consumed
+
+**Multi-Burn-Rate Alerting:**
+
+The generated rules implement Google SRE's multi-burn-rate strategy for fast anomaly detection:
+
+| Window | Burn Rate | Alert Threshold | Evaluation | Use Case |
+|--------|-----------|-----------------|-----------|----------|
+| 1h | 10% | Aggressive (0.05% error for 99.95% SLO) | Every 1m | Fast burn detection |
+| 6h | 5% | Medium (0.025% error) | Every 5m | Sustained degradation |
+| 24h | 2% | Slow (0.01% error) | Every 15m | Trends & patterns |
+| 3d | 1% | Critical (0.005% error) | Every 1h | Budget exhaustion prediction |
+
 **Examples:**
+
 ```bash
 # Generate plain YAML rules
-neuralbudget gen-rules slo.yaml
+neuralbudget gen-rules slo.yaml > prometheus-rules.yaml
 
 # Generate Kubernetes CRD
 neuralbudget gen-rules slo.yaml --kubernetes --namespace monitoring
 
 # Save to file
-neuralbudget gen-rules slo.yaml > prometheus-rules.yaml
+neuralbudget gen-rules slo.yaml > rules.yaml
 
-# Apply to Kubernetes cluster
+# Apply to Kubernetes
 neuralbudget gen-rules slo.yaml --kubernetes | kubectl apply -f -
+
+# Validate generated rules
+neuralbudget gen-rules slo.yaml | yamllint -
+
+# Preview without writing
+neuralbudget gen-rules slo.yaml
 ```
+
+**Configuration Requirements:**
+
+Your SLO YAML must include:
+
+```yaml
+service: "payment-api"
+availability_threshold: 0.9995    # e.g., 99.95%
+latency_threshold_ms: 200         # P99 threshold
+job_label: "payment-api"          # Prometheus job label (optional)
+
+# Optional: customize burn rate windows
+alerts:
+  - window: "1h"
+    threshold: 0.10
+  - window: "6h"
+    threshold: 0.05
+  - window: "24h"
+    threshold: 0.02
+  - window: "3d"
+    threshold: 0.01
+```
+
+**Metrics Requirements:**
+
+Your application must export standard HTTP metrics:
+
+```
+http_requests_total{job="payment-api", status="200"} counter
+http_requests_total{job="payment-api", status="500"} counter
+http_request_duration_seconds_bucket{job="payment-api", le="0.2"} histogram
+```
+
+**Learn More:**
+
+See [Prometheus Rule Generation Guide](../guides/prometheus-rule-generation.md) for:
+- Detailed burn rate math and thresholds
+- Alertmanager integration
+- Troubleshooting and customization
+- Generated rules examples
+
+**See Also:** [prometheus-rule-generation.md](../guides/prometheus-rule-generation.md)
 
 ### check - Validate Configuration
 
