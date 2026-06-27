@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::collections::HashMap;
 
 /// A metric node in the SLO evaluation graph.
 /// Represents an independent metric that can be evaluated in parallel.
@@ -64,6 +63,7 @@ pub struct SloNodeEvaluation {
 ///
 /// `evaluate()` releases the Python GIL, enabling true concurrent execution on the Rayon thread pool.
 #[pyclass]
+#[derive(Default)]
 pub struct ParallelMetricBatch {
     /// List of metric nodes to evaluate
     nodes: Vec<SloNode>,
@@ -80,7 +80,7 @@ impl ParallelMetricBatch {
     /// No validation of node IDs (assume unique).
     #[new]
     pub fn new(node_data: Vec<(String, f64, f64)>) -> Self {
-        let nodes = node_data
+        let nodes: Vec<_> = node_data
             .into_iter()
             .map(|(id, value, threshold)| SloNode {
                 id,
@@ -113,13 +113,7 @@ impl ParallelMetricBatch {
                 .map(|node| {
                     let pass = node.evaluate();
                     let score = node.score();
-                    (
-                        node.id.clone(),
-                        node.value,
-                        node.threshold,
-                        pass,
-                        score,
-                    )
+                    (node.id.clone(), node.value, node.threshold, pass, score)
                 })
                 .collect::<Vec<_>>()
         });
@@ -153,14 +147,36 @@ impl ParallelMetricBatch {
             false
         }
     }
-}
 
-impl Default for ParallelMetricBatch {
-    fn default() -> Self {
-        ParallelMetricBatch {
-            nodes: Vec::new(),
-            node_count: 0,
+    /// Count the number of nodes that pass their threshold.
+    pub fn pass_count(&self) -> usize {
+        self.nodes.iter().filter(|node| node.evaluate()).count()
+    }
+
+    /// Compute the mean score across all nodes.
+    ///
+    /// Returns 1.0 for an empty batch (vacuous truth).
+    pub fn aggregate_score(&self) -> f64 {
+        if self.nodes.is_empty() {
+            return 1.0;
         }
+        let total: f64 = self.nodes.iter().map(|node| node.score()).sum();
+        total / self.nodes.len() as f64
+    }
+
+    /// Return all nodes as evaluation tuples without requiring the GIL.
+    ///
+    /// Each tuple is `(id, value, threshold, pass, score)`.
+    /// This is the sequential equivalent of `evaluate()` for use in non-Python contexts.
+    pub fn nodes_as_tuples(&self) -> Vec<(String, f64, f64, bool, f64)> {
+        self.nodes
+            .iter()
+            .map(|node| {
+                let pass = node.evaluate();
+                let score = node.score();
+                (node.id.clone(), node.value, node.threshold, pass, score)
+            })
+            .collect()
     }
 }
 
@@ -222,7 +238,7 @@ mod tests {
     #[test]
     fn test_slo_graph_aggregate_score() {
         let graph = ParallelMetricBatch::new(vec![
-            ("latency".to_string(), 100.0, 100.0), // Score: 1.0
+            ("latency".to_string(), 100.0, 100.0),     // Score: 1.0
             ("availability".to_string(), 50.0, 100.0), // Score: 0.5
         ]);
 
@@ -312,20 +328,20 @@ mod tests {
         // and that they reflect updated values after mutations.
 
         let mut batch = ParallelMetricBatch::new(vec![
-            ("latency".to_string(), 150.0, 200.0),      // Fails: 150 < 200
-            ("availability".to_string(), 99.95, 99.9),  // Passes: 99.95 >= 99.9
+            ("latency".to_string(), 150.0, 200.0),     // Fails: 150 < 200
+            ("availability".to_string(), 99.95, 99.9), // Passes: 99.95 >= 99.9
         ]);
 
         // BEFORE calling evaluate(), query methods should work correctly
         // (they recompute from current state, not from cached results)
         assert!(!batch.all_pass()); // One metric fails
         assert_eq!(batch.pass_count(), 1);
-        assert!((batch.aggregate_score() - 0.75).abs() < 0.01); // Mean of 0.75 and 1.0
+        assert!((batch.aggregate_score() - 0.875).abs() < 0.01); // Mean of 0.75 and 1.0
 
         let tuples = batch.nodes_as_tuples();
         assert_eq!(tuples.len(), 2);
         assert!(!tuples[0].3); // latency fails
-        assert!(tuples[1].3);  // availability passes
+        assert!(tuples[1].3); // availability passes
 
         // After update_node(), query methods immediately reflect the change
         batch.update_node("latency", 250.0); // Change to pass
@@ -368,8 +384,7 @@ mod tests {
         let score_3 = batch.aggregate_score();
 
         assert_eq!(pass_count_3, 2); // Both pass now
-        assert_eq!(score_3, 1.0);   // Both score 1.0
+        assert_eq!(score_3, 1.0); // Both score 1.0
         assert_ne!(pass_count_2, pass_count_3); // Different from before update
     }
 }
-

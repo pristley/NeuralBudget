@@ -6,15 +6,15 @@ use pyo3::types::PyDict;
 
 use crate::core::*;
 use crate::exporter::PrometheusExporter;
-use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
-use crate::streaming::StreamingAggregator;
-use crate::slo_graph::ParallelMetricBatch;
 use crate::forecasting::{
-    BurnRateAlertResult, BurnRateAlertRule, BurnRateSeverity, BudgetExhaustionForecast,
-    MultiWindowBurnRate, calculate_burn_rate_for_window, calculate_multi_window_burn_rate,
-    determine_overall_severity, evaluate_burn_rate_alert, evaluate_multi_window_alerts,
-    forecast_budget_exhaustion,
+    calculate_burn_rate_for_window, calculate_multi_window_burn_rate, determine_overall_severity,
+    evaluate_burn_rate_alert, evaluate_multi_window_alerts, forecast_budget_exhaustion,
+    BudgetExhaustionForecast, BurnRateAlertResult, BurnRateAlertRule, BurnRateSeverity,
+    MultiWindowBurnRate,
 };
+use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
+use crate::slo_graph::ParallelMetricBatch;
+use crate::streaming::StreamingAggregator;
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -2564,7 +2564,13 @@ pub struct PyMultiWindowBurnRate {
 #[pymethods]
 impl PyMultiWindowBurnRate {
     #[new]
-    fn new(timestamp: i64, burn_rate_5m: f64, burn_rate_30m: f64, burn_rate_1h: f64, burn_rate_6h: f64) -> Self {
+    fn new(
+        timestamp: i64,
+        burn_rate_5m: f64,
+        burn_rate_30m: f64,
+        burn_rate_1h: f64,
+        burn_rate_6h: f64,
+    ) -> Self {
         Self {
             inner: MultiWindowBurnRate {
                 timestamp,
@@ -2820,9 +2826,18 @@ impl PyBudgetExhaustionForecast {
         let dict = PyDict::new(py);
         dict.set_item("timestamp", self.inner.timestamp)?;
         dict.set_item("current_burn_rate", self.inner.current_burn_rate)?;
-        dict.set_item("remaining_budget_seconds", self.inner.remaining_budget_seconds)?;
-        dict.set_item("time_to_exhaustion_seconds", self.inner.time_to_exhaustion_seconds)?;
-        dict.set_item("projected_exhaustion_timestamp", self.inner.projected_exhaustion_timestamp)?;
+        dict.set_item(
+            "remaining_budget_seconds",
+            self.inner.remaining_budget_seconds,
+        )?;
+        dict.set_item(
+            "time_to_exhaustion_seconds",
+            self.inner.time_to_exhaustion_seconds,
+        )?;
+        dict.set_item(
+            "projected_exhaustion_timestamp",
+            self.inner.projected_exhaustion_timestamp,
+        )?;
         dict.set_item("will_exhaust", self.inner.will_exhaust)?;
         Ok(dict)
     }
@@ -2931,7 +2946,7 @@ impl<'py> FromPyObject<'py> for BurnRateAlertRule {
         let dict = obj
             .downcast::<PyDict>()
             .map_err(|_| PyTypeError::new_err("Expected dict or BurnRateAlertRule"))?;
-        
+
         let severity_str: String = extract_required(dict, "severity")?;
         let severity = match severity_str.as_str() {
             "ok" => BurnRateSeverity::Ok,
@@ -2962,7 +2977,7 @@ impl<'py> FromPyObject<'py> for MultiWindowBurnRate {
         let dict = obj
             .downcast::<PyDict>()
             .map_err(|_| PyTypeError::new_err("Expected dict or MultiWindowBurnRate"))?;
-        
+
         Ok(Self {
             timestamp: extract_required(dict, "timestamp")?,
             burn_rate_5m: extract_required(dict, "burn_rate_5m")?,
@@ -3048,7 +3063,10 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyBurnRateAlertResult>()?;
     module.add_class::<PyBudgetExhaustionForecast>()?;
     module.add_function(wrap_pyfunction!(py_calculate_burn_rate_for_window, module)?)?;
-    module.add_function(wrap_pyfunction!(py_calculate_multi_window_burn_rate, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_calculate_multi_window_burn_rate,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_evaluate_burn_rate_alert, module)?)?;
     module.add_function(wrap_pyfunction!(py_evaluate_multi_window_alerts, module)?)?;
     module.add_function(wrap_pyfunction!(py_determine_overall_severity, module)?)?;

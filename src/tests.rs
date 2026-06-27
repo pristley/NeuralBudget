@@ -25,12 +25,20 @@ fn calculate_availability_matches_pure_python_ratio() {
 
         let expected: f64 = {
             let builtins = py.import("builtins").expect("builtins module should exist");
-            let eval_fn = builtins.getattr("eval").expect("eval function should exist in builtins");
+            let eval_fn = builtins
+                .getattr("eval")
+                .expect("eval function should exist in builtins");
             let globals = PyDict::new(py);
-            globals.set_item("__builtins__", &builtins).expect("should set __builtins__ in globals");
+            globals
+                .set_item("__builtins__", &builtins)
+                .expect("should set __builtins__ in globals");
             let locals = PyDict::new(py);
-            locals.set_item("success", success).expect("should set success in locals");
-            locals.set_item("total", total).expect("should set total in locals");
+            locals
+                .set_item("success", success)
+                .expect("should set success in locals");
+            locals
+                .set_item("total", total)
+                .expect("should set total in locals");
 
             eval_fn
                 .call1(("success / total", &globals, &locals))
@@ -162,9 +170,13 @@ fn python_window_function_matches_rust_logic() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new(py, "neuralbudget_test").expect("test module creation should succeed");
+        let module =
+            PyModule::new(py, "neuralbudget_test").expect("test module creation should succeed");
         module
-            .add_function(wrap_pyfunction!(is_timestamp_in_window, &module).expect("function wrapping should succeed"))
+            .add_function(
+                wrap_pyfunction!(is_timestamp_in_window, &module)
+                    .expect("function wrapping should succeed"),
+            )
             .expect("adding function to module should succeed");
 
         let window = TimeWindow::calendar_aligned(86_400, 18_000);
@@ -187,36 +199,63 @@ fn python_http_slo_histogram_wrapper_evaluates_sample() {
     pyo3::prepare_freethreaded_python();
 
     Python::with_gil(|py| {
-        let module = PyModule::new(py, "neuralbudget_http_slo_test").expect("test module creation should succeed");
+        let module = PyModule::new(py, "neuralbudget_http_slo_test")
+            .expect("test module creation should succeed");
         module
-            .add_function(wrap_pyfunction!(evaluate_http_slo_histogram, &module).expect("function wrapping should succeed"))
+            .add_function(
+                wrap_pyfunction!(evaluate_http_slo_histogram, &module)
+                    .expect("function wrapping should succeed"),
+            )
             .expect("adding function to module should succeed");
 
         let sample = PyDict::new(py);
-        sample.set_item("timestamp", 1_i64).expect("setting timestamp should succeed");
-        sample.set_item("success", 9_995_u64).expect("setting success should succeed");
-        sample.set_item("total", 10_000_u64).expect("setting total should succeed");
+        sample
+            .set_item("timestamp", 1_i64)
+            .expect("setting timestamp should succeed");
+        sample
+            .set_item("success", 9_995_u64)
+            .expect("setting success should succeed");
+        sample
+            .set_item("total", 10_000_u64)
+            .expect("setting total should succeed");
         let buckets = PyList::empty(py);
         for (upper_bound_ms, count) in [(100.0, 9_700_u64), (150.0, 200_u64), (220.0, 100_u64)] {
             let bucket = PyDict::new(py);
-            bucket.set_item("upper_bound_ms", upper_bound_ms).expect("setting upper_bound_ms should succeed");
-            bucket.set_item("count", count).expect("setting count should succeed");
-            buckets.append(bucket).expect("appending bucket should succeed");
+            bucket
+                .set_item("upper_bound_ms", upper_bound_ms)
+                .expect("setting upper_bound_ms should succeed");
+            bucket
+                .set_item("count", count)
+                .expect("setting count should succeed");
+            buckets
+                .append(bucket)
+                .expect("appending bucket should succeed");
         }
-        sample.set_item("buckets", buckets).expect("setting buckets should succeed");
-        sample.set_item("format", "open_telemetry_delta").expect("setting format should succeed");
+        sample
+            .set_item("buckets", buckets)
+            .expect("setting buckets should succeed");
+        sample
+            .set_item("format", "open_telemetry_delta")
+            .expect("setting format should succeed");
 
         let slo = PyDict::new(py);
-        slo.set_item("latency_threshold_ms", 200.0).expect("setting latency_threshold_ms should succeed");
-        slo.set_item("latency_percentile", 0.99).expect("setting latency_percentile should succeed");
-        slo.set_item("availability_threshold", 0.999).expect("setting availability_threshold should succeed");
+        slo.set_item("latency_threshold_ms", 200.0)
+            .expect("setting latency_threshold_ms should succeed");
+        slo.set_item("latency_percentile", 0.99)
+            .expect("setting latency_percentile should succeed");
+        slo.set_item("availability_threshold", 0.999)
+            .expect("setting availability_threshold should succeed");
 
         let result = module
             .getattr("evaluate_http_slo_histogram")
             .expect("getattr should succeed")
             .call1((&sample, &slo))
             .expect("function call should succeed");
-        let pass: bool = result.getattr("pass").expect("getattr pass should succeed").extract().expect("extracting bool should succeed");
+        let pass: bool = result
+            .getattr("pass")
+            .expect("getattr pass should succeed")
+            .extract()
+            .expect("extracting bool should succeed");
 
         assert!(pass);
     });
@@ -273,11 +312,21 @@ fn slo_config_round_trips_through_json_and_yaml() {
         window: "30d".to_string(),
     };
 
-    let json = config.to_json_string().expect("JSON serialization should succeed");
-    let yaml = config.to_yaml_string().expect("YAML serialization should succeed");
+    let json = config
+        .to_json_string()
+        .expect("JSON serialization should succeed");
+    let yaml = config
+        .to_yaml_string()
+        .expect("YAML serialization should succeed");
 
-    assert_eq!(SloConfig::from_json_str(&json).expect("JSON deserialization should succeed"), config);
-    assert_eq!(SloConfig::from_yaml_str(&yaml).expect("YAML deserialization should succeed"), config);
+    assert_eq!(
+        SloConfig::from_json_str(&json).expect("JSON deserialization should succeed"),
+        config
+    );
+    assert_eq!(
+        SloConfig::from_yaml_str(&yaml).expect("YAML deserialization should succeed"),
+        config
+    );
 }
 
 #[test]
@@ -285,8 +334,12 @@ fn slo_config_rejects_unsupported_schema_versions() {
     let bad_json = r#"{"schema_version":2,"target":99.9,"window":"30d"}"#;
     let bad_yaml = "schema_version: 2\ntarget: 99.9\nwindow: 30d\n";
 
-    let json_err = SloConfig::from_json_str(bad_json).expect_err("schema version 2 should be rejected").to_string();
-    let yaml_err = SloConfig::from_yaml_str(bad_yaml).expect_err("schema version 2 should be rejected").to_string();
+    let json_err = SloConfig::from_json_str(bad_json)
+        .expect_err("schema version 2 should be rejected")
+        .to_string();
+    let yaml_err = SloConfig::from_yaml_str(bad_yaml)
+        .expect_err("schema version 2 should be rejected")
+        .to_string();
 
     assert!(json_err.contains("unsupported schema_version"));
     assert!(yaml_err.contains("unsupported schema_version"));

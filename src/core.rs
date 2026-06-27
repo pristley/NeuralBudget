@@ -39,7 +39,10 @@ impl std::fmt::Display for NeuralBudgetError {
             Self::FormatError(msg) => write!(f, "Format conversion error: {msg}"),
             Self::EvaluationError(msg) => write!(f, "Evaluation error: {msg}"),
             Self::SchemaVersionError { found, supported } => {
-                write!(f, "Unsupported schema version {found}; supported: {supported}")
+                write!(
+                    f,
+                    "Unsupported schema version {found}; supported: {supported}"
+                )
             }
         }
     }
@@ -58,7 +61,9 @@ pub type Result<T> = std::result::Result<T, NeuralBudgetError>;
 
 const SLO_CONFIG_SCHEMA_VERSION: u32 = 1;
 
-fn deserialize_slo_config_schema_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn deserialize_slo_config_schema_version<'de, D>(
+    deserializer: D,
+) -> std::result::Result<u32, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -107,13 +112,22 @@ pub struct SloConfig {
 }
 
 impl SloConfig {
-    pub fn from_json_str(input: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_json_str(input: &str) -> std::result::Result<Self, serde_json::Error> {
         let schema: SloConfigSchemaV1 = serde_json::from_str(input)?;
         Ok(schema.into())
     }
 
-    pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
+    pub fn to_json_string(&self) -> std::result::Result<String, serde_json::Error> {
         serde_json::to_string(&SloConfigSchemaV1::from(self))
+    }
+
+    pub fn from_yaml_str(input: &str) -> std::result::Result<Self, serde_yaml::Error> {
+        let schema: SloConfigSchemaV1 = serde_yaml::from_str(input)?;
+        Ok(schema.into())
+    }
+
+    pub fn to_yaml_string(&self) -> std::result::Result<String, serde_yaml::Error> {
+        serde_yaml::to_string(&SloConfigSchemaV1::from(self))
     }
 }
 
@@ -530,7 +544,7 @@ impl Default for CompositeSloGraph {
 
 impl CompositeSloGraph {
     /// Evaluate this dependency graph and compute per-service and global SLO outcomes.
-    pub fn evaluate(&self) -> Result<CompositeSloEvaluation, CompositeSloError> {
+    pub fn evaluate(&self) -> std::result::Result<CompositeSloEvaluation, CompositeSloError> {
         evaluate_composite_slo(self)
     }
 }
@@ -797,12 +811,22 @@ impl TimeWindow {
 }
 
 pub trait JsonExt: Sized + Serialize + DeserializeOwned {
-    fn from_json_str(input: &str) -> Result<Self, serde_json::Error> {
+    fn from_json_str(input: &str) -> std::result::Result<Self, serde_json::Error> {
         serde_json::from_str(input)
     }
 
-    fn to_json_string(&self) -> Result<String, serde_json::Error> {
+    fn to_json_string(&self) -> std::result::Result<String, serde_json::Error> {
         serde_json::to_string(self)
+    }
+}
+
+pub trait YamlExt: Sized + Serialize + DeserializeOwned {
+    fn from_yaml_str(input: &str) -> std::result::Result<Self, serde_yaml::Error> {
+        serde_yaml::from_str(input)
+    }
+
+    fn to_yaml_string(&self) -> std::result::Result<String, serde_yaml::Error> {
+        serde_yaml::to_string(self)
     }
 }
 
@@ -835,6 +859,36 @@ impl JsonExt for CompositeSloGraph {}
 impl JsonExt for CompositeServiceSloEvaluation {}
 impl JsonExt for CompositeSloEvaluation {}
 impl JsonExt for TimeWindow {}
+
+impl YamlExt for SloConfig {}
+impl YamlExt for ErrorBudget {}
+impl YamlExt for MetricPoint {}
+impl YamlExt for WebApiRequest {}
+impl YamlExt for OutlierFilterConfig {}
+impl YamlExt for WebApiSloPolicy {}
+impl YamlExt for WebApiSloReport {}
+impl YamlExt for HistogramBucket {}
+impl YamlExt for HistogramSample {}
+impl YamlExt for HttpSlo {}
+impl YamlExt for HttpSloEvaluation {}
+impl YamlExt for StatefulSample {}
+impl YamlExt for StatefulTier {}
+impl YamlExt for StatefulPolicyProfile {}
+impl YamlExt for StatefulPolicyProfileSet {}
+impl YamlExt for StatefulSlo {}
+impl YamlExt for StatefulSloEvaluation {}
+impl YamlExt for MlSample {}
+impl YamlExt for MlSlo {}
+impl YamlExt for MlSloEvaluation {}
+impl YamlExt for GenAiSample {}
+impl YamlExt for GenAiSlo {}
+impl YamlExt for GenAiSloEvaluation {}
+impl YamlExt for CompositeServiceSlo {}
+impl YamlExt for CompositeDependencyEdge {}
+impl YamlExt for CompositeSloGraph {}
+impl YamlExt for CompositeServiceSloEvaluation {}
+impl YamlExt for CompositeSloEvaluation {}
+impl YamlExt for TimeWindow {}
 
 pub(crate) fn missing_key(key: &str) -> PyErr {
     PyKeyError::new_err(format!("missing required key '{key}'"))
@@ -1164,7 +1218,7 @@ pub fn calculate_web_api_slo(
 /// Evaluate a Composite SLO dependency DAG and compute the System Global SLO.
 pub fn evaluate_composite_slo(
     graph: &CompositeSloGraph,
-) -> Result<CompositeSloEvaluation, CompositeSloError> {
+) -> std::result::Result<CompositeSloEvaluation, CompositeSloError> {
     let graph_index = build_composite_graph_index(graph)?;
     let topological_order = composite_topological_order(&graph_index)?;
     let evaluations_by_service = evaluate_composite_services(&topological_order, &graph_index)?;
@@ -1193,7 +1247,7 @@ struct CompositeGraphIndex {
 
 fn build_composite_graph_index(
     graph: &CompositeSloGraph,
-) -> Result<CompositeGraphIndex, CompositeSloError> {
+) -> std::result::Result<CompositeGraphIndex, CompositeSloError> {
     let mut services_by_name: HashMap<String, CompositeServiceSlo> = HashMap::new();
     for service in &graph.services {
         if services_by_name
@@ -1264,7 +1318,7 @@ fn build_composite_graph_index(
 
 fn composite_topological_order(
     graph_index: &CompositeGraphIndex,
-) -> Result<Vec<String>, CompositeSloError> {
+) -> std::result::Result<Vec<String>, CompositeSloError> {
     let mut indegree = graph_index.indegree.clone();
     let mut ready: BinaryHeap<Reverse<String>> = BinaryHeap::new();
 
@@ -1302,7 +1356,7 @@ fn composite_topological_order(
 fn evaluate_composite_services(
     topological_order: &[String],
     graph_index: &CompositeGraphIndex,
-) -> Result<HashMap<String, CompositeServiceSloEvaluation>, CompositeSloError> {
+) -> std::result::Result<HashMap<String, CompositeServiceSloEvaluation>, CompositeSloError> {
     let mut evaluations_by_service: HashMap<String, CompositeServiceSloEvaluation> = HashMap::new();
 
     for service_name in topological_order {

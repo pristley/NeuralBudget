@@ -387,6 +387,7 @@ dependencies = [
  "criterion",
  "proptest",
  "pyo3",
+ "rayon",
  "serde",
  "serde_json",
  "serde_yaml",

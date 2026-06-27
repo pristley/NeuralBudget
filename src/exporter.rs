@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::core::{
-    CompositeServiceSloEvaluation, CompositeSloEvaluation, ErrorBudget, GenAiSloEvaluation,
-    HttpSloEvaluation, MlSloEvaluation, StatefulSloEvaluation, WebApiSloReport,
+    CompositeSloEvaluation, ErrorBudget, GenAiSloEvaluation, HttpSloEvaluation, MlSloEvaluation,
+    StatefulSloEvaluation,
 };
 
 const METRIC_TYPE_GAUGE: &str = "gauge";
@@ -192,6 +192,179 @@ impl PrometheusExporter {
             "drift_weight",
             evaluation.drift_weight,
             "ML SLO drift score weight",
+        );
+    }
+
+    /// Record Stateful SLO evaluation metrics.
+    pub fn observe_stateful_slo(&mut self, service: &str, evaluation: &StatefulSloEvaluation) {
+        self.observe_mode_timestamp("stateful", service, evaluation.timestamp);
+        self.observe_mode_bool(
+            "stateful",
+            service,
+            "pass",
+            evaluation.pass,
+            "Stateful SLO pass flag",
+        );
+        self.observe_mode_gauge(
+            "stateful",
+            service,
+            "score",
+            evaluation.score,
+            "Stateful SLO score",
+        );
+        self.observe_mode_bool(
+            "stateful",
+            service,
+            "replication_lag_ok",
+            evaluation.replication_lag_ok,
+            "Stateful SLO replication lag objective pass flag",
+        );
+        self.observe_mode_bool(
+            "stateful",
+            service,
+            "queue_depth_ok",
+            evaluation.queue_depth_ok,
+            "Stateful SLO queue depth objective pass flag",
+        );
+        self.observe_mode_bool(
+            "stateful",
+            service,
+            "connection_pool_ok",
+            evaluation.connection_pool_ok,
+            "Stateful SLO connection pool objective pass flag",
+        );
+        self.observe_mode_bool(
+            "stateful",
+            service,
+            "connection_wait_penalized",
+            evaluation.connection_wait_penalized,
+            "Stateful SLO connection wait penalty applied flag",
+        );
+    }
+
+    /// Record GenAI SLO evaluation metrics.
+    pub fn observe_genai_slo(&mut self, service: &str, evaluation: &GenAiSloEvaluation) {
+        self.observe_mode_timestamp("genai", service, evaluation.timestamp);
+        self.observe_mode_bool(
+            "genai",
+            service,
+            "pass",
+            evaluation.pass,
+            "GenAI SLO pass flag",
+        );
+        self.observe_mode_gauge(
+            "genai",
+            service,
+            "tokens_per_second",
+            evaluation.tokens_per_second,
+            "GenAI SLO tokens per second",
+        );
+        self.observe_mode_gauge(
+            "genai",
+            service,
+            "time_to_first_token_ms",
+            evaluation.time_to_first_token_ms,
+            "GenAI SLO time to first token in milliseconds",
+        );
+        self.observe_mode_gauge(
+            "genai",
+            service,
+            "semantic_similarity",
+            evaluation.semantic_similarity,
+            "GenAI SLO semantic similarity score",
+        );
+        self.observe_mode_bool(
+            "genai",
+            service,
+            "tokens_per_second_ok",
+            evaluation.tokens_per_second_ok,
+            "GenAI SLO tokens per second objective pass flag",
+        );
+        self.observe_mode_bool(
+            "genai",
+            service,
+            "time_to_first_token_ok",
+            evaluation.time_to_first_token_ok,
+            "GenAI SLO time to first token objective pass flag",
+        );
+        self.observe_mode_bool(
+            "genai",
+            service,
+            "semantic_similarity_ok",
+            evaluation.semantic_similarity_ok,
+            "GenAI SLO semantic similarity objective pass flag",
+        );
+    }
+
+    /// Record Composite SLO evaluation metrics.
+    pub fn observe_composite_slo(&mut self, graph: &str, evaluation: &CompositeSloEvaluation) {
+        self.observe_gauge(
+            "composite_global_slo",
+            "Composite SLO global weighted score",
+            evaluation.global_slo,
+            vec![("graph", graph.to_string())],
+        );
+        self.observe_gauge(
+            "composite_global_pass",
+            "Composite SLO global pass flag",
+            bool_as_f64(evaluation.global_pass),
+            vec![("graph", graph.to_string())],
+        );
+        for service_eval in &evaluation.services {
+            self.observe_gauge(
+                "composite_service_effective_score",
+                "Composite SLO per-service effective score after dependency adjustments",
+                service_eval.effective_score,
+                vec![
+                    ("graph", graph.to_string()),
+                    ("service", service_eval.service.clone()),
+                ],
+            );
+            self.observe_gauge(
+                "composite_service_local_score",
+                "Composite SLO per-service local score before dependency adjustments",
+                service_eval.local_score,
+                vec![
+                    ("graph", graph.to_string()),
+                    ("service", service_eval.service.clone()),
+                ],
+            );
+            self.observe_gauge(
+                "composite_service_pass",
+                "Composite SLO per-service pass flag",
+                bool_as_f64(service_eval.pass),
+                vec![
+                    ("graph", graph.to_string()),
+                    ("service", service_eval.service.clone()),
+                ],
+            );
+            self.observe_gauge(
+                "composite_service_dependency_adjusted",
+                "Composite SLO per-service dependency adjustment applied flag",
+                bool_as_f64(service_eval.dependency_adjusted),
+                vec![
+                    ("graph", graph.to_string()),
+                    ("service", service_eval.service.clone()),
+                ],
+            );
+        }
+    }
+
+    /// Record error budget metrics.
+    pub fn observe_error_budget(&mut self, service: &str, budget: &ErrorBudget) {
+        self.observe_mode_gauge(
+            "error_budget",
+            service,
+            "remaining",
+            budget.remaining,
+            "Error budget remaining fraction",
+        );
+        self.observe_mode_gauge(
+            "error_budget",
+            service,
+            "velocity",
+            budget.velocity,
+            "Error budget burn velocity",
         );
     }
 
