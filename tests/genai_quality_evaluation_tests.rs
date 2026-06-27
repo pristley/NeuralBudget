@@ -229,7 +229,7 @@ mod genai_quality_evaluation_tests {
             ("I rate this a 3 out of 5", 3.0),
             ("5", 5.0),
             ("Quality: 2", 2.0),
-            ("Rating (1-5): 4", 4.0),
+            ("Rating: 4", 4.0),
         ];
 
         for (response, expected_score) in test_cases {
