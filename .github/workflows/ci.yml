@@ -14,99 +14,63 @@ permissions:
   contents: read
 
 jobs:
-  rust-checks:
-    if: github.actor != 'github-actions[bot]'
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Rust toolchain
+      - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
 
-      - name: Set up Python
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-        # Note: Library configured as cdylib for PyO3/maturin Python binding
 
-      - name: Cache Cargo artifacts
+      - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Install LLVM coverage tools
-        run: rustup component add llvm-tools-preview --toolchain stable
-
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
-
-      - name: Install maturin
-        run: python3 -m pip install --upgrade pip maturin
+      - name: Install build tools
+        run: |
+          cargo install cargo-llvm-cov --locked
+          python3 -m pip install --upgrade pip maturin
 
       - name: Fetch dependencies
         run: cargo fetch
 
-      - name: Check formatting
+      - name: Check code formatting
         run: cargo fmt --all --check
 
-      - name: Run Clippy
+      - name: Lint with Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Run unit tests (library)
-        continue-on-error: true
-        run: |
-          # Note: 4 pre-existing test failures (agent_slo, cost_slo)
-          # These are unrelated to recent cdylib changes
-          cargo test --lib --all-features
-
-      - name: Run unit tests (all targets)
-        continue-on-error: true
-        run: cargo test --all-targets --all-features
+      - name: Run Rust tests
+        run: cargo test --all-features
 
       - name: Run documentation tests
         run: cargo test --doc --all-features
 
-      - name: Run integration test suites
-        run: cargo test --tests --all-features
-
-      - name: Run functional and integration tests (Rust)
-        run: |
-          cargo test --test functional_tests --all-features
-          cargo test --test integration_tests --all-features
-          cargo test --test functional_end_to_end_tests --all-features
-
-      - name: Run comprehensive unit tests (Rust)
-        run: cargo test --test comprehensive_unit_tests --all-features
-
-      - name: Run MLOps model-drift serving tests
-        continue-on-error: true
-        run: cargo test --all-features ml_slo -- --nocapture
-
-      - name: Run comprehensive unit tests (Python)
+      - name: Run Python tests
         run: |
           python3 tests/python_streaming_aggregator_tests.py
           python3 tests/python_comprehensive_tests.py
-
-      - name: Run functional and integration tests (Python)
-        run: python3 tests/python_functional_integration_tests.py
-
-      - name: Run Python convenience layer tests
-        run: |
+          python3 tests/python_functional_integration_tests.py
           python3 tests/python_convenience_tests.py
           python3 tests/python_client_tests.py
 
-      - name: Run coverage gate
-        continue-on-error: true
+      - name: Generate coverage report
         run: cargo llvm-cov --workspace --all-features --lib --tests --summary-only --fail-under-lines 87
 
-      - name: Build Python wheel (PyPI release)
+      - name: Build Python wheel
         run: maturin build --release --manifest-path Cargo.toml
-      
+
       - name: Verify wheel contents
         run: |
           WHEEL=$(ls target/wheels/neuralbudget-*.whl | head -1)
           echo "Built wheel: $WHEEL"
           unzip -l "$WHEEL" | grep -E '(\.so|__init__|METADATA)' | head -10
-          echo "Wheel verification successful"
+
