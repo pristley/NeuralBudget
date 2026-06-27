@@ -36,10 +36,10 @@ impl StreamingAggregator {
         StreamingAggregator {
             buffer: VecDeque::with_capacity(1024),
             velocity_window: VecDeque::with_capacity(1000),
-            /// Threshold: 15,000 samples/sec (high-frequency ingestion).
-            /// If sustained rate exceeds this, auto-truncate to conserve memory.
+            // Threshold: 15,000 samples/sec (high-frequency ingestion).
+            // If sustained rate exceeds this, auto-truncate to conserve memory.
             velocity_threshold_samples_per_sec: 15_000,
-            /// Target window: 5 seconds (5,000 ms) of recent data when velocity is high.
+            // Target window: 5 seconds (5,000 ms) of recent data when velocity is high.
             auto_prune_window_ms: 5_000,
         }
     }
@@ -58,7 +58,7 @@ impl StreamingAggregator {
 
         // Check velocity and auto-prune if high.
         // Only compute velocity every 100 samples to avoid per-sample overhead.
-        if self.velocity_window.len() == 1000 && self.buffer.len() % 100 == 0 {
+        if self.velocity_window.len() == 1000 && self.buffer.len().is_multiple_of(100) {
             self.check_and_adapt_retention(ts);
         }
     }
@@ -77,7 +77,7 @@ impl StreamingAggregator {
         // Iterate from back (most recent) to front, collecting values in window.
         // Stop early once we exit the window (monotonic assumption).
         for (ts, val) in self.buffer.iter().rev() {
-            if *ts > cutoff_ts {
+            if *ts >= cutoff_ts {
                 sum += val;
                 count += 1;
             } else {
@@ -96,7 +96,7 @@ impl StreamingAggregator {
     /// Call this periodically to manage memory.
     pub fn prune(&mut self, cutoff_ts: i64) {
         while let Some((ts, _)) = self.buffer.front() {
-            if *ts <= cutoff_ts {
+            if *ts < cutoff_ts {
                 self.buffer.pop_front();
             } else {
                 break;
@@ -167,13 +167,13 @@ mod tests {
             agg.push(*ts, *val);
         }
 
-        // Window of 2 seconds from ts=5: includes (5, 50.0) and (4, 40.0)
-        // Average = (50.0 + 40.0) / 2 = 45.0
-        assert_eq!(agg.get_moving_average(5, 2), 45.0);
+        // Window of 2 seconds from ts=5: [5-2, 5] = [3, 5], includes ts=3,4,5
+        // Average = (30.0 + 40.0 + 50.0) / 3 = 40.0
+        assert_eq!(agg.get_moving_average(5, 2), 40.0);
 
-        // Window of 1 second from ts=5: includes (5, 50.0) only
-        // Average = 50.0
-        assert_eq!(agg.get_moving_average(5, 1), 50.0);
+        // Window of 1 second from ts=5: [5-1, 5] = [4, 5], includes ts=4,5
+        // Average = (40.0 + 50.0) / 2 = 45.0
+        assert_eq!(agg.get_moving_average(5, 1), 45.0);
 
         // Window of 10 seconds from ts=5: includes all 5 values
         // Average = (10 + 20 + 30 + 40 + 50) / 5 = 30.0
@@ -190,12 +190,13 @@ mod tests {
 
         assert_eq!(agg.len(), 5);
 
-        // Prune values with ts <= 2
+        // Prune values older than ts=2 (i.e., ts < 2), keeping ts=2,3,4,5
         agg.prune(2);
-        assert_eq!(agg.len(), 3); // (3, 30.0), (4, 40.0), (5, 50.0) remain
+        assert_eq!(agg.len(), 4); // (2, 20.0), (3, 30.0), (4, 40.0), (5, 50.0) remain
 
-        // Window of 1 second from ts=5 should now return 50.0 (unchanged)
-        assert_eq!(agg.get_moving_average(5, 1), 50.0);
+        // Window of 1 second from ts=5: [4, 5], includes ts=4,5
+        // Average = (40.0 + 50.0) / 2 = 45.0
+        assert_eq!(agg.get_moving_average(5, 1), 45.0);
     }
 
     #[test]

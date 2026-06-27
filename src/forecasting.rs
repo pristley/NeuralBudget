@@ -1,4 +1,4 @@
-use crate::core::{MetricPoint, Result as NeuralBudgetResult};
+use crate::core::{MetricPoint, YamlExt};
 /// Burn-rate forecasting and multi-window alert rules following Google's SRE workbook approach.
 ///
 /// This module implements:
@@ -55,10 +55,12 @@ pub struct MultiWindowBurnRate {
 }
 
 impl MultiWindowBurnRate {
-    pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
+    pub fn to_json_string(&self) -> std::result::Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
 }
+
+impl YamlExt for MultiWindowBurnRate {}
 
 /// Burn rate alert rule configuration following SRE workbook patterns.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -153,10 +155,12 @@ pub struct BudgetExhaustionForecast {
 }
 
 impl BudgetExhaustionForecast {
-    pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
+    pub fn to_json_string(&self) -> std::result::Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
 }
+
+impl YamlExt for BudgetExhaustionForecast {}
 
 /// Calculate burn rate for a specific window in seconds.
 pub fn calculate_burn_rate_for_window(metric_stream: &[MetricPoint], window_seconds: u64) -> f64 {
@@ -399,7 +403,7 @@ mod tests {
         let forecast = forecast_budget_exhaustion(2.0, 3600.0, 1000);
         assert!(forecast.will_exhaust);
         assert_eq!(forecast.time_to_exhaustion_seconds, 1800.0);
-        assert_eq!(forecast.projected_exhaustion_timestamp, 3800);
+        assert_eq!(forecast.projected_exhaustion_timestamp, 2800);
     }
 
     #[test]

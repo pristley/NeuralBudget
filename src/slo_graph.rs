@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::collections::HashMap;
 
 /// A metric node in the SLO evaluation graph.
 /// Represents an independent metric that can be evaluated in parallel.
@@ -64,6 +63,7 @@ pub struct SloNodeEvaluation {
 ///
 /// `evaluate()` releases the Python GIL, enabling true concurrent execution on the Rayon thread pool.
 #[pyclass]
+#[derive(Default)]
 pub struct ParallelMetricBatch {
     /// List of metric nodes to evaluate
     nodes: Vec<SloNode>,
@@ -80,7 +80,7 @@ impl ParallelMetricBatch {
     /// No validation of node IDs (assume unique).
     #[new]
     pub fn new(node_data: Vec<(String, f64, f64)>) -> Self {
-        let nodes = node_data
+        let nodes: Vec<_> = node_data
             .into_iter()
             .map(|(id, value, threshold)| SloNode {
                 id,
@@ -147,14 +147,36 @@ impl ParallelMetricBatch {
             false
         }
     }
-}
 
-impl Default for ParallelMetricBatch {
-    fn default() -> Self {
-        ParallelMetricBatch {
-            nodes: Vec::new(),
-            node_count: 0,
+    /// Count the number of nodes that pass their threshold.
+    pub fn pass_count(&self) -> usize {
+        self.nodes.iter().filter(|node| node.evaluate()).count()
+    }
+
+    /// Compute the mean score across all nodes.
+    ///
+    /// Returns 1.0 for an empty batch (vacuous truth).
+    pub fn aggregate_score(&self) -> f64 {
+        if self.nodes.is_empty() {
+            return 1.0;
         }
+        let total: f64 = self.nodes.iter().map(|node| node.score()).sum();
+        total / self.nodes.len() as f64
+    }
+
+    /// Return all nodes as evaluation tuples without requiring the GIL.
+    ///
+    /// Each tuple is `(id, value, threshold, pass, score)`.
+    /// This is the sequential equivalent of `evaluate()` for use in non-Python contexts.
+    pub fn nodes_as_tuples(&self) -> Vec<(String, f64, f64, bool, f64)> {
+        self.nodes
+            .iter()
+            .map(|node| {
+                let pass = node.evaluate();
+                let score = node.score();
+                (node.id.clone(), node.value, node.threshold, pass, score)
+            })
+            .collect()
     }
 }
 
@@ -314,7 +336,7 @@ mod tests {
         // (they recompute from current state, not from cached results)
         assert!(!batch.all_pass()); // One metric fails
         assert_eq!(batch.pass_count(), 1);
-        assert!((batch.aggregate_score() - 0.75).abs() < 0.01); // Mean of 0.75 and 1.0
+        assert!((batch.aggregate_score() - 0.875).abs() < 0.01); // Mean of 0.75 and 1.0
 
         let tuples = batch.nodes_as_tuples();
         assert_eq!(tuples.len(), 2);

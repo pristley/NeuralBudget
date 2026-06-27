@@ -7,12 +7,11 @@
 /// - Performance characteristics
 /// - Complex composite DAG scenarios
 use neuralbudget::{
-    calculate_availability, calculate_burn_rate, calculate_error_budget, evaluate_composite_slo,
-    CompositeDependencyEdge, CompositeServiceSlo, CompositeSloError, CompositeSloGraph,
-    GenAiSample, GenAiSlo, GenAiSloIterator, HistogramBucket, HistogramFormat, HistogramSample,
-    HttpSlo, HttpSloIterator, JsonExt, MetricPoint, MlSample, MlSlo, MlSloIterator,
-    OutlierFilterConfig, SloConfig, StatefulPolicyProfileSet, StatefulSample, StatefulSlo,
-    StatefulSloIterator, TimeWindow, WebApiRequest, WebApiSloPolicy,
+    calculate_burn_rate, calculate_error_budget, evaluate_composite_slo, CompositeDependencyEdge,
+    CompositeServiceSlo, CompositeSloError, CompositeSloGraph, GenAiSample, GenAiSlo,
+    GenAiSloIterator, HistogramBucket, HistogramFormat, HistogramSample, HttpSlo, HttpSloIterator,
+    MetricPoint, MlSample, MlSlo, MlSloIterator, SloConfig, StatefulSample, StatefulSlo,
+    StatefulSloIterator, TimeWindow,
 };
 
 // ============================================================================
@@ -363,7 +362,7 @@ fn error_budget_burn_analysis_with_window_comparison() {
     // SLO: 99.9% availability over 30-day month
     let target = 0.999;
     let month_seconds = 30 * 24 * 60 * 60;
-    let budget_seconds = calculate_error_budget(target, month_seconds);
+    let _budget_seconds = calculate_error_budget(target, month_seconds);
 
     // Create metric stream: 95% availability in first 5 minutes, 99.95% after
     let stream: Vec<MetricPoint> = (0..3600)
@@ -587,16 +586,16 @@ fn http_slo_handles_large_histogram_stream() {
             let success = 9_000 + (i % 1_000);
             HistogramSample {
                 timestamp: i as i64,
-                success: success as i32,
+                success: success as u64,
                 total: 10_000,
                 buckets: vec![
                     HistogramBucket {
                         upper_bound_ms: 100.0,
-                        count: 7_000 + (i % 3000) as i32,
+                        count: 7_000 + (i % 3000) as u64,
                     },
                     HistogramBucket {
                         upper_bound_ms: 200.0,
-                        count: 9_500 + (i % 500) as i32,
+                        count: 9_500 + (i % 500) as u64,
                     },
                     HistogramBucket {
                         upper_bound_ms: 500.0,

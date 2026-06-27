@@ -1,6 +1,6 @@
 use neuralbudget::{
-    ErrorBudget, HttpSloEvaluation, MlSloEvaluation, NeuralBudgetError, ParallelMetricBatch,
-    PrometheusExporter, SloConfig, StreamingAggregator,
+    ErrorBudget, HttpSloEvaluation, JsonExt, MlSloEvaluation, NeuralBudgetError,
+    ParallelMetricBatch, PrometheusExporter, SloConfig, StreamingAggregator,
 };
 use pyo3::prelude::*;
 
@@ -207,7 +207,7 @@ fn parallel_metric_batch_get_node_missing() {
 fn parallel_metric_batch_update_node_success() {
     let mut batch = ParallelMetricBatch::new(vec![("metric_1".to_string(), 100.0, 200.0)]);
 
-    assert!(batch.all_pass() == false); // 100 < 200, fails
+    assert!(!batch.all_pass()); // 100 < 200, fails
 
     let updated = batch.update_node("metric_1", 250.0);
     assert!(updated);
@@ -330,7 +330,7 @@ fn prometheus_exporter_observe_http_slo_renders_metrics() {
     let output = exporter.render();
     assert!(output.contains("neuralbudget_http_pass"));
     assert!(output.contains("api_service"));
-    assert!(output.len() > 0);
+    assert!(!output.is_empty());
 }
 
 #[test]
@@ -345,6 +345,11 @@ fn prometheus_exporter_observe_ml_slo_renders_metrics() {
         drift_score: 0.99,
         latency_weight: 0.5,
         drift_weight: 0.5,
+        inference_latency_score: 0.92,
+        gpu_utilization_score: 0.88,
+        latency_score: 0.90,
+        feature_drift_score: 0.97,
+        prediction_confidence_score: 0.95,
     };
 
     exporter.observe_ml_slo("model_service", &evaluation);
