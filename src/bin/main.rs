@@ -14,7 +14,7 @@ use neuralbudget::{
 };
 
 mod commands;
-use commands::{check, eval, gen_rules, serve};
+use commands::{check, convert, eval, gen_rules, serve};
 
 #[derive(Parser)]
 #[command(name = "neuralbudget")]
@@ -84,6 +84,35 @@ enum Commands {
         strict: bool,
     },
 
+    /// Convert between SLO formats (NeuralBudget ↔ OpenSLO)
+    ///
+    /// Enables migration from/to OpenSLO (CNCF standard format) for vendor-neutral
+    /// SLO definitions. Supports bidirectional conversion.
+    ///
+    /// Example: neuralbudget convert --from openslo input.yaml --to neuralbudget > output.yaml
+    ///          neuralbudget convert --from neuralbudget slo.yaml --to openslo > output-openslo.yaml
+    Convert {
+        /// Path to input SLO file
+        #[arg(long)]
+        input: PathBuf,
+
+        /// Input format: 'openslo', 'slo', 'neuralbudget', 'nb'
+        #[arg(long)]
+        from: String,
+
+        /// Output format: 'openslo', 'slo', 'neuralbudget', 'nb'
+        #[arg(long)]
+        to: String,
+
+        /// Service name (required for conversion to OpenSLO)
+        #[arg(long)]
+        service: Option<String>,
+
+        /// SLO name (defaults to 'converted-slo')
+        #[arg(long, default_value = "converted-slo")]
+        name: String,
+    },
+
     /// Start HTTP server for SLO evaluation
     ///
     /// Accepts POST /eval with sample + config in request body.
@@ -121,6 +150,29 @@ fn main() {
         } => gen_rules::run(&config, kubernetes, &namespace),
 
         Commands::Check { config, strict } => check::run(&config, strict),
+
+        Commands::Convert {
+            input,
+            from,
+            to,
+            service,
+            name,
+        } => {
+            let from_fmt = convert::Format::from_str(&from)
+                .map_err(|e| anyhow::anyhow!("Invalid source format: {}", e))?;
+            let to_fmt = convert::Format::from_str(&to)
+                .map_err(|e| anyhow::anyhow!("Invalid target format: {}", e))?;
+
+            let svc_name = service.unwrap_or_else(|| "default-service".to_string());
+
+            match convert::run(&input, from_fmt, to_fmt, &svc_name, &name) {
+                Ok(output) => {
+                    println!("{}", output);
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
+        }
 
         Commands::Serve { port, bind } => serve::run(&bind, port),
     };

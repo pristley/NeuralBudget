@@ -196,6 +196,7 @@ neuralbudget check slo.yaml --strict
 | **[CLI User Guide](docs/cli/USER_GUIDE.md)** | Command-line tool documentation |
 | **[Prometheus Rules](docs/guides/prometheus-rule-generation.md)** | Multi-burn-rate alerting, recording rules |
 | **[Multi-Burn-Rate Alerting](docs/guides/multi-burn-rate-alerting.md)** | Google SRE patterns, configuration, tuning |
+| **[OpenSLO Compatibility](docs/reference/openslo-compatibility.md)** | Vendor-neutral format, tool migration |
 | **[Glossary](docs/reference/glossary.md)** | Key terms & acronyms |
 | **[API Reference](docs/reference/api.md)** | Full Python API |
 | **[Examples](examples/)** | Grafana, Kubernetes, Python examples |

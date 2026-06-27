@@ -19,6 +19,20 @@ Release entries are maintained automatically by the CD workflow on tagged releas
   - Comprehensive CLI tests: 13 integration test scenarios in `tests/cli_integration_tests.rs`
   - CI/CD automation: `.github/workflows/cli-build.yml` for cross-platform builds and releases
 
+- **OpenSLO Compatibility & Conversion**
+  - New `src/openslo.rs` module for bidirectional conversion
+  - `parse_openslo_yaml()` - Parse OpenSLO format to NeuralBudget HttpSlo
+  - `to_openslo_yaml()` / `to_openslo_json()` - Convert HttpSlo to OpenSLO format
+  - Full support for Prometheus metric sources in OpenSLO
+  - Support for ratio metrics (availability) and threshold metrics (latency)
+  - Round-trip conversion (OpenSLO → NeuralBudget → OpenSLO)
+  - CLI `convert` subcommand for easy format conversion:
+    - `neuralbudget convert --from openslo --to neuralbudget --input file.yaml`
+    - `neuralbudget convert --from neuralbudget --to openslo --service api-gateway --input file.yaml`
+  - Comprehensive test suite: 11 tests covering parsing, conversion, real-world scenarios
+  - Documentation: `docs/reference/openslo-compatibility.md` with migration guides from Nobl9, Lightstep
+  - Known limitations: Lossy conversion documented, limited to HTTP SLOs (Stateful/ML/GenAI roadmap)
+
 - **Prometheus Rule Generation (Multi-Burn-Rate Alerting)**
   - Enhanced `gen-rules` with sophisticated multi-burn-rate alerting strategy (Google SRE-based)
   - Auto-generates recording rules:

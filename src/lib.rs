@@ -3,6 +3,7 @@
 mod core;
 mod exporter;
 mod forecasting;
+mod openslo;
 mod otlp;
 mod python;
 mod slo_graph;
@@ -13,6 +14,7 @@ pub use core::*;
 pub use core::{NeuralBudgetError, Result};
 pub use exporter::*;
 pub use forecasting::*;
+pub use openslo::*;
 pub use otlp::*;
 pub use python::*;
 pub use slo_graph::*;

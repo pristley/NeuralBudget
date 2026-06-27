@@ -32,6 +32,7 @@ New to NeuralBudget? Choose your path:
 - Convenience layer functions: [Convenience Functions](../reference/convenience-layer.md)
 - Composite DAG schema: [Composite SLO DAG](../reference/composite-slo-dag.md)
 - Streaming aggregator API: [Streaming Aggregator](../reference/streaming-aggregator.md)
+- OpenSLO compatibility: [OpenSLO Conversion Guide](../reference/openslo-compatibility.md)
 
 ### Advanced Features
 
