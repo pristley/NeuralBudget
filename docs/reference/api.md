@@ -219,40 +219,109 @@ Load SLO configuration from YAML or JSON file.
 **Parameters:**
 - `path` — Path to config file (.yaml, .json, or .yml)
 
-**Raises:**
-- `FileNotFoundError` — Config file not found
-- `ValueError` — Invalid config schema or format
+**Preconditions:**
+- File must exist (checked at runtime)
+- File extension must be .yaml, .json, or .yml
+- File contents must be valid YAML/JSON
 
-**Example:**
+**Postconditions:**
+- Configuration is parsed and validated
+- Internal state is updated; subsequent `evaluate()` calls will use this config
+
+**Raises:**
+- `FileNotFoundError` — Config file does not exist at `path`
+- `ValueError` — Invalid YAML/JSON syntax or invalid schema
+- `ValueError` — Unknown SLO mode in config (must be: "http", "stateful", "ml", "genai", "composite")
+- `KeyError` — Required config field missing (e.g., "mode", "params")
+- `TypeError` — Parameter has wrong type (e.g., threshold is string instead of float)
+
+**Examples:**
 ```python
+# Load from YAML
 client.load_config("slo.yaml")
+
+# Load from JSON
 client.load_config("config/http_slo.json")
+
+# Error handling
+try:
+    client.load_config("nonexistent.yaml")
+except FileNotFoundError:
+    print("Config file not found")
+except ValueError as e:
+    print(f"Invalid config: {e}")
 ```
 
-#### `evaluate(metric_data: dict | list | Any) -> dict | Any`
+#### `evaluate(metric_data: dict | list | Any) -> dict`
 
 Evaluate metrics against loaded configuration.
 
 **Parameters:**
-- `metric_data` — Metric payload matching the SLO mode
+- `metric_data` — Metric payload matching the loaded SLO mode (must contain all required fields for that mode)
 
-**Returns:**
-- Evaluation result as dataclass (if available) or dict
+**Return Type:** Dictionary with mode-specific fields:
+
+| Mode | Return Fields |
+|------|---|
+| **http** | `timestamp`, `availability`, `percentile_latency_ms`, `evaluated_percentile`, `latency_pass`, `availability_pass`, `passed`, `score` |
+| **stateful** | `timestamp`, `score`, `replication_lag_ok`, `queue_depth_ok`, `connection_pool_ok`, `connection_wait_penalized`, `passed` |
+| **ml** | `timestamp`, `inference_latency_score`, `gpu_utilization_score`, `system_score`, `latency_score`, `feature_drift_score`, `prediction_confidence_score`, `drift_score`, `latency_weight`, `drift_weight`, `hybrid_score`, `passed` |
+| **genai** | `timestamp`, `tokens_per_second`, `time_to_first_token_ms`, `semantic_similarity`, `tokens_per_second_ok`, `time_to_first_token_ok`, `semantic_similarity_ok`, `passed` |
+| **composite** | `timestamp`, `global_pass`, `service_scores`, `dependencies_ok`, `global_score` |
+
+**Preconditions:**
+- `load_config()` must be called successfully before this method
+- `metric_data` must contain all required fields for the loaded SLO mode
+- For HTTP/stateful modes: timestamp must be valid Unix epoch (seconds since 1970-01-01)
+- For histogram data: buckets must be sorted by `upper_bound_ms` ascending
+
+**Postconditions:**
+- Returns evaluation result; no state is modified
+- If `passed` is true, SLO target was met; if false, target was not met
 
 **Raises:**
-- `RuntimeError` — No config loaded
-- `ValueError` — Invalid metric data format
+- `RuntimeError` — No config loaded (call `load_config()` first)
+- `ValueError` — Invalid metric data structure (missing required fields)
+- `TypeError` — Field has wrong type (e.g., success is string not int)
+- `ValueError` — Timestamp out of valid range or out of order
+- `ValueError` — Bucket array not sorted by `upper_bound_ms`
+- `RuntimeError` — Evaluation failed (internal error in Rust core)
 
-**Example:**
+**Examples:**
 ```python
+# Successful evaluation
 metric = {
     "timestamp": 1686326400,
     "success": 999,
     "total": 1000,
-    "buckets": [...]
+    "buckets": [
+        {"upper_bound_ms": 100.0, "count": 995},
+        {"upper_bound_ms": 500.0, "count": 999},
+    ]
 }
 result = client.evaluate(metric)
 print(f"Passed: {result['passed']}")
+print(f"Availability: {result['availability']:.2%}")
+print(f"P99 Latency: {result['percentile_latency_ms']:.1f}ms")
+
+# Error handling
+try:
+    result = client.evaluate(metric)
+except RuntimeError:
+    print("ERROR: No config loaded. Call client.load_config() first.")
+except ValueError as e:
+    print(f"ERROR: Invalid metric data: {e}")
+
+# Examine detailed results
+if result['passed']:
+    print("✅ SLO target met")
+    print(f"Score: {result['score']:.4f}")
+else:
+    print("❌ SLO target NOT met")
+    if not result['latency_pass']:
+        print(f"  Latency failed: {result['percentile_latency_ms']}ms > threshold")
+    if not result['availability_pass']:
+        print(f"  Availability failed: {result['availability']:.2%} < target")
 ```
 
 ### Configuration Format

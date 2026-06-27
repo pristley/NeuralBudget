@@ -48,18 +48,42 @@ Add a (timestamp, value) pair to the aggregator.
 
 **Parameters:**
 - `ts` — Timestamp in milliseconds (must be monotonically increasing)
-- `val` — Numeric value (float)
+- `val` — Numeric value (float, can be any valid float)
+
+**Preconditions:**
+- Timestamps must be monotonically increasing: `ts[i] > ts[i-1]` for all calls
+- First call can have any timestamp value
+- Out-of-order timestamps will cause incorrect results (undefined behavior)
+
+**Postconditions:**
+- Entry is added to internal buffer
+- If adaptive windowing triggers, old data may be automatically pruned
+- Buffer size increases by 1 (unless auto-pruning occurred)
+
+**Raises:**
+- `TypeError` — `ts` is not an integer or `val` is not a float
+- `OverflowError` — Timestamp overflow (though practically unreachable in 64-bit systems)
 
 **Complexity:** O(1) amortized  
 **Allocation:** None (no Python objects created)  
-**Assumptions:** Timestamps must be monotonically increasing. Out-of-order data produces undefined behavior.
 
-**Example:**
+**Examples:**
 ```python
+# Correct usage: monotonically increasing timestamps
 agg = StreamingAggregator()
-agg.push(1000, 50.0)   # timestamp=1000ms, value=50.0
-agg.push(1050, 52.0)   # timestamp=1050ms, value=52.0
-agg.push(1100, 51.0)   # timestamp=1100ms, value=51.0
+agg.push(1000, 50.0)
+agg.push(1050, 52.0)  # ✅ 1050 > 1000
+agg.push(1100, 51.0)  # ✅ 1100 > 1050
+
+# Incorrect usage: out-of-order timestamps
+agg.push(2000, 55.0)
+agg.push(1500, 48.0)  # ❌ 1500 < 2000: undefined behavior!
+
+# Error handling
+try:
+    agg.push("1000", 50.0)  # TypeError: ts not int
+except TypeError as e:
+    print(f"ERROR: {e}")
 ```
 
 #### `get_moving_average(current_ts: int, window_size: int) -> float`
@@ -68,18 +92,54 @@ Compute the average of values within the window `[current_ts - window_size, curr
 
 **Parameters:**
 - `current_ts` — Current timestamp in milliseconds
-- `window_size` — Window size in milliseconds
+- `window_size` — Window size in milliseconds (must be positive)
 
-**Returns:** Float average; returns 0.0 if buffer is empty or no values in window
+**Return Value:** Float average of all values in the window
+- Returns average of matching values (sum / count)
+- Returns `0.0` if buffer is empty or no values fall in the window
+- Returns exact float (no rounding; IEEE 754 precision)
 
-**Complexity:** O(n) where n = values in window; early termination if data is sparse  
+**Preconditions:**
+- `current_ts` should typically be ≥ last timestamp passed to `push()` (but not strictly enforced)
+- `window_size` should be positive (>0)
+- Negative window_size or zero will return 0.0
+
+**Postconditions:**
+- No buffer modification (read-only operation)
+- Multiple calls with same parameters return same result
+
+**Raises:**
+- `TypeError` — `current_ts` is not an integer or `window_size` is not an integer
+
+**Complexity:** O(n) where n = values in window; early termination for sparse data  
 **Allocation:** None
 
-**Example:**
+**Examples:**
 ```python
+agg = StreamingAggregator()
+agg.push(1000, 50.0)
+agg.push(1050, 52.0)
+agg.push(1100, 51.0)
+
 # Window of 100ms from current_ts=1100
-# Includes values from [1000, 1100] — all 3 values
-avg = agg.get_moving_average(1100, 100)  # Returns: 51.0
+# Includes values from [1000, 1100] → all 3 values
+avg = agg.get_moving_average(1100, 100)
+print(f"Average: {avg:.1f}")  # (50 + 52 + 51) / 3 = 51.0
+
+# Window of 50ms from current_ts=1100
+# Includes values from [1050, 1100] → 2 values
+avg = agg.get_moving_average(1100, 50)
+print(f"Average: {avg:.1f}")  # (52 + 51) / 2 = 51.5
+
+# Window with no values (too far in past)
+avg = agg.get_moving_average(5000, 100)
+print(f"Average: {avg:.1f}")  # 0.0 (no data in range)
+
+# Error handling
+try:
+    avg = agg.get_moving_average(1100.5, 100)  # TypeError: current_ts not int
+except TypeError as e:
+    print(f"ERROR: {e}")
 ```
 
 #### `prune(cutoff_ts: int) -> None`
@@ -87,20 +147,51 @@ avg = agg.get_moving_average(1100, 100)  # Returns: 51.0
 Remove all entries with timestamp ≤ `cutoff_ts` to free memory.
 
 **Parameters:**
-- `cutoff_ts` — Cutoff timestamp (milliseconds)
+- `cutoff_ts` — Cutoff timestamp (milliseconds); all entries ≤ this value are removed
+
+**Preconditions:**
+- `cutoff_ts` should be a valid timestamp (though any integer is accepted)
+- Typically, `cutoff_ts` < current buffer max timestamp (otherwise everything removed)
+
+**Postconditions:**
+- All entries with `ts ≤ cutoff_ts` are removed from buffer
+- Remaining entries (`ts > cutoff_ts`) are preserved
+- Subsequent `push()` calls must maintain monotonic ordering with remaining data
+
+**Raises:**
+- `TypeError` — `cutoff_ts` is not an integer
 
 **Complexity:** O(k) where k = entries removed  
 **Allocation:** None
 
-**Usage:**
+**Examples:**
 ```python
-# Remove data older than timestamp 1000
-agg.prune(1000)  # Removes all (ts, val) where ts <= 1000
+agg = StreamingAggregator()
+agg.push(1000, 50.0)
+agg.push(1050, 52.0)
+agg.push(1100, 51.0)
 
-# Typical cleanup pattern: retain last 1 hour
+assert agg.len() == 3
+
+# Remove entries with timestamp ≤ 1050
+agg.prune(1050)
+assert agg.len() == 1  # Only (1100, 51.0) remains
+
+# Typical retention pattern: keep last 1 hour
 current_ts = 3_600_000  # ms (1 hour)
 retention_ms = 3_600_000  # ms (1 hour)
 agg.prune(current_ts - retention_ms)
+
+# Error handling
+try:
+    agg.prune("1000")  # TypeError: not int
+except TypeError as e:
+    print(f"ERROR: {e}")
+
+# Prune all data
+agg.prune(999999999)
+assert agg.len() == 0
+assert agg.is_empty() == True
 ```
 
 #### `len() -> int`
