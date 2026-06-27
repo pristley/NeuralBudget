@@ -5,7 +5,11 @@
 
 #[cfg(test)]
 mod genai_quality_evaluation_tests {
-    use neuralbudget::genai_evaluator::*;
+    use neuralbudget::{
+        CacheConfig, DimensionScoreResult, EvaluationResult, LlmJudgeDimension, LlmJudgeEvaluator,
+        LlmProvider,
+    };
+    use tokio;
 
     #[test]
     fn test_cache_key_determinism() {
@@ -51,7 +55,7 @@ mod genai_quality_evaluation_tests {
     #[test]
     fn test_score_normalization() {
         // Score 1 → 0.0, Score 5 → 1.0
-        let test_cases = vec![
+        let test_cases: Vec<(f64, f64)> = vec![
             (1.0, 0.0),
             (2.0, 0.25),
             (3.0, 0.5),
@@ -77,10 +81,10 @@ mod genai_quality_evaluation_tests {
         // dim1: 0.8 (score 4.2/5), dim2: 0.6 (score 3.4/5)
         // Both weight 0.5: (0.8*0.5 + 0.6*0.5) / 1.0 = 0.7
 
-        let score1 = 0.8;
-        let score2 = 0.6;
-        let weight1 = 0.5;
-        let weight2 = 0.5;
+        let score1: f64 = 0.8;
+        let score2: f64 = 0.6;
+        let weight1: f64 = 0.5;
+        let weight2: f64 = 0.5;
 
         let weighted_sum = score1 * weight1 + score2 * weight2;
         let weight_total = weight1 + weight2;
@@ -318,7 +322,6 @@ mod genai_quality_evaluation_tests {
     }
 
     // Integration tests that require real API keys are marked as ignored
-    #[test]
     #[ignore]
     #[tokio::test]
     async fn test_openai_integration_with_cache() {
@@ -338,7 +341,7 @@ mod genai_quality_evaluation_tests {
             cost_per_call_usd: 0.0001,
         }];
 
-        let evaluator = LlmJudgeEvaluator::new(
+        let _evaluator = LlmJudgeEvaluator::new(
             LlmProvider::OpenAI {
                 api_key: api_key.clone(),
                 model: "gpt-4-mini".to_string(),

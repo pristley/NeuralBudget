@@ -130,9 +130,9 @@ pub struct EvaluationResult {
 
 /// LLM-as-Judge evaluator
 pub struct LlmJudgeEvaluator {
-    provider: LlmProvider,
-    dimensions: Vec<LlmJudgeDimension>,
-    cache_config: Option<CacheConfig>,
+    pub provider: LlmProvider,
+    pub dimensions: Vec<LlmJudgeDimension>,
+    pub cache_config: Option<CacheConfig>,
     cache_client: Option<Arc<redis::aio::ConnectionManager>>,
     http_client: reqwest::Client,
 }
@@ -172,7 +172,7 @@ impl LlmJudgeEvaluator {
     }
 
     /// Generate a cache key from query and response
-    fn generate_cache_key(query: &str, response: &str) -> String {
+    pub fn generate_cache_key(query: &str, response: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(query.as_bytes());
         hasher.update("|".as_bytes());
