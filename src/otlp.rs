@@ -399,9 +399,9 @@ mod tests {
             string_value: None,
             bool_value: None,
             int_value: None,
-            double_value: Some(3.14),
+            double_value: Some(std::f64::consts::PI),
         };
-        assert_eq!(value.as_label_value(), "3.14");
+        assert_eq!(value.as_label_value(), "3.141592653589793");
     }
 
     #[test]
@@ -411,7 +411,7 @@ mod tests {
             string_value: Some("string".to_string()),
             bool_value: Some(true),
             int_value: Some(42),
-            double_value: Some(3.14),
+            double_value: Some(std::f64::consts::PI),
         };
         assert_eq!(value.as_label_value(), "string");
     }
