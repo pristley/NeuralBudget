@@ -261,6 +261,163 @@ pub struct HttpSloEvaluation {
     pub pass: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+/// Alert severity levels for burn-rate alerts.
+pub enum AlertSeverity {
+    /// Low priority - informational only (no paging)
+    Info,
+    /// Medium priority - requires investigation within hours
+    Warning,
+    /// High priority - immediate response required
+    Critical,
+}
+
+impl AlertSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Info => "info",
+            Self::Warning => "warning",
+            Self::Critical => "critical",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// One multi-burn-rate alert window in a Google SRE-based alerting policy.
+///
+/// For a 99.9% SLO (0.001 error budget):
+/// - 1h window @ 10x burn → error_rate > 0.009 for 1m → immediate
+/// - 6h window @ 2x burn → error_rate > 0.002 for 15m → urgent
+/// - 24h window @ 0.5x burn → error_rate > 0.0005 for 1h → trend
+/// - 3d window @ 1x burn → error_rate > 0.001 for 3h → exhaustion
+pub struct BurnRateWindow {
+    /// Duration of window: "1h", "6h", "24h", "3d", etc.
+    pub duration: String,
+    /// Multiplier on burn rate threshold (10 = "burning at 10x rate")
+    pub burn_rate: f64,
+    /// Duration to evaluate before firing (e.g., "1m", "15m", "1h")
+    pub for_duration: String,
+    /// Alert severity for this window
+    pub severity: AlertSeverity,
+}
+
+impl BurnRateWindow {
+    /// Create a burn rate window with explicit parameters.
+    pub fn new(
+        duration: impl Into<String>,
+        burn_rate: f64,
+        for_duration: impl Into<String>,
+        severity: AlertSeverity,
+    ) -> Self {
+        Self {
+            duration: duration.into(),
+            burn_rate,
+            for_duration: for_duration.into(),
+            severity,
+        }
+    }
+
+    /// Convert burn rate multiplier to actual error rate threshold.
+    ///
+    /// Given availability_target (e.g., 0.999):
+    /// - allowed_error = 1 - availability_target = 0.001
+    /// - threshold = allowed_error * burn_rate_multiplier
+    pub fn calculate_error_threshold(&self, availability_target: f64) -> f64 {
+        let allowed_error = 1.0 - availability_target;
+        allowed_error * self.burn_rate
+    }
+
+    /// Duration in seconds for use in calculations.
+    pub fn duration_seconds(&self) -> Result<u64> {
+        match self.duration.as_str() {
+            "1h" => Ok(3600),
+            "6h" => Ok(21600),
+            "24h" => Ok(86400),
+            "2d" => Ok(172800),
+            "3d" => Ok(259200),
+            "7d" => Ok(604800),
+            _ => Err(NeuralBudgetError::ConfigError(format!(
+                "Unknown duration: {}",
+                self.duration
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Multi-window burn-rate alerting configuration (Google SRE pattern).
+///
+/// Recommended defaults for production:
+/// - 1h window @ 10x burn, 1min duration (catch fast burns immediately)
+/// - 6h window @ 2x burn, 15min duration (detect sustained degradation)
+/// - 24h window @ 0.5x burn, 1h duration (track slow trends)
+/// - 3d window @ 1x burn, 3h duration (predict budget exhaustion)
+pub struct MultiWindowAlertConfig {
+    /// Burn rate windows, typically 3-4 of them
+    pub windows: Vec<BurnRateWindow>,
+}
+
+impl MultiWindowAlertConfig {
+    /// Create an empty configuration.
+    pub fn new() -> Self {
+        Self {
+            windows: Vec::new(),
+        }
+    }
+
+    /// Add a burn rate window to the configuration.
+    pub fn with_window(mut self, window: BurnRateWindow) -> Self {
+        self.windows.push(window);
+        self
+    }
+
+    /// Default 4-window configuration following Google SRE recommendations.
+    ///
+    /// For 99.9% SLO (0.001 error budget, ~8.6 minutes per month):
+    /// - 1h window: alert if burning >10% of budget/hour for 1 minute
+    /// - 6h window: alert if burning >2% of budget/hour for 15 minutes
+    /// - 24h window: alert if burning >0.5% of budget/hour for 1 hour
+    /// - 3d window: alert if burning >1% of budget/hour for 3 hours
+    pub fn default_four_window() -> Self {
+        Self {
+            windows: vec![
+                BurnRateWindow::new("1h", 10.0, "1m", AlertSeverity::Critical),
+                BurnRateWindow::new("6h", 2.0, "15m", AlertSeverity::Warning),
+                BurnRateWindow::new("24h", 0.5, "1h", AlertSeverity::Info),
+                BurnRateWindow::new("3d", 1.0, "3h", AlertSeverity::Warning),
+            ],
+        }
+    }
+
+    /// Validate that windows don't have conflicting thresholds.
+    pub fn validate(&self) -> Result<()> {
+        if self.windows.is_empty() {
+            return Err(NeuralBudgetError::ConfigError(
+                "No burn rate windows configured".to_string(),
+            ));
+        }
+
+        // Check that burn rates are in descending order (faster windows have higher thresholds)
+        for i in 0..self.windows.len().saturating_sub(1) {
+            if self.windows[i].burn_rate < self.windows[i + 1].burn_rate {
+                return Err(NeuralBudgetError::ConfigError(format!(
+                    "Burn rate windows must be in descending order by burn_rate: {} < {}",
+                    self.windows[i].burn_rate, self.windows[i + 1].burn_rate
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Default for MultiWindowAlertConfig {
+    fn default() -> Self {
+        Self::default_four_window()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// One timestamped stateful-system sample for DB/queue health.
 pub struct StatefulSample {
@@ -1452,6 +1609,69 @@ impl HttpSlo {
             availability_ok,
             pass: latency_ok && availability_ok,
         }
+    }
+
+    /// Calculate error budget as a percentage of the allowed error.
+    ///
+    /// Returns value in [0, 100] representing % of monthly error budget remaining.
+    /// For 99.9% SLO with 0.1% error budget, returns 0-100.
+    pub fn calculate_error_budget_percent(&self, current_error_rate: f64) -> f64 {
+        let allowed_error_rate = 1.0 - self.availability_threshold;
+        if allowed_error_rate <= 0.0 {
+            return 100.0; // 100% SLO: no budget
+        }
+
+        let remaining = (allowed_error_rate - current_error_rate) / allowed_error_rate;
+        (remaining * 100.0).clamp(0.0, 100.0)
+    }
+
+    /// Calculate burn rate given an error rate and time window.
+    ///
+    /// Burn rate indicates how many times faster the error budget is being consumed
+    /// compared to a uniform rate over the entire SLO window.
+    ///
+    /// Example: For 99.9% SLO over 30 days:
+    /// - Allowed error = 0.001 (0.1%)
+    /// - Daily allowed = 0.001 / 30 = 0.0000333 per day
+    /// - If current error rate over 1h = 0.009:
+    ///   - Hourly allowed = 0.001 / (30*24) = 0.00000139
+    ///   - Burn rate = 0.009 / 0.00000139 ≈ 6475 (very high!)
+    pub fn calculate_burn_rate(
+        &self,
+        error_rate_in_window: f64,
+        window_seconds: u64,
+        slo_window_seconds: u64,
+    ) -> f64 {
+        if slo_window_seconds == 0 {
+            return 0.0;
+        }
+
+        let allowed_error = 1.0 - self.availability_threshold;
+        if allowed_error <= 0.0 {
+            return 0.0; // 100% SLO: no budget, no burn
+        }
+
+        let allowed_error_in_window = allowed_error * (window_seconds as f64 / slo_window_seconds as f64);
+        if allowed_error_in_window <= 0.0 {
+            return 0.0;
+        }
+
+        (error_rate_in_window / allowed_error_in_window).max(0.0)
+    }
+
+    /// Check if an error rate violates a burn rate threshold.
+    ///
+    /// Returns true if burn_rate exceeds threshold for the given window.
+    pub fn check_burn_rate_violation(
+        &self,
+        error_rate: f64,
+        window: &BurnRateWindow,
+        slo_window_seconds: u64,
+    ) -> Result<bool> {
+        let window_seconds = window.duration_seconds()?;
+        let burn_rate = self.calculate_burn_rate(error_rate, window_seconds, slo_window_seconds);
+        let threshold = window.calculate_error_threshold(self.availability_target);
+        Ok(error_rate > threshold)
     }
 }
 
