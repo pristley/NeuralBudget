@@ -144,6 +144,19 @@ mod hallucination_detection_tests {
     }
 
     #[test]
+    fn test_tfidf_similarity_exact_match() {
+        let evaluator = GroundednessEvaluator::new(
+            ClaimExtractionMethod::RuleBased,
+            SimilarityMethod::TfIdf,
+            0.5,
+        );
+
+        // Exact match should return 1.0
+        let score = evaluator.tfidf_similarity("exercise health", "exercise health");
+        assert_eq!(score, 1.0);
+    }
+
+    #[test]
     fn test_groundedness_all_claims_grounded() {
         let result = GroundednessResult {
             claims: vec![

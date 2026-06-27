@@ -333,18 +333,19 @@ impl GroundednessEvaluator {
             return 0.0;
         }
 
-        let mut score = 0.0;
-        for claim_word in &claim_words {
-            // Count occurrences in document
-            let count = doc_words.iter().filter(|w| *w == claim_word).count();
-            if count > 0 {
-                // Simple TF-IDF: reward rare words more
-                let tf = count as f64 / doc_words.len() as f64;
-                score += tf;
-            }
+        if doc_words.is_empty() {
+            return 0.0;
         }
 
-        (score / claim_words.len() as f64).min(1.0)
+        // Count how many claim words appear in document
+        let matching_words = claim_words
+            .iter()
+            .filter(|word| doc_words.contains(word))
+            .count();
+
+        // Calculate based on proportion of matching words
+        // This gives 1.0 for exact matches and scales based on overlap
+        matching_words as f64 / claim_words.len() as f64
     }
 
     /// Token overlap similarity
