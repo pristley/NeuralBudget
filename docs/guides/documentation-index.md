@@ -41,6 +41,7 @@ New to NeuralBudget? Choose your path:
 - **Cost-Based SLOs** → [Cost SLO Guide](cost-slo.md) (Token usage budgets and cost control)
 - **Agent Reliability Tracking** → [Agent SLO Guide](agent-slo.md) (Track steps, tools, loops, and agent success rates)
 - **Streaming First-Token Latency** → [TTFT SLO Guide](ttft-slo.md) (Time to first token for streaming GenAI responses)
+- **Composite GenAI SLO** → [Composite GenAI SLO Guide](composite-genai-slo.md) (Unified scoring for all quality dimensions)
 - **High-frequency metric collection** → [Phase 3: Streaming](../internal/phases/PHASE3_GETTING_STARTED.md)
 - **Parallel metric evaluation** → [Parallel API Reference](PARALLEL_SLO_API_REFERENCE.md)
 - **Adaptive memory management** → [Adaptive Windowing Design](../internal/design/ADAPTIVE_WINDOWING_DESIGN.md)
