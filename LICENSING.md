@@ -160,5 +160,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## Questions?
 
 - **Apache 2.0 Questions** → See http://www.apache.org/licenses/LICENSE-2.0
-- **Commercial Licensing** → Email sales@neuralbudget.io
+- **Commercial Licensing** → 
 - **License Interpretation** → Open an issue: https://github.com/pristley/NeuralBudget/issues
