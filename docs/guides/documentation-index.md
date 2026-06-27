@@ -26,6 +26,8 @@ This index groups documentation by audience and workflow.
 - I need advanced alert dispatch with retry/dedup/escalation: [docs/guides/advanced_alert_dispatch.md](advanced_alert_dispatch.md)
 - I need a lightweight dashboard without Grafana: [docs/guides/dashboard_cli.md](dashboard_cli.md)
 - I need terminal-based SLO monitoring: [docs/guides/dashboard_cli.md](dashboard_cli.md#cli-tui)
+- I need GenAI telemetry integration (OpenAI, Anthropic, vLLM, Triton): [docs/guides/genai_connectors.md](genai_connectors.md)
+- I need GenAI connector API reference: [docs/reference/genai_connectors.md](../reference/genai_connectors.md)
 - I need composite DAG schema and scoring semantics: [docs/reference/composite-slo-dag.md](../reference/composite-slo-dag.md)
 - I need burn-rate API reference: [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md)
 - I need dashboard and CLI TUI API details: [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md)
@@ -51,6 +53,7 @@ This index groups documentation by audience and workflow.
 - [docs/reference/burn-rate-forecasting.md](../reference/burn-rate-forecasting.md): Burn-rate forecasting API, multi-window alerts, SRE workbook patterns, and TTEE calculations.
 - [docs/reference/advanced_alert_dispatch.md](../reference/advanced_alert_dispatch.md): Advanced alert dispatch API reference, retry policies, deduplication, circuit breaker, and escalation.
 - [docs/reference/dashboard_cli.md](../reference/dashboard_cli.md): Dashboard and CLI TUI API reference, endpoints, data models, and integration patterns.
+- [docs/reference/genai_connectors.md](../reference/genai_connectors.md): GenAI telemetry connectors API reference, data models, connector implementations, and integration examples.
 
 ## Testing and Quality Gates
 
@@ -78,6 +81,7 @@ This index groups documentation by audience and workflow.
 - [examples/python/webhook_alerting.py](../../examples/python/webhook_alerting.py)
 - [examples/python/webhook_alerting_config.json](../../examples/python/webhook_alerting_config.json)
 - [examples/python/dashboard_cli_examples.py](../../examples/python/dashboard_cli_examples.py)
+- [examples/python/genai_connector_examples.py](../../examples/python/genai_connector_examples.py)
 
 ## Suggested Reading Order
 

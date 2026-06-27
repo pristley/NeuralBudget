@@ -64,6 +64,34 @@ try:
 except ImportError:
     pass  # Textual/Rich not installed
 
+# GenAI connectors (base framework always available)
+try:
+    from .genai_connectors_base import (
+        GenAIConnector,
+        GenAIMetrics,
+        TokenUsage,
+        CostMetrics,
+        LatencyMetrics,
+        ErrorMetrics,
+        ModelType,
+        ConnectorRegistry,
+        MockGenAIConnector,
+    )
+except ImportError:
+    pass  # Base framework should always be available
+
+# GenAI API connectors (requires openai/anthropic libraries)
+try:
+    from .genai_connectors_api import OpenAIConnector, AnthropicConnector
+except ImportError:
+    pass  # openai/anthropic not installed
+
+# GenAI inference server connectors (requires httpx/requests)
+try:
+    from .genai_connectors_inference import VLLMConnector, TritonConnector
+except ImportError:
+    pass  # httpx/requests not installed
+
 for _name in dir(_native):
     if _name.startswith("_"):
         continue
