@@ -34,6 +34,7 @@ use crate::{NeuralBudgetError, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+use crate::cost_slo::DynamicCostCalculator;
 
 /// LLM provider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,6 +127,7 @@ pub struct LlmJudgeEvaluator {
     pub cache_config: Option<CacheConfig>,
     cache_client: Option<Arc<redis::aio::ConnectionManager>>,
     http_client: reqwest::Client,
+    cost_calculator: Option<Arc<DynamicCostCalculator>>,
 }
 
 impl LlmJudgeEvaluator {
@@ -137,7 +139,14 @@ impl LlmJudgeEvaluator {
             cache_config: None,
             cache_client: None,
             http_client: reqwest::Client::new(),
+            cost_calculator: None,
         }
+    }
+
+    /// Attach a dynamic cost calculator to compute per-request token costs.
+    pub fn with_cost_calculator(mut self, calc: Arc<DynamicCostCalculator>) -> Self {
+        self.cost_calculator = Some(calc);
+        self
     }
 
     /// Add Redis caching to the evaluator
@@ -278,7 +287,18 @@ impl LlmJudgeEvaluator {
             dimension_scores,
             weighted_score,
             pass,
-            total_cost_usd: total_cost,
+            total_cost_usd: {
+                // If a cost calculator is attached, prefer token-based cost calculation
+                if let Some(calc) = &self.cost_calculator {
+                    // best-effort: treat all tokens as output tokens if input unknown
+                    match calc.calculate_cost(self.provider.model(), 0, total_tokens as u64) {
+                        Ok(c) => c,
+                        Err(_) => total_cost,
+                    }
+                } else {
+                    total_cost
+                }
+            },
             total_tokens,
         };
 

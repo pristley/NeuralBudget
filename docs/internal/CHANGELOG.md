@@ -64,6 +64,29 @@ Release entries are maintained automatically by the CD workflow on tagged releas
   - Automatic validation: Ensures first 3 windows in descending order to prevent alert storms
   - Comprehensive test suite: 5 test suites validating threshold calculations, error budget %, config structure, duration parsing, and real-world scenarios
   - New guide: `docs/guides/multi-burn-rate-alerting.md` with theory, configuration examples, real incident timelines, and tuning guidelines
+  - **Degradation Detection & Similarity Scoring (Experimental)**
+    - Added `src/degradation.rs`: ADWIN-like gradual drift detector, Z-score spike detector, oscillation heuristic, and `DegradationDetector` API (`add_metric`, `detect_change`, `reset`, `exponential_histogram`).
+    - Added `DegradationType` and `DegradationEvent` (serde serializable) for structured degradation reporting.
+    - Added comprehensive unit tests in `tests/degradation_tests.rs` covering gradual drift, sudden spikes, oscillation, NaN handling, window behavior, and property tests via `proptest`.
+    - Added `src/similarity_traits.rs`: `SimilarityScorer` trait and `ScorerRegistry` with thread-safe registry and global `default_registry()`.
+    - Added example scorer `src/similarity_implementations.rs::DummyScorer` and tests `tests/similarity_registry_tests.rs`.
+    - Added GitHub Actions workflow `.github/workflows/rust.yml` to run `cargo build` and `cargo test` on push/PR.
+
+    ## [0.2.0] - 2026-07-04
+
+    ### Added
+
+    - Degradation detection primitives (`src/degradation.rs`) with ADWIN-like gradual drift detection, spike detection, and oscillation heuristics. Includes `DegradationDetector`, `DegradationEvent`, and comprehensive unit tests.
+    - Pluggable similarity scoring API (`src/similarity_traits.rs`) and implementations (`src/similarity_implementations.rs`) including `BertScorer`, `RobertaScorer`, `CosineSimScorer`, LRU caching and HTTP fallback.
+    - Advanced hallucination detection utilities (`src/hallucination_advanced.rs`) for entailment, contradiction and ungroundedness heuristics.
+    - Feature drift analysis and explanation (`src/drift_explanation.rs`) with KS two-sample tests, top-feature ranking, and SHAP-style `ShapExplainer` (`src/shap_integration.rs`).
+    - Python bindings and convenience wrappers: PyO3 bindings in `src/python.rs` and convenience modules under `python/neuralbudget/` for degradation, similarity, hallucination and drift explainers.
+    - Prometheus exporter extensions (`src/exporter.rs`) to observe degradation, hallucination, and token cost metrics.
+
+    ### Changed
+
+    - Bumped package version to `0.2.0` in `Cargo.toml` and `pyproject.toml`.
+
 
 - **Documentation Organization**
   - Created `docs/cli/` directory with all CLI documentation

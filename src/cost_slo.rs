@@ -5,6 +5,162 @@
 
 use crate::NeuralBudgetError;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
+/// Token pricing configuration for a model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenCostConfig {
+    pub model: String,
+    pub input_cost_per_1k: f64,
+    pub output_cost_per_1k: f64,
+    pub pricing_date: u64,
+    pub currency: String,
+}
+
+impl TokenCostConfig {
+    pub fn new(model: String, input_cost_per_1k: f64, output_cost_per_1k: f64, pricing_date: u64, currency: String) -> Self {
+        Self { model, input_cost_per_1k, output_cost_per_1k, pricing_date, currency }
+    }
+}
+
+/// Errors specific to dynamic cost calculator.
+#[derive(Debug)]
+pub enum TokenCostError {
+    ModelNotFound(String),
+    InvalidTokenCount(String),
+}
+
+impl From<TokenCostError> for NeuralBudgetError {
+    fn from(e: TokenCostError) -> Self {
+        match e {
+            TokenCostError::ModelNotFound(m) => NeuralBudgetError::ConfigError(format!("model not found: {}", m)),
+            TokenCostError::InvalidTokenCount(s) => NeuralBudgetError::EvaluationError(format!("invalid token count: {}", s)),
+        }
+    }
+}
+
+/// Breakdown of costs for reporting.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CostMetrics {
+    pub cost_breakdown: HashMap<String, f64>,
+    pub model_used: String,
+    pub pricing_date: u64,
+}
+
+impl CostMetrics {
+    pub fn new(model_used: String, pricing_date: u64, input_cost: f64, output_cost: f64) -> Self {
+        let mut map = HashMap::new();
+        map.insert("input".to_string(), input_cost);
+        map.insert("output".to_string(), output_cost);
+        map.insert("total".to_string(), input_cost + output_cost);
+        Self { cost_breakdown: map, model_used, pricing_date }
+    }
+}
+
+/// Dynamic cost calculator holding pricing configs.
+#[derive(Clone)]
+pub struct DynamicCostCalculator {
+    configs: Arc<RwLock<HashMap<String, TokenCostConfig>>>,
+    last_updated: Arc<RwLock<u64>>,
+}
+
+impl DynamicCostCalculator {
+    pub fn new() -> Self {
+        Self { configs: Arc::new(RwLock::new(HashMap::new())), last_updated: Arc::new(RwLock::new(0)) }
+    }
+
+    /// Update pricing for a model (overwrites existing entry).
+    pub fn update_pricing(&self, model: String, config: TokenCostConfig) -> Result<(), NeuralBudgetError> {
+        let mut cfg = self.configs.write().map_err(|e| NeuralBudgetError::EvaluationError(format!("lock poisoned: {}", e)))?;
+        cfg.insert(model.clone(), config.clone());
+        let mut lu = self.last_updated.write().map_err(|e| NeuralBudgetError::EvaluationError(format!("lock poisoned: {}", e)))?;
+        *lu = config.pricing_date;
+        Ok(())
+    }
+
+    /// Get pricing config for a model; exact match preferred, then wildcard.
+    pub fn get_pricing(&self, model: &str) -> Result<TokenCostConfig, NeuralBudgetError> {
+        let cfg = self.configs.read().map_err(|e| NeuralBudgetError::EvaluationError(format!("lock poisoned: {}", e)))?;
+        if let Some(c) = cfg.get(model) {
+            return Ok(c.clone());
+        }
+        // wildcard matching: prefer longest prefix/suffix match
+        // patterns stored as keys may include '*'
+        // exact match failed; search patterns
+        let mut best: Option<(usize, TokenCostConfig)> = None;
+        for (k, v) in cfg.iter() {
+            if k.contains('*') {
+                // convert simple wildcard to prefix/suffix checks
+                if wildcard_match(k, model) {
+                    let score = k.len();
+                    if best.is_none() || score > best.as_ref().unwrap().0 {
+                        best = Some((score, v.clone()));
+                    }
+                }
+            }
+        }
+        if let Some((_, c)) = best {
+            return Ok(c);
+        }
+        Err(TokenCostError::ModelNotFound(model.to_string()).into())
+    }
+
+    /// Calculate cost for given model and token counts.
+    pub fn calculate_cost(&self, model: &str, input_tokens: u64, output_tokens: u64) -> Result<f64, NeuralBudgetError> {
+        if input_tokens as i128 < 0 || output_tokens as i128 < 0 {
+            return Err(TokenCostError::InvalidTokenCount("negative token count".to_string()).into());
+        }
+        let cfg = self.get_pricing(model)?;
+        let input_cost = (input_tokens as f64 / 1000.0) * cfg.input_cost_per_1k;
+        let output_cost = (output_tokens as f64 / 1000.0) * cfg.output_cost_per_1k;
+        Ok(input_cost + output_cost)
+    }
+
+    /// List known models (keys)
+    pub fn list_models(&self) -> Vec<String> {
+        if let Ok(cfg) = self.configs.read() {
+            cfg.keys().cloned().collect()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+/// Simple wildcard matcher supporting '*' anywhere.
+fn wildcard_match(pattern: &str, text: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    let parts: Vec<&str> = pattern.split('*').collect();
+    if parts.len() == 1 {
+        return pattern == text;
+    }
+    let mut idx = 0usize;
+    // if pattern doesn't start with *, first part must match at start
+    if !pattern.starts_with('*') {
+        if !text.starts_with(parts[0]) {
+            return false;
+        }
+        idx = parts[0].len();
+    }
+    for (i, part) in parts.iter().enumerate() {
+        if part.is_empty() { continue; }
+        if i == parts.len() - 1 && !pattern.ends_with('*') {
+            // last part must match at end
+            if !text.ends_with(part) {
+                return false;
+            }
+        } else {
+            if let Some(pos) = text[idx..].find(part) {
+                idx += pos + part.len();
+            } else {
+                return false;
+            }
+        }
+    }
+    true
+}
 
 /// Cost budget configuration for input/output tokens.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
