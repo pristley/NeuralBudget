@@ -9,6 +9,11 @@
 
 ---
 
+## Release v0.2.0 — Advanced ML / GenAI Features
+
+This release adds advanced monitoring and explanation capabilities for ML and GenAI workloads: model degradation detection, pluggable semantic similarity scorers, LLM-specific metrics (token cost tracking and hallucination detection), and feature drift explanation with lightweight SHAP approximations. See [docs/advanced-mlgenai-features.md](docs/advanced-mlgenai-features.md) for details and examples.
+
+
 ## 🎯 The Problem Nobody Talks About
 
 Your Prometheus rules say availability is **99.97%**. Your incident logs say **98.2%**. Your auditor asks: "Which one is correct?"
