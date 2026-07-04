@@ -14,6 +14,7 @@ mod python;
 mod slo_graph;
 mod streaming;
 mod similarity_traits;
+mod similarity_implementations;
 
 // Export error types and result alias first
 pub use agent_slo::*;
@@ -31,3 +32,4 @@ pub use python::*;
 pub use slo_graph::*;
 pub use streaming::*;
 pub use similarity_traits::*;
+pub use similarity_implementations::*;
