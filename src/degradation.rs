@@ -14,11 +14,13 @@
 
 use crate::{NeuralBudgetError, Result};
 use log::debug;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Types of degradation patterns we can report.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DegradationType {
     Gradual,
     Sudden,
@@ -27,7 +29,7 @@ pub enum DegradationType {
 }
 
 /// A detected degradation event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DegradationEvent {
     pub timestamp: u64,
     pub degradation_type: DegradationType,

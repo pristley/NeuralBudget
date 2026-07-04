@@ -118,6 +118,22 @@ fn test_event_clone_and_clone_behavior() -> Result<(), Box<dyn std::error::Error
 }
 
 #[test]
+fn test_event_serialization() -> Result<(), Box<dyn std::error::Error>> {
+    let ev = DegradationEvent {
+        timestamp: 1,
+        degradation_type: DegradationType::Gradual,
+        magnitude: 0.42,
+        confidence: 0.8,
+        duration_samples: 10,
+        affected_metric: "latency".to_string(),
+    };
+    let s = serde_json::to_string(&ev)?;
+    let ev2: DegradationEvent = serde_json::from_str(&s)?;
+    assert_eq!(ev2.degradation_type, DegradationType::Gradual);
+    Ok(())
+}
+
+#[test]
 fn test_nan_handling() {
     let mut d = DegradationDetector::new(10, 0.15, 2.5);
     let res = d.add_metric(f64::NAN);
