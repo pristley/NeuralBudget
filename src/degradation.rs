@@ -164,7 +164,16 @@ impl DegradationDetector {
             return Ok(Some(ev));
         }
 
-        Ok(None)
+        // If no specific degradation was detected, report `Stable` with high confidence.
+        let ev = DegradationEvent {
+            timestamp: now_secs(),
+            degradation_type: DegradationType::Stable,
+            magnitude: 0.0,
+            confidence: 1.0,
+            duration_samples: n,
+            affected_metric: "value".to_string(),
+        };
+        Ok(Some(ev))
     }
 
     /// Simple ADWIN-like check: iterate possible cut points and test for mean difference.
@@ -247,6 +256,11 @@ impl DegradationDetector {
         }
         hist.reverse();
         hist
+    }
+
+    /// Return the current number of samples in the detector history.
+    pub fn history_len(&self) -> usize {
+        self.history.len()
     }
 }
 
