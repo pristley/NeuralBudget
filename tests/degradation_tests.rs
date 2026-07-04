@@ -103,7 +103,7 @@ fn test_degradation_type_enum_variants() {
 }
 
 #[test]
-fn test_event_clone_and_clone_behavior() -> Result<(), Box<dyn std::error::Error>> {
+fn test_event_clone_and_copy() -> Result<(), Box<dyn std::error::Error>> {
     let ev = DegradationEvent {
         timestamp: 1,
         degradation_type: DegradationType::Stable,
@@ -182,8 +182,8 @@ fn test_detection_latency() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let _ = d.detect_change()?;
     let dur = start.elapsed();
-    // allow 5ms in a CI environment
-    assert!(dur.as_millis() < 50, "detection too slow: {:?}", dur);
+    // requested threshold: < 1ms
+    assert!(dur.as_micros() < 1000, "detection too slow: {:?}", dur);
     Ok(())
 }
 
@@ -196,7 +196,8 @@ fn test_add_metric_latency() -> Result<(), Box<dyn std::error::Error>> {
     }
     let dur = start.elapsed();
     let avg = dur.as_micros() as f64 / 1000.0;
-    assert!(avg < 200.0, "add_metric too slow: {}us avg", avg);
+    // requested threshold: < 10 microseconds per call
+    assert!(avg < 10.0, "add_metric too slow: {}us avg", avg);
     Ok(())
 }
 
