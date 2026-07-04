@@ -70,10 +70,9 @@ Release entries are maintained automatically by the CD workflow on tagged releas
     - Added comprehensive unit tests in `tests/degradation_tests.rs` covering gradual drift, sudden spikes, oscillation, NaN handling, window behavior, and property tests via `proptest`.
     - Added `src/similarity_traits.rs`: `SimilarityScorer` trait and `ScorerRegistry` with thread-safe registry and global `default_registry()`.
     - Added example scorer `src/similarity_implementations.rs::DummyScorer` and tests `tests/similarity_registry_tests.rs`.
-    - Added GitHub Actions workflow `.github/workflows/rust.yml` to run `cargo build` and `cargo test` on push/PR.
+  -    Added GitHub Actions workflow `.github/workflows/rust.yml` to run `cargo build` and `cargo test` on push/PR.
 
-- **Documentation Organization**
-  - Created `docs/cli/` directory with all CLI documentation
+  - **Documentation Organization**
   - Created `docs/guides/prometheus-rule-generation.md` with comprehensive burn rate guide
   - Created `docs/guides/prometheus-rules-example.md` with generated rules examples
   - Created `docs/guides/applying-prometheus-rules.md` with real-world deployment scenarios
