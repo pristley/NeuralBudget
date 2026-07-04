@@ -113,6 +113,21 @@ Release entries are maintained automatically by the CD workflow on tagged releas
 
 - Added `rayon = "1.7"` for data-level parallelism in SLO graph evaluation
 
+## [0.2.0] - 2026-07-04
+
+### Added
+
+- Degradation detection primitives (`src/degradation.rs`) with ADWIN-like gradual drift detection, spike detection, and oscillation heuristics. Includes `DegradationDetector`, `DegradationEvent`, and comprehensive unit tests.
+- Pluggable similarity scoring API (`src/similarity_traits.rs`) and implementations (`src/similarity_implementations.rs`) including `BertScorer`, `RobertaScorer`, `CosineSimScorer`, LRU caching and HTTP fallback.
+- Advanced hallucination detection utilities (`src/hallucination_advanced.rs`) for entailment, contradiction and ungroundedness heuristics.
+- Feature drift analysis and explanation (`src/drift_explanation.rs`) with KS two-sample tests, top-feature ranking, and SHAP-style `ShapExplainer` (`src/shap_integration.rs`).
+- Python bindings and convenience wrappers: PyO3 bindings in `src/python.rs` and convenience modules under `python/neuralbudget/` for degradation, similarity, hallucination and drift explainers.
+- Prometheus exporter extensions (`src/exporter.rs`) to observe degradation, hallucination, and token cost metrics.
+
+### Changed
+
+- Bumped package version to `0.2.0` in `Cargo.toml` and `pyproject.toml`.
+
 ## [0.1.3-r2] - 2026-06-26
 
 ### Changed
