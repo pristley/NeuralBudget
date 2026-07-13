@@ -625,6 +625,9 @@ pub struct GenAiSample {
     pub generated_text: String,
 }
 
+use std::sync::{Arc, Mutex};
+use crate::{DegradationDetector, DegradationEvent, SimilarityScorer};
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// GenAI SLO policy combining speed and output quality checks.
 pub struct GenAiSlo {
@@ -632,6 +635,13 @@ pub struct GenAiSlo {
     pub max_time_to_first_token_ms: f64,
     pub min_semantic_similarity: f64,
     pub semantic_model_name: String,
+    /// Optional degradation detector (shared, mutex-protected)
+    #[serde(skip)]
+    pub degradation_detector: Option<Arc<Mutex<DegradationDetector>>>,
+    /// Optional similarity scorer implementation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
+    pub similarity_scorer: Option<Arc<dyn SimilarityScorer>>,
 }
 
 impl Default for GenAiSlo {
@@ -641,7 +651,23 @@ impl Default for GenAiSlo {
             max_time_to_first_token_ms: 1_200.0,
             min_semantic_similarity: 0.7,
             semantic_model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+            degradation_detector: None,
+            similarity_scorer: None,
         }
+    }
+}
+
+impl GenAiSlo {
+    /// Attach a degradation detector (thread-safe `Arc<Mutex<...>>`).
+    pub fn with_degradation_detector(mut self, detector: Arc<Mutex<DegradationDetector>>) -> Self {
+        self.degradation_detector = Some(detector);
+        self
+    }
+
+    /// Attach a similarity scorer implementation.
+    pub fn with_similarity_scorer(mut self, scorer: Arc<dyn SimilarityScorer>) -> Self {
+        self.similarity_scorer = Some(scorer);
+        self
     }
 }
 
@@ -656,6 +682,8 @@ pub struct GenAiSloEvaluation {
     pub time_to_first_token_ok: bool,
     pub semantic_similarity_ok: bool,
     pub pass: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub degradation_event: Option<DegradationEvent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2363,11 +2391,23 @@ impl GenAiSlo {
         } else {
             0.0
         };
-        let semantic_similarity = semantic_similarity_placeholder(
-            &sample.reference_text,
-            &sample.generated_text,
-            Some(&self.semantic_model_name),
-        );
+        // Prefer similarity scorer if provided, otherwise fallback to embedding placeholder
+        let semantic_similarity = if let Some(scorer) = &self.similarity_scorer {
+            match scorer.score(&sample.reference_text, &sample.generated_text) {
+                Ok(v) => v.clamp(0.0, 1.0),
+                Err(_) => semantic_similarity_placeholder(
+                    &sample.reference_text,
+                    &sample.generated_text,
+                    Some(&self.semantic_model_name),
+                ),
+            }
+        } else {
+            semantic_similarity_placeholder(
+                &sample.reference_text,
+                &sample.generated_text,
+                Some(&self.semantic_model_name),
+            )
+        };
 
         let tokens_per_second_ok = tokens_per_second >= self.min_tokens_per_second.max(0.0);
         let time_to_first_token_ok =
@@ -2376,7 +2416,8 @@ impl GenAiSlo {
             semantic_similarity >= self.min_semantic_similarity.clamp(0.0, 1.0);
         let pass = tokens_per_second_ok && time_to_first_token_ok && semantic_similarity_ok;
 
-        GenAiSloEvaluation {
+        // Build base evaluation
+        let mut eval = GenAiSloEvaluation {
             timestamp: sample.timestamp,
             tokens_per_second,
             time_to_first_token_ms: sample.time_to_first_token_ms,
@@ -2385,6 +2426,23 @@ impl GenAiSlo {
             time_to_first_token_ok,
             semantic_similarity_ok,
             pass,
+            degradation_event: None,
+        };
+
+        // If degradation detector provided, update with a numeric metric and check for events
+        if let Some(det_arc) = &self.degradation_detector {
+            if let Ok(mut detector) = det_arc.lock() {
+                // Use tokens_generated as the metric value
+                if let Err(e) = detector.add_metric(sample.tokens_generated as f64) {
+                    // ignore errors but could log in real environment
+                    let _ = e;
+                }
+                if let Ok(Some(ev)) = detector.detect_change() {
+                    eval.degradation_event = Some(ev);
+                }
+            }
         }
+
+        eval
     }
 }

@@ -4,8 +4,11 @@ use crate::core::{
     CompositeSloEvaluation, ErrorBudget, GenAiSloEvaluation, HttpSloEvaluation, MlSloEvaluation,
     StatefulSloEvaluation,
 };
+use crate::degradation::{DegradationEvent, DegradationType};
+use crate::hallucination_advanced::{HallucinationMetrics, HallucinationScore};
 
 const METRIC_TYPE_GAUGE: &str = "gauge";
+const METRIC_TYPE_COUNTER: &str = "counter";
 
 fn bool_as_f64(value: bool) -> f64 {
     if value {
@@ -296,6 +299,110 @@ impl PrometheusExporter {
         );
     }
 
+    /// Record degradation detection event metrics.
+    pub fn observe_degradation_event(&mut self, name: &str, event: &DegradationEvent) {
+        let type_str = match event.degradation_type {
+            DegradationType::Gradual => "gradual",
+            DegradationType::Sudden => "sudden",
+            DegradationType::Oscillating => "oscillating",
+            DegradationType::Stable => "stable",
+        };
+
+        // One-hot type indicator (bounded cardinality)
+        self.observe_gauge(
+            "degradation_type",
+            "Degradation event type indicator",
+            1.0,
+            vec![("name", name.to_string()), ("type", type_str.to_string())],
+        );
+
+        // Magnitude, confidence, duration
+        self.observe_gauge(
+            "degradation_magnitude",
+            "Detection magnitude",
+            event.magnitude,
+            vec![("name", name.to_string()), ("type", type_str.to_string())],
+        );
+        self.observe_gauge(
+            "degradation_confidence",
+            "Detection confidence",
+            event.confidence,
+            vec![("name", name.to_string())],
+        );
+        self.observe_gauge(
+            "degradation_duration_samples",
+            "Detection duration in samples",
+            event.duration_samples as f64,
+            vec![("name", name.to_string())],
+        );
+    }
+
+    /// Record hallucination analysis metrics.
+    pub fn observe_hallucination_metrics(&mut self, name: &str, metrics: &HallucinationMetrics) {
+        self.observe_gauge(
+            "hallucination_factual_consistency",
+            "Factual consistency (0.0-1.0)",
+            metrics.factual_consistency,
+            vec![("name", name.to_string())],
+        );
+
+        self.observe_gauge(
+            "hallucination_confidence",
+            "Hallucination analysis confidence (0.0-1.0)",
+            metrics.confidence,
+            vec![("name", name.to_string())],
+        );
+
+        // Emit one sample per detected hallucination type (bounded cardinality)
+        for ht in &metrics.hallucination_types {
+            let t = match ht {
+                HallucinationScore::Entailment => "entailment",
+                HallucinationScore::Contradiction => "contradiction",
+                HallucinationScore::Ungroundedness => "ungroundedness",
+                HallucinationScore::HighConfidence => "high_confidence",
+                HallucinationScore::FactuallyCorrect => "factually_correct",
+            };
+            self.observe_gauge(
+                "hallucination_detected",
+                "Detected hallucination type (one-hot)",
+                1.0,
+                vec![("name", name.to_string()), ("type", t.to_string())],
+            );
+        }
+    }
+
+    /// Record cost breakdown metrics. `cost` is total request cost in USD.
+    pub fn observe_cost_breakdown(&mut self, name: &str, cost: f64, model: &str) {
+        self.observe_gauge(
+            "token_cost_usd",
+            "Token cost in USD",
+            cost,
+            vec![("name", name.to_string())],
+        );
+
+        // cost per model label (bounded by models used)
+        self.observe_gauge(
+            "cost_per_model",
+            "Cost broken down by model",
+            cost,
+            vec![("name", name.to_string()), ("model", model.to_string())],
+        );
+
+        // Ensure counters for tokens exist (set to 0 if not populated elsewhere)
+        self.observe_counter(
+            "tokens_input",
+            "Number of input tokens",
+            0.0,
+            vec![("name", name.to_string())],
+        );
+        self.observe_counter(
+            "tokens_output",
+            "Number of output tokens",
+            0.0,
+            vec![("name", name.to_string())],
+        );
+    }
+
     /// Record Composite SLO evaluation metrics.
     pub fn observe_composite_slo(&mut self, graph: &str, evaluation: &CompositeSloEvaluation) {
         self.observe_gauge(
@@ -461,6 +568,33 @@ impl PrometheusExporter {
             .families
             .entry(metric_name)
             .or_insert_with(|| MetricFamily::new(help.to_string(), METRIC_TYPE_GAUGE));
+        family.samples.insert(final_labels, value);
+    }
+
+    fn observe_counter(
+        &mut self,
+        metric_suffix: &str,
+        help: &str,
+        value: f64,
+        mut labels: Vec<(&str, String)>,
+    ) {
+        let metric_name = format!(
+            "{}_{}",
+            sanitize_metric_component(&self.namespace),
+            sanitize_metric_component(metric_suffix)
+        );
+
+        let mut merged: BTreeMap<String, String> = self.static_labels.clone();
+        for (key, value_lbl) in labels.drain(..) {
+            merged.insert(key.to_string(), value_lbl);
+        }
+
+        let final_labels = merged.into_iter().collect::<Vec<_>>();
+
+        let family = self
+            .families
+            .entry(metric_name)
+            .or_insert_with(|| MetricFamily::new(help.to_string(), METRIC_TYPE_COUNTER));
         family.samples.insert(final_labels, value);
     }
 }
@@ -667,5 +801,50 @@ mod tests {
         // Should have only one sample (overwritten)
         assert_eq!(family.samples.len(), 1);
         assert_eq!(*family.samples.values().next().unwrap(), 20.0);
+    }
+
+    #[test]
+    fn test_observe_degradation_event_creates_metrics() {
+        let mut exporter = PrometheusExporter::new();
+        let ev = DegradationEvent {
+            timestamp: 1,
+            degradation_type: DegradationType::Gradual,
+            magnitude: 0.35,
+            confidence: 0.8,
+            duration_samples: 5,
+            affected_metric: "value".to_string(),
+        };
+        exporter.observe_degradation_event("api_slo", &ev);
+        // check that magnitude metric exists
+        assert!(exporter.families.contains_key("neuralbudget_degradation_magnitude"));
+        assert!(exporter.families.contains_key("neuralbudget_degradation_confidence"));
+        assert!(exporter.families.contains_key("neuralbudget_degradation_duration_samples"));
+        assert!(exporter.families.contains_key("neuralbudget_degradation_type"));
+    }
+
+    #[test]
+    fn test_observe_hallucination_metrics_creates_metrics() {
+        let mut exporter = PrometheusExporter::new();
+        let metrics = HallucinationMetrics {
+            factual_consistency: 0.87,
+            hallucination_types: vec![HallucinationScore::Ungroundedness],
+            confidence: 0.9,
+            explanation: "test".to_string(),
+            conflicting_entities: vec![],
+        };
+        exporter.observe_hallucination_metrics("api_slo", &metrics);
+        assert!(exporter.families.contains_key("neuralbudget_hallucination_factual_consistency"));
+        assert!(exporter.families.contains_key("neuralbudget_hallucination_confidence"));
+        assert!(exporter.families.contains_key("neuralbudget_hallucination_detected"));
+    }
+
+    #[test]
+    fn test_observe_cost_breakdown_creates_metrics() {
+        let mut exporter = PrometheusExporter::new();
+        exporter.observe_cost_breakdown("api_slo", 0.0123, "gpt-test");
+        assert!(exporter.families.contains_key("neuralbudget_token_cost_usd"));
+        assert!(exporter.families.contains_key("neuralbudget_cost_per_model"));
+        assert!(exporter.families.contains_key("neuralbudget_tokens_input"));
+        assert!(exporter.families.contains_key("neuralbudget_tokens_output"));
     }
 }

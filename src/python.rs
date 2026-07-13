@@ -1,8 +1,262 @@
+use crate::drift_explanation::{FeatureDriftAnalyzer, DriftExplanation};
 use std::collections::HashMap;
 
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use pyo3::exceptions::PyException;
+use pyo3::PyErr;
+use pyo3::create_exception;
+
+create_exception!(neuralbudget, PyNeuralBudgetError, PyException);
+
+#[pyclass(name = "SimilarityScorer")]
+pub struct PySimilarityScorer {
+    inner: Arc<dyn crate::similarity_traits::SimilarityScorer>,
+}
+
+#[pymethods]
+impl PySimilarityScorer {
+    fn score(&self, reference: &str, generated: &str) -> PyResult<f64> {
+        match self.inner.score(reference, generated) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())),
+        }
+    }
+
+    fn batch_score(&self, pairs: Vec<(String, String)>) -> PyResult<Vec<f64>> {
+        let converted: Vec<(&str, &str)> = pairs.iter().map(|(a,b)| (a.as_str(), b.as_str())).collect();
+        match self.inner.batch_score(converted) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())),
+        }
+    }
+
+    fn name(&self) -> PyResult<String> {
+        Ok(self.inner.name().to_string())
+    }
+
+    fn model_version(&self) -> PyResult<Option<String>> {
+        Ok(self.inner.model_version())
+    }
+
+    fn cache_hits(&self) -> PyResult<Option<u64>> {
+        Ok(self.inner.cache_hits())
+    }
+}
+
+#[pyclass(name = "SimilarityRegistry")]
+pub struct PySimilarityRegistry {
+    inner: Option<ScorerRegistry>,
+    use_global: bool,
+}
+
+impl PySimilarityRegistry {
+    fn registry(&self) -> &ScorerRegistry {
+        if self.use_global {
+            default_registry()
+        } else {
+            // safe unwrap: inner is Some when not using global
+            self.inner.as_ref().unwrap()
+        }
+    }
+}
+
+#[pymethods]
+impl PySimilarityRegistry {
+    #[new]
+    fn new() -> Self {
+        Self {
+            inner: Some(ScorerRegistry::new("default")),
+            use_global: false,
+        }
+    }
+
+    fn register_scorer(&mut self, name: &str, scorer_type: &str, config: Option<&PyDict>) -> PyResult<()> {
+        let scorer: Arc<dyn crate::similarity_traits::SimilarityScorer> = match scorer_type {
+            "cosine" => Arc::new(CosineSimScorer::new()),
+            "bert" => {
+                let endpoint = config.and_then(|d| d.get_item("endpoint")).and_then(|v| v.extract::<String>().ok()).unwrap_or_else(|| "http://localhost:8000/embed".to_string());
+                let model_name = config.and_then(|d| d.get_item("model_name")).and_then(|v| v.extract::<String>().ok()).unwrap_or_else(|| "all-MiniLM-L6-v2".to_string());
+                Arc::new(BertScorer::new(endpoint, model_name))
+            }
+            "roberta" => {
+                let endpoint = config.and_then(|d| d.get_item("endpoint")).and_then(|v| v.extract::<String>().ok()).unwrap_or_else(|| "http://localhost:8000/embed".to_string());
+                Arc::new(RobertaScorer::new(endpoint))
+            }
+            other => return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("unknown scorer_type: {}", other))),
+        };
+
+        self.registry().register(name.to_string(), scorer).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    fn get_scorer(&self, name: &str) -> PyResult<PySimilarityScorer> {
+        match self.registry().get_scorer(name) {
+            Ok(a) => Ok(PySimilarityScorer { inner: a }),
+            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(e.to_string())),
+        }
+    }
+
+    fn score(&self, scorer_name: &str, reference: &str, generated: &str) -> PyResult<f64> {
+        let scorer = self.registry().get_scorer(scorer_name).map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(e.to_string()))?;
+        scorer.score(reference, generated).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+
+    fn batch_score(&self, scorer_name: &str, pairs: Vec<(String, String)>) -> PyResult<Vec<f64>> {
+        let scorer = self.registry().get_scorer(scorer_name).map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(e.to_string()))?;
+        let converted: Vec<(&str, &str)> = pairs.iter().map(|(a,b)| (a.as_str(), b.as_str())).collect();
+        scorer.batch_score(converted).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+
+    fn list_scorers(&self) -> PyResult<Vec<String>> {
+        Ok(self.registry().list_scorers())
+    }
+
+    fn set_default(&self, name: &str) -> PyResult<()> {
+        self.registry().set_default(name).map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(e.to_string()))
+    }
+
+    #[getter]
+    fn default_scorer(&self) -> PyResult<String> {
+        Ok(self.registry().default_name())
+    }
+
+    #[getter]
+    fn scorer_count(&self) -> PyResult<usize> {
+        Ok(self.registry().list_scorers().len())
+    }
+}
+
+#[pyfunction]
+fn get_default_registry() -> PySimilarityRegistry {
+    PySimilarityRegistry { inner: None, use_global: true }
+}
+
+/// Python wrapper for FeatureDriftAnalyzer
+#[pyclass(name = "FeatureDriftAnalyzer")]
+pub struct PyFeatureDriftAnalyzer {
+    inner: std::sync::Mutex<FeatureDriftAnalyzer>,
+}
+
+#[pymethods]
+impl PyFeatureDriftAnalyzer {
+    #[new]
+    #[pyo3(signature = (ks_threshold=0.15))]
+    fn new(ks_threshold: f64) -> Self {
+        Self {
+            inner: std::sync::Mutex::new(FeatureDriftAnalyzer::new(ks_threshold)),
+        }
+    }
+
+    fn add_baseline(&self, feature: &str, value: f64) -> PyResult<()> {
+        let mut d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        d.add_baseline_sample(feature.to_string(), value);
+        Ok(())
+    }
+
+    fn add_current(&self, feature: &str, value: f64) -> PyResult<()> {
+        let mut d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        d.add_current_sample(feature.to_string(), value);
+        Ok(())
+    }
+
+    fn analyze(&self, py: Python) -> PyResult<PyObject> {
+        let mut d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        match d.analyze() {
+            Ok(res) => {
+                let dict = PyDict::new(py);
+                dict.set_item("top_features", res.top_features.clone())?;
+                dict.set_item("ks_statistic", res.ks_statistic)?;
+                dict.set_item("p_value", res.p_value)?;
+                dict.set_item("summary", res.summary.clone())?;
+                // include shap_values if present
+                if let Some(sv) = res.shap_values {
+                    let py_list = PyList::empty(py);
+                    for s in sv {
+                        let mut entry = std::collections::HashMap::new();
+                        entry.insert("feature", s.feature);
+                        entry.insert("value", s.value.to_string());
+                        entry.insert("confidence", s.confidence.to_string());
+                        py_list.append(entry)?;
+                    }
+                    dict.set_item("shap_values", py_list)?;
+                }
+                Ok(dict.into())
+            }
+            Err(e) => Err(PyErr::new::<PyNeuralBudgetError, _>(e.to_string())),
+        }
+    }
+}
+
+/// Python wrapper for ShapExplainer
+#[pyclass(name = "ShapExplainer")]
+pub struct PyShapExplainer {
+    inner: std::sync::Mutex<ShapExplainer>,
+}
+
+#[pymethods]
+impl PyShapExplainer {
+    #[new]
+    fn new(importances: &PyDict, baseline: Option<f64>) -> PyResult<Self> {
+        let mut vec = Vec::new();
+        for (k, v) in importances.iter() {
+            let key = k.extract::<String>()?;
+            let val = v.extract::<f64>()?;
+            vec.push((key, val));
+        }
+        let b = baseline.unwrap_or(0.5);
+        Ok(Self { inner: std::sync::Mutex::new(ShapExplainer::new(vec, b)) })
+    }
+
+    fn explain(&self) -> PyResult<std::collections::HashMap<String, f64>> {
+        let s = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        let vals = s.explain().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(e.to_string()))?;
+        let mut out = std::collections::HashMap::new();
+        for v in vals {
+            out.insert(v.feature, v.value);
+        }
+        Ok(out)
+    }
+
+    fn explain_with_context(&self, prediction: f64) -> PyResult<std::collections::HashMap<String, f64>> {
+        let s = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        let vals = s.explain_with_context(prediction).map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(e.to_string()))?;
+        let mut out = std::collections::HashMap::new();
+        for v in vals {
+            out.insert(v.feature, v.value);
+        }
+        Ok(out)
+    }
+
+    fn summary(&self) -> PyResult<String> {
+        // simple summary from explanations
+        let map = self.explain().map_err(|e| e)?;
+        let mut parts = Vec::new();
+        for (k, v) in map.iter() {
+            parts.push(format!("{}: {:+.4}", k, v));
+        }
+        Ok(parts.join(", "))
+    }
+}
+
+#[pyfunction]
+fn py_explain_drift(baseline: &PyDict, current: &PyDict) -> PyResult<PyObject> {
+    Python::with_gil(|py| {
+        let analyzer = PyFeatureDriftAnalyzer::new(0.15);
+        // populate
+        for (k, v) in baseline.iter() {
+            let key = k.extract::<String>()?;
+            let list = v.extract::<Vec<f64>>()?;
+            for val in list { analyzer.add_baseline(&key, val)?; }
+        }
+        for (k, v) in current.iter() {
+            let key = k.extract::<String>()?;
+            let list = v.extract::<Vec<f64>>()?;
+            for val in list { analyzer.add_current(&key, val)?; }
+        }
+        analyzer.analyze(py)
+    })
+}
 
 use crate::core::*;
 use crate::exporter::PrometheusExporter;
@@ -15,6 +269,10 @@ use crate::forecasting::{
 use crate::otlp::{ingest_otlp_histogram_json, ingest_otlp_numeric_json};
 use crate::slo_graph::ParallelMetricBatch;
 use crate::streaming::StreamingAggregator;
+use crate::degradation::DegradationDetector;
+use crate::similarity_traits::{default_registry, ScorerRegistry};
+use crate::similarity_implementations::{CosineSimScorer, BertScorer, RobertaScorer};
+use std::sync::Arc;
 
 /// Check whether a timestamp is inside the active SLO window.
 #[pyfunction]
@@ -297,6 +555,7 @@ impl<'py> FromPyObject<'py> for GenAiSlo {
                 Some(value) => value.extract::<String>()?,
                 None => GenAiSlo::default().semantic_model_name,
             },
+            ..GenAiSlo::default()
         })
     }
 }
@@ -1649,6 +1908,16 @@ impl PyGenAiSloEvaluation {
         dict.set_item("time_to_first_token_ok", self.inner.time_to_first_token_ok)?;
         dict.set_item("semantic_similarity_ok", self.inner.semantic_similarity_ok)?;
         dict.set_item("pass", self.inner.pass)?;
+        if let Some(ev) = &self.inner.degradation_event {
+            let evd = PyDict::new(py);
+            evd.set_item("timestamp", ev.timestamp)?;
+            evd.set_item("degradation_type", format!("{:?}", ev.degradation_type))?;
+            evd.set_item("magnitude", ev.magnitude)?;
+            evd.set_item("confidence", ev.confidence)?;
+            evd.set_item("duration_samples", ev.duration_samples)?;
+            evd.set_item("affected_metric", ev.affected_metric.clone())?;
+            dict.set_item("degradation_event", evd)?;
+        }
         Ok(dict)
     }
 
@@ -1692,6 +1961,7 @@ impl PyGenAiSlo {
                 max_time_to_first_token_ms,
                 min_semantic_similarity,
                 semantic_model_name: semantic_model_name.to_string(),
+                ..GenAiSlo::default()
             },
         }
     }
@@ -2490,6 +2760,88 @@ impl PyPrometheusExporter {
     }
 }
 
+/// Degradation detector wrapper for Python.
+///
+/// Example:
+/// ```python
+/// from neuralbudget import DegradationDetector
+/// detector = DegradationDetector(window_size=100)
+/// detector.add_metric(0.5)
+/// detector.add_metric(0.51)
+/// # ... add metrics
+/// ev = detector.detect_change()
+/// if ev:
+///     print(f"Detected {ev['type']} degradation")
+/// ```
+#[pyclass(name = "DegradationDetector")]
+pub struct PyDegradationDetector {
+    inner: std::sync::Mutex<DegradationDetector>,
+}
+
+#[pymethods]
+impl PyDegradationDetector {
+    #[new]
+    #[pyo3(signature = (window_size=100, drift_threshold=0.15, spike_threshold=2.5))]
+    fn new(window_size: usize, drift_threshold: f64, spike_threshold: f64) -> Self {
+        Self {
+            inner: std::sync::Mutex::new(DegradationDetector::new(window_size, drift_threshold, spike_threshold)),
+        }
+    }
+
+    /// Add a metric value to the detector.
+    fn add_metric(&self, value: f64) -> PyResult<()> {
+        let mut d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        d.add_metric(value).map_err(|err| PyErr::new::<PyNeuralBudgetError, _>(err.to_string()))
+    }
+
+    /// Run change detection and return an optional dict describing the event.
+    fn detect_change(&self, py: Python) -> PyResult<Option<PyObject>> {
+        let d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        match d.detect_change() {
+            Ok(Some(ev)) => {
+                let dict = PyDict::new(py);
+                let t = match ev.degradation_type {
+                    crate::degradation::DegradationType::Gradual => "gradual",
+                    crate::degradation::DegradationType::Sudden => "sudden",
+                    crate::degradation::DegradationType::Oscillating => "oscillating",
+                    crate::degradation::DegradationType::Stable => "stable",
+                };
+                dict.set_item("type", t)?;
+                dict.set_item("magnitude", ev.magnitude)?;
+                dict.set_item("confidence", ev.confidence)?;
+                dict.set_item("duration_samples", ev.duration_samples)?;
+                dict.set_item("timestamp", ev.timestamp)?;
+                Ok(Some(dict.into()))
+            }
+            Ok(None) => Ok(None),
+            Err(err) => Err(PyErr::new::<PyNeuralBudgetError, _>(err.to_string())),
+        }
+    }
+
+    fn reset(&self) -> PyResult<()> {
+        let mut d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        d.reset();
+        Ok(())
+    }
+
+    fn __repr__(&self) -> PyResult<String> {
+        let d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        Ok(format!("DegradationDetector(window_size={}, samples={})", d.window_size, d.history_len()))
+    }
+
+    #[getter]
+    fn window_size(&self) -> PyResult<usize> {
+        let d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        Ok(d.window_size)
+    }
+
+    #[getter]
+    fn metric_count(&self) -> PyResult<usize> {
+        let d = self.inner.lock().map_err(|e| PyErr::new::<PyNeuralBudgetError, _>(format!("lock poisoned: {}", e)))?;
+        Ok(d.history_len())
+    }
+}
+
 /// Build one-shot Prometheus text exposition from an HTTP SLO evaluation.
 #[pyfunction]
 #[pyo3(signature = (service, evaluation, namespace="neuralbudget"))]
@@ -2991,6 +3343,7 @@ impl<'py> FromPyObject<'py> for MultiWindowBurnRate {
 #[pymodule]
 fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = py;
+    module.add("NeuralBudgetError", py.get_type::<PyNeuralBudgetError>())?;
     module.add_class::<PySloConfig>()?;
     module.add_class::<PyErrorBudget>()?;
     module.add_class::<PyMetricPoint>()?;
@@ -3009,6 +3362,11 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGenAiSlo>()?;
     module.add_class::<PyGenAiSloEvaluation>()?;
     module.add_class::<PyPrometheusExporter>()?;
+    module.add_class::<PyDegradationDetector>()?;
+    module.add_class::<PySimilarityScorer>()?;
+    module.add_class::<PySimilarityRegistry>()?;
+        module.add_class::<PyFeatureDriftAnalyzer>()?;
+        module.add_class::<PyShapExplainer>()?;
     module.add_class::<PyCompositeServiceSlo>()?;
     module.add_class::<PyCompositeDependencyEdge>()?;
     module.add_class::<PyCompositeServiceSloEvaluation>()?;
@@ -3071,6 +3429,9 @@ fn neuralbudget(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_evaluate_multi_window_alerts, module)?)?;
     module.add_function(wrap_pyfunction!(py_determine_overall_severity, module)?)?;
     module.add_function(wrap_pyfunction!(py_forecast_budget_exhaustion, module)?)?;
+    module.add_function(wrap_pyfunction!(get_default_registry, module)?)?;
+        // Drift and explanation bindings
+        module.add_function(wrap_pyfunction!(py_explain_drift, module)?)?;
     Ok(())
 }
 
